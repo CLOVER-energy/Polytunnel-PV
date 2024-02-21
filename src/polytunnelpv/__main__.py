@@ -20,11 +20,13 @@ __version__ = "0.0.1"
 
 import sys
 
+
 def main(unparsed_arguments) -> None:
     """
     Main method for Polytunnel-PV.
 
     """
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
