@@ -1,0 +1,15 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Safra
+    given-names: Yaar
+  - family-names: Nelson
+    given-names: Jenny
+    orcid: https://orcid.org/0000-0003-1048-1330
+  - family-names: Winchester
+    given-names: Benedict
+    orcid: https://orcid.org/0000-0002-2880-1243
+title: Polytunnel-PV
+version: v0.0.1
+# doi: 10.5281/zenodo.6925535
+date-released: 2024-02-21
