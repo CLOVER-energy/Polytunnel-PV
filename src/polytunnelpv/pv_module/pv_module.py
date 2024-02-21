@@ -1,27 +1,30 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+#!/usr/bin/python3.10
+########################################################################################
+# pv_module.py - Curved-PV-module Python module.                                       #
+#                                                                                      #
+# Author: Yaar Safra, Ben Winchester                                                   #
+# Copyright: Yaar Safra, 2023                                                          #
+# Date created: 06/11/2023                                                             #
+# License: Open source                                                                 #
+# Time created: 10:34:00                                                               #
+########################################################################################
 """
-Created on Mon Nov  6 10:34:00 2023
+pv_module.py - The pv-module module for Polytunnel-PV.
 
-@author: yaarsafra
+This module provides functionality for the modelling of the PV module.
+
 """
 
 import numpy as np
 import pandas as pd
-import pylab as pl
 import matplotlib.pyplot as plt
-import math
-import matplotlib.lines as lines
 import pvlib as pv
-from pvlib import iotools, location, pvsystem
+from pvlib import pvsystem
 from pvlib.irradiance import get_total_irradiance
 from scipy.constants import e as qe, k as kB
-from scipy.interpolate import interp1d
 import sys
 from datetime import datetime
 import seaborn as sns
-from matplotlib.ticker import StrMethodFormatter
-from matplotlib.pyplot import figure
 
 api_frame = pd.read_csv(
     "/Users/yaarsafra/Library/CloudStorage/OneDrive-ImperialCollegeLondon/!Year 3 Imperial physics/3rd Year Project/Data/ninja_pv_43.6338_0.6031_uncorrected.csv",
