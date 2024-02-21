@@ -9,7 +9,10 @@ The functional specification for the Polytunnel-PV module.
     2. [Interface requirements](#12-interface-requirements)
     3. [Logging requirements](#13-logging-requirements)
 2. [Use cases](#2-use-cases)
-
+    1. [Simulating performance](#21-simulating-performance)
+    2. [Optimising performance](#22-optimising-performance)
+        1. [Design parameters](#221-design-parameters)
+        2. [Operation parameters](#222-operation-parameters)
 
 # 1 Requirements
 
