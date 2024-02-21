@@ -28,8 +28,8 @@ api_frame = pd.read_csv(
     skiprows=3,
     delimiter=",",
 )
-api_frame["irradiance_direct"] =1000*api_frame["irradiance_direct"]
-api_frame["irradiance_diffuse"]=1000*api_frame["irradiance_diffuse"]
+api_frame["irradiance_direct"] = 1000 * api_frame["irradiance_direct"]
+api_frame["irradiance_diffuse"] = 1000 * api_frame["irradiance_diffuse"]
 
 """
 all functions below (above the SolarCell class) have been imported from 
@@ -40,11 +40,13 @@ the 'Calculating power loss from partial module shading' page in pvlib
 #  Manually update this number to stop all plots overwriting
 INDEX: int = 1
 
+
 def second_largest(list):
     list.sort()
     return list[-2]
 
-def simulate_full_curve(parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-15):
+
+def simulate_full_curve(parameters, Geff, Tcell, ivcurve_pnts=1000, break_volt=-15):
     """
     Use De Soto and Bishop to simulate a full IV curve with both
     forward and reverse bias regions.
@@ -70,22 +72,30 @@ def simulate_full_curve(parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-1
     kwargs = {
         "breakdown_factor": parameters["breakdown_factor"],
         "breakdown_exp": parameters["breakdown_exp"],
-        "breakdown_voltage": break_volt, # THE MAXIMUM -VE VOLATAGE (WHERE THE VOLTAGE SPIKES UP)
+        "breakdown_voltage": break_volt,  # THE MAXIMUM -VE VOLATAGE (WHERE THE VOLTAGE SPIKES UP)
     }
-    v_oc = pv.singlediode.bishop88_v_from_i(0.0, *sde_args, **kwargs) #CALCULATES THE VOLTAGE AT I = 0 (MAXIMUM +VE VOLTAGE OF IV CURVE)
+    v_oc = pv.singlediode.bishop88_v_from_i(
+        0.0, *sde_args, **kwargs
+    )  # CALCULATES THE VOLTAGE AT I = 0 (MAXIMUM +VE VOLTAGE OF IV CURVE)
     # print('v_oc =', v_oc)
     # print('breakdown voltage =', kwargs["breakdown_voltage"])
     # ideally would use some intelligent log-spacing to concentrate points
     # around the forward- and reverse-bias knees, but this is good enough:
-    vd = np.linspace(0.99 * kwargs["breakdown_voltage"], v_oc, ivcurve_pnts) #GENERATES A LIST OF VOLTAGES BETWEEN THE MAXIMUM -VE AND +VE VOLTAGES
-    ivcurve_i, ivcurve_v, ivcurve_P = pv.singlediode.bishop88(vd, *sde_args, **kwargs) #CALCULATES THE CURRENT AT THE VOLTAGE VALUES GIVEN
-    
+    vd = np.linspace(
+        0.99 * kwargs["breakdown_voltage"], v_oc, ivcurve_pnts
+    )  # GENERATES A LIST OF VOLTAGES BETWEEN THE MAXIMUM -VE AND +VE VOLTAGES
+    ivcurve_i, ivcurve_v, ivcurve_P = pv.singlediode.bishop88(
+        vd, *sde_args, **kwargs
+    )  # CALCULATES THE CURRENT AT THE VOLTAGE VALUES GIVEN
+
     """CALCULATE THE IV CURVE BY CREATING A CURRENT LINSPACE INSTEAD TO MAKE PI CURVES EASIER TO ANALYSE"""
-    i_0, v_0, p_0 = pv.singlediode.bishop88(0, *sde_args, **kwargs) # THE CURRENT, VOLTAGE AND POWER VALUES AS V = 0 FOR PI CURVE
-    i_values_PI = np.linspace(0,10,ivcurve_pnts)
+    i_0, v_0, p_0 = pv.singlediode.bishop88(
+        0, *sde_args, **kwargs
+    )  # THE CURRENT, VOLTAGE AND POWER VALUES AS V = 0 FOR PI CURVE
+    i_values_PI = np.linspace(0, 10, ivcurve_pnts)
     v_values_PI = pv.singlediode.bishop88_v_from_i(i_values_PI, *sde_args, **kwargs)
     # print('MAX I =',i_0)
-    return pd.DataFrame(        #could also return the power at each point to the database, unsure if this makes things easier
+    return pd.DataFrame(  # could also return the power at each point to the database, unsure if this makes things easier
         {
             "i_PI": i_values_PI,
             "v_PI": v_values_PI,
@@ -98,7 +108,7 @@ def simulate_full_curve(parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-1
 def plot_curves(dfs, labels):
     """plot the forward- and reverse-bias portions of an IV curve"""
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(15, 9))
-    index=0
+    index = 0
     for df, label in zip(dfs, labels):
         df.plot("v", "i", label=label, ax=axes[0])
         df.plot("v", "i", label=label, ax=axes[1])
@@ -109,31 +119,28 @@ def plot_curves(dfs, labels):
         # if df["i"]<0:
         #     break
         # i+=1
-    axes[0].set_ylabel("Current (A)",fontsize=40)
-    axes[0].set_xlabel("Voltage (V)",fontsize=40)
-    axes[1].set_xlabel("Voltage (V)",fontsize=40)
+    axes[0].set_ylabel("Current (A)", fontsize=40)
+    axes[0].set_xlabel("Voltage (V)", fontsize=40)
+    axes[1].set_xlabel("Voltage (V)", fontsize=40)
     axes[0].legend_ = None
     # axes[1].legend_ = None
-    axes[0].tick_params(axis='x', labelsize=30)
-    axes[0].tick_params(axis='y', labelsize=30)
-    axes[1].tick_params(axis='x', labelsize=30)
-    axes[1].tick_params(axis='y', labelsize=30)
-
+    axes[0].tick_params(axis="x", labelsize=30)
+    axes[0].tick_params(axis="y", labelsize=30)
+    axes[1].tick_params(axis="x", labelsize=30)
+    axes[1].tick_params(axis="y", labelsize=30)
 
     # fig.suptitle(title)
     fig.tight_layout()
     axes[0].grid(alpha=0.5)
     axes[1].grid(alpha=0.5)
 
-    axes[0].set_facecolor('gainsboro')
-    axes[1].set_facecolor('gainsboro')
-
+    axes[0].set_facecolor("gainsboro")
+    axes[1].set_facecolor("gainsboro")
 
     # plt.rcParams.update({'font.size': 20})
     # fig.sns.set_context("talk")
     # plt.savefig("Figures/single cell iv curve", dpi=500)
     return axes
-
 
 
 Vth = kB * (273.15 + 25) / qe
@@ -150,18 +157,18 @@ class SolarCell:
         cell_tilt=0,
         cell_azimuth=0,
         temp=25,
-        breakdown_voltage=-15
+        breakdown_voltage=-15,
     ):
- 
-        self._xwid = x_width  
-        self._ylen = y_length           # TO DO:Change the x_width to x_length and vice versa with y because i think it makes more sense
+
+        self._xwid = x_width
+        self._ylen = y_length  # TO DO:Change the x_width to x_length and vice versa with y because i think it makes more sense
         self._r_cell = np.array(r_cell)
         self._cell_tilt = cell_tilt
         self._cell_azimuth = cell_azimuth
         self._temp = temp
-        self._breakdown_voltage=breakdown_voltage
-        
-        c_params={
+        self._breakdown_voltage = breakdown_voltage
+
+        c_params = {
             "I_L_ref": 8.24,
             "I_o_ref": 2.36e-9,
             "a_ref": 1.3 * Vth,
@@ -190,7 +197,7 @@ class SolarCell:
             self._ylen,
             self._cell_tilt,
             self._cell_azimuth,
-            self._breakdown_voltage
+            self._breakdown_voltage,
         )
 
     def __eq__(self, other) -> bool:
@@ -221,13 +228,13 @@ class SolarCell:
     def get_cell_azimuth(self):
 
         return self._cell_azimuth
-    
+
     def get_c_params(self):
-        
+
         return self._c_params
 
     def get_breakdown_voltage(self):
-        
+
         return self._breakdown_voltage
 
     def get_cell_list(self):
@@ -239,9 +246,18 @@ class SolarCell:
     ):
         # I think that one of dni, ghi, dhi must be related to the solid angle of the cell w.r.t. the light source
         # ghi = dhi + dni *np.cos(self._cell_tilt)                               #TO DO: ADJUST TO TAKE INTO ACCOUNT THE ANGLE OF THE SUN
-        θs, φs, θc, φc = solar_zenith*(np.pi/180), solar_azimuth*(np.pi/180), self._cell_tilt*(np.pi/180), self._cell_azimuth*(np.pi/180)
-        alignment_coef = np.sin(θc)*np.cos(φc)*np.sin(θs)*np.cos(φs) + np.sin(θc)*np.sin(φc)*np.sin(θs)*np.sin(φs) + np.cos(θc)*np.cos(θs) #using the dot product of the vector normal to the surface of the cell and the vector of the sun relative to the cell
-        ghi = dhi + dni*alignment_coef
+        θs, φs, θc, φc = (
+            solar_zenith * (np.pi / 180),
+            solar_azimuth * (np.pi / 180),
+            self._cell_tilt * (np.pi / 180),
+            self._cell_azimuth * (np.pi / 180),
+        )
+        alignment_coef = (
+            np.sin(θc) * np.cos(φc) * np.sin(θs) * np.cos(φs)
+            + np.sin(θc) * np.sin(φc) * np.sin(θs) * np.sin(φs)
+            + np.cos(θc) * np.cos(θs)
+        )  # using the dot product of the vector normal to the surface of the cell and the vector of the sun relative to the cell
+        ghi = dhi + dni * alignment_coef
         total_irrad = get_total_irradiance(
             self._cell_tilt,
             self._cell_azimuth,
@@ -254,12 +270,15 @@ class SolarCell:
         poa_global = total_irrad["poa_global"]
         return poa_global
 
-    def get_iv_curve(self,show_axis=True):
+    def get_iv_curve(self, show_axis=True):
         curves = []
         labels = []
         for i in range(len(SC._cell_list)):
             curve = simulate_full_curve(
-                SC._cell_list[i].get_c_params(), SC.get_irradiance(SC._cell_list[i]), SC._cell_list[i]._temp, break_volt=SC._cell_list[i].get_breakdown_voltage()
+                SC._cell_list[i].get_c_params(),
+                SC.get_irradiance(SC._cell_list[i]),
+                SC._cell_list[i]._temp,
+                break_volt=SC._cell_list[i].get_breakdown_voltage(),
             )
             curves.append(curve)
             labels.append("angle =" + str(round(SC.get_cell_tilt(SC._cell_list[i]), 2)))
@@ -268,16 +287,16 @@ class SolarCell:
             return axis
         else:
             return curves
-        
-    def bypass(self,breakdown_volt = -5):
-        self._breakdown_voltage=breakdown_volt
-        
-        
+
+    def bypass(self, breakdown_volt=-5):
+        self._breakdown_voltage = breakdown_volt
+
 
 SC = SolarCell
 # cell1 = SolarCell(x_width = 5, y_length = 1, cell_tilt=0, cell_azimuth = 90)
 # cell1.bypass()
 # cell1.get_iv_curve()
+
 
 class SolarModule:
     def __init__(
@@ -314,12 +333,21 @@ class SolarModule:
         return self._G
 
     def get_curved_irradiance(
-        self, cell, solar_zenith, solar_azimuth, dni, dhi,curve=True
+        self, cell, solar_zenith, solar_azimuth, dni, dhi, curve=True
     ):
-        # ghi = dhi + dni *np.cos(self._cell_tilt)                       
-        θs, φs, θc, φc = solar_zenith*(np.pi/180), solar_azimuth*(np.pi/180), cell._cell_tilt*(np.pi/180), cell._cell_azimuth*(np.pi/180)
-        alignment_coef = np.sin(θc)*np.cos(φc)*np.sin(θs)*np.cos(φs) + np.sin(θc)*np.sin(φc)*np.sin(θs)*np.sin(φs) + np.cos(θc)*np.cos(θs) #using the dot product of the vector normal to the surface of the cell and the vector of the sun relative to the cell
-        ghi = dhi + dni*alignment_coef
+        # ghi = dhi + dni *np.cos(self._cell_tilt)
+        θs, φs, θc, φc = (
+            solar_zenith * (np.pi / 180),
+            solar_azimuth * (np.pi / 180),
+            cell._cell_tilt * (np.pi / 180),
+            cell._cell_azimuth * (np.pi / 180),
+        )
+        alignment_coef = (
+            np.sin(θc) * np.cos(φc) * np.sin(θs) * np.cos(φs)
+            + np.sin(θc) * np.sin(φc) * np.sin(θs) * np.sin(φs)
+            + np.cos(θc) * np.cos(θs)
+        )  # using the dot product of the vector normal to the surface of the cell and the vector of the sun relative to the cell
+        ghi = dhi + dni * alignment_coef
         total_irrad = get_total_irradiance(
             cell._cell_tilt,
             cell._cell_azimuth,
@@ -331,29 +359,29 @@ class SolarModule:
         )  # (surface_tilt, surface_azimuth, solar_zenith, solar_azimuth, dni, ghi, dhi)
         poa_global = total_irrad["poa_global"]
         cell_angle = 2 * np.arcsin(self._L / (2 * self._Rc))
-        if solar_zenith >90 or solar_zenith<-90:
-            poa_global=0
+        if solar_zenith > 90 or solar_zenith < -90:
+            poa_global = 0
         if curve:
             curvature_ratio = self._L / (
                 self._Rc * cell_angle
-                )  # ratio between the length of the flat cell assumption to arclength of cell (<1)
+            )  # ratio between the length of the flat cell assumption to arclength of cell (<1)
         else:
-            curvature_ratio=1
+            curvature_ratio = 1
         return poa_global * curvature_ratio
 
-    def get_MPP(I, V): #of a single cell (single IV curve)
-        P=[I*V for I,V in zip(I,V)]
+    def get_MPP(I, V):  # of a single cell (single IV curve)
+        P = [I * V for I, V in zip(I, V)]
         MPP = np.max(P)
         return MPP
-    
-    def get_MPP_faster(I, V): #of a single cell (single IV curve)
+
+    def get_MPP_faster(I, V):  # of a single cell (single IV curve)
         P = []
         for i in range(len(I)):
-            power = I[i]*V[i]
+            power = I[i] * V[i]
             P.append(power)
-            if power <0:
+            if power < 0:
                 break
-            
+
         # P=[I[:10]*V[:10] for I[:10],V[:10] in zip(I[:10],V[:10])]
         MPP = np.max(P)
         return MPP
@@ -365,7 +393,8 @@ class SolarModule:
             curve = simulate_full_curve(
                 cells[i].get_c_params(),
                 SM.get_curved_irradiance(self, cells[i], solar_zen, solar_azi),
-                temperature,break_volt=SC._cell_list[i].get_breakdown_voltage()
+                temperature,
+                break_volt=SC._cell_list[i].get_breakdown_voltage(),
             )
             # print(SM.get_curved_irradiance(self,cell[i]))
             curves.append(curve)
@@ -374,13 +403,12 @@ class SolarModule:
         # print(curves)
         # print(labels)
         axis = plot_curves(curves, labels)
-       
+
         # plt.rcParams.update({'font.size': 20})
 
-
         return axis
-    
-    def generate_flat_module(self,zenith=35,azimuth=180):
+
+    def generate_flat_module(self, zenith=35, azimuth=180):
         for i in range(self._N):
             cell_i = SC(
                 x_width=self._L,
@@ -457,7 +485,8 @@ class SolarModule:
             curve = simulate_full_curve(
                 cell[i]._c_params,
                 SM.get_curved_irradiance(self, cell[i], solar_zen, solar_azi),
-                temperature,break_volt=SC._cell_list[i].get_breakdown_voltage()
+                temperature,
+                break_volt=SC._cell_list[i].get_breakdown_voltage(),
             )
             MPP = SM.get_MPP(curve["i"], curve["v"])
             MPPs.append(MPP)
@@ -468,7 +497,7 @@ class SolarModule:
         plt.xlabel("Angle (degrees)")
 
         # plt.title("MPP Bar Chart of Module")
-        plt.savefig('Figures/7am MPP barchart', dpi=500)
+        plt.savefig("Figures/7am MPP barchart", dpi=500)
 
         plt.show()
         # return axis
@@ -488,115 +517,144 @@ class SolarModule:
         plt.title("Irradiance Bar Chart of Module")
         plt.show()
         # return axis
-        
-    def power_current_graph(self,cell=SC._cell_list,solar_zen=0, solar_azi=90,temperature=10):   
+
+    def power_current_graph(
+        self, cell=SC._cell_list, solar_zen=0, solar_azi=90, temperature=10
+    ):
         # current = np.linspace(0,20,1000)
         # curves=SC.get_iv_curve(SC._cell_list,show_axis=False) #use this line for obtaining multiple I V curves (implement the get_iv_curve_module method)
         P_sum = []
-        all_P_values=[]
-        negative_index=1000
+        all_P_values = []
+        negative_index = 1000
         axis = plt.axes()
-        labels=[]
+        labels = []
         for index in range(len(cell)):
             curve = simulate_full_curve(
                 cell[index]._c_params,
                 SM.get_curved_irradiance(self, cell[index], solar_zen, solar_azi),
-                temperature,break_volt=SC._cell_list[index].get_breakdown_voltage())
+                temperature,
+                break_volt=SC._cell_list[index].get_breakdown_voltage(),
+            )
             P = []
-            I,V = curve["i_PI"],curve["v_PI"]
+            I, V = curve["i_PI"], curve["v_PI"]
             # print(V[51])
             # print(I)
-            negative_check=True
+            negative_check = True
             for i in range(len(I)):
                 power = I[i] * V[i]
                 P.append(power)
-                if index>0:
-                    P_sum[i]+=power #THE POWER VALUES ARE ADDED TO THE P_sum LIST FO RTHE REST OF THE CELLS   
+                if index > 0:
+                    P_sum[
+                        i
+                    ] += power  # THE POWER VALUES ARE ADDED TO THE P_sum LIST FO RTHE REST OF THE CELLS
                     # print('index =', index)
                     # print('i =', i)
-                if power < -6 and negative_check==True: #THIS GETS RID OF THE ASYMPTOTES DISRUPTING THE FIGURE (ONLY PLOTS POINTS WITH A POWER > -6 WATTS)
-                    negative_index=i
-                    negative_check=False
+                if (
+                    power < -6 and negative_check == True
+                ):  # THIS GETS RID OF THE ASYMPTOTES DISRUPTING THE FIGURE (ONLY PLOTS POINTS WITH A POWER > -6 WATTS)
+                    negative_index = i
+                    negative_check = False
                     # print('NEGATIVE CHECKKK')
             labels.append("angle =" + str(round(SC.get_cell_tilt(cell[index]), 2)))
-            if index==0:            #THE POWER VALUES OF THE FIRST CELL IS ADDED TO THE P_sum LIST
-                P_sum+=P
+            if (
+                index == 0
+            ):  # THE POWER VALUES OF THE FIRST CELL IS ADDED TO THE P_sum LIST
+                P_sum += P
                 # print('index =', index)
-            all_P_values +=P
-            plt.plot(I[:negative_index+1],P[:negative_index+1],label =("angle =" + str(round(SC.get_cell_tilt(cell[index]), 2))))
+            all_P_values += P
+            plt.plot(
+                I[: negative_index + 1],
+                P[: negative_index + 1],
+                label=("angle =" + str(round(SC.get_cell_tilt(cell[index]), 2))),
+            )
             # print(negative_index, P[negative_index-1])
-            
+
             plt.ylim(-2.5, 12)
             plt.xlim(0, 10)
 
-
             # plt.ylim(0, max_P*1.2)
-            plt.xlabel('Current (A)')
-            plt.ylabel('Power (W)')
+            plt.xlabel("Current (A)")
+            plt.ylabel("Power (W)")
         # plt.savefig('Figures/single PI curve', dpi=500)
         # print('length check: I =', len(I), ', V =', len(V), ', P =', len(P), ', P_sum =', len(P_sum))
         # print('c =', c)
-        print('MPP =', max(P_sum))
+        print("MPP =", max(P_sum))
         max_P_sum_index = pd.Series(P_sum).idxmax()
         max_I_sum = I[max_P_sum_index]
         # max_P_sum_check = all_P_values[max_P_sum_index] + all_P_values[max_P_sum_index+1000] + all_P_values[max_P_sum_index+2000]
         # print('max_P_sum_check =', max_P_sum_check)
         # print(all_P_values[max_P_sum_index],all_P_values[max_P_sum_index])
-        y1_values=np.linspace(0,max(P_sum),3)
-        x1_values=[max_I_sum,max_I_sum,max_I_sum]
-        x2_values=np.linspace(0,max_I_sum,3)
-        y2_values=[max(P_sum),max(P_sum),max(P_sum)]
-        plt.plot(I,P_sum, color = 'black', ls='dotted')
+        y1_values = np.linspace(0, max(P_sum), 3)
+        x1_values = [max_I_sum, max_I_sum, max_I_sum]
+        x2_values = np.linspace(0, max_I_sum, 3)
+        y2_values = [max(P_sum), max(P_sum), max(P_sum)]
+        plt.plot(I, P_sum, color="black", ls="dotted")
         # plt.plot(x1_values,y1_values,color='red',ls='dashed')
-        plt.plot(x2_values,y2_values,color='red',ls='dashed')
-        plt.plot([max_I_sum],[max(P_sum)],'gx',ms=20, color = 'red')
+        plt.plot(x2_values, y2_values, color="red", ls="dashed")
+        plt.plot([max_I_sum], [max(P_sum)], "gx", ms=20, color="red")
         plt.gca().axhline(0, linestyle="--", color="grey")
 
         plt.fill_between(I, P_sum, color="C3", alpha=0.3, hatch="//")
-        plt.rcParams.update({'font.size': 20})
+        plt.rcParams.update({"font.size": 20})
         plt.tight_layout()
         # plt.subplots_adjust(bottom=0.8, right=0.9, top=0.9, left=0.8)
         # plt.figure(figsize=(4, 3))
 
         # plt.savefig('Figures/single PI curve2', dpi = 500)
-        return axis,max_I_sum,max(P_sum),P_sum
-    
-    def MPP_BypDiodes_figure(self,cells=SC._cell_list, solar_zen=0, solar_azi=90,temperature=10):
-        c=0
-        if len(cells)%2 == 1:
-            c=1
-        cell_bypass_index=len(cells)-1
-        max_P_sum_values =[]
+        return axis, max_I_sum, max(P_sum), P_sum
+
+    def MPP_BypDiodes_figure(
+        self, cells=SC._cell_list, solar_zen=0, solar_azi=90, temperature=10
+    ):
+        c = 0
+        if len(cells) % 2 == 1:
+            c = 1
+        cell_bypass_index = len(cells) - 1
+        max_P_sum_values = []
         # max_I_sum_values =[]
-        number_of_bypassed=[0]
-        for index2 in range((len(cells)//2)+c+1):
-            #the last two cells in the _cell_list have the largest tilt
+        number_of_bypassed = [0]
+        for index2 in range((len(cells) // 2) + c + 1):
+            # the last two cells in the _cell_list have the largest tilt
             # print(cell_bypass_index)
             if index2 != 0:
                 cells[cell_bypass_index].bypass(-0.01)
-                if cell_bypass_index !=0:
-                    cells[cell_bypass_index-1].bypass(-0.01)
-                    number_of_bypassed.append((index2)*2)
+                if cell_bypass_index != 0:
+                    cells[cell_bypass_index - 1].bypass(-0.01)
+                    number_of_bypassed.append((index2) * 2)
                 else:
-                    number_of_bypassed.append((index2*2)-1)
-                cell_bypass_index-=2
+                    number_of_bypassed.append((index2 * 2) - 1)
+                cell_bypass_index -= 2
             P_sum = []
             P = []
             current = []
             for index in range(len(cells)):
                 curve = simulate_full_curve(
                     cells[index]._c_params,
-                    SM.get_curved_irradiance(self, cells[index], solar_zen, solar_azi,dni=200 * 5, ghi=220 * 5, dhi=20 * 5),
-                    temperature,break_volt=SC._cell_list[index].get_breakdown_voltage())                                                #PRODUCE IV VALUES
+                    SM.get_curved_irradiance(
+                        self,
+                        cells[index],
+                        solar_zen,
+                        solar_azi,
+                        dni=200 * 5,
+                        ghi=220 * 5,
+                        dhi=20 * 5,
+                    ),
+                    temperature,
+                    break_volt=SC._cell_list[index].get_breakdown_voltage(),
+                )  # PRODUCE IV VALUES
                 # print(index2, cells[index])
-                I,V = curve["i_PI"],curve["v_PI"]
+                I, V = curve["i_PI"], curve["v_PI"]
                 for i in range(len(I)):
                     power = I[i] * V[i]
                     P.append(power)
-                    if index>0:
-                        P_sum[i]+=power #THE POWER VALUES ARE ADDED TO THE P_sum LIST FOR THE REST OF THE CELLS   
-                if index==0:            #THE POWER VALUES OF THE FIRST CELL IS ADDED TO THE P_sum LIST
-                    P_sum+=P
+                    if index > 0:
+                        P_sum[
+                            i
+                        ] += power  # THE POWER VALUES ARE ADDED TO THE P_sum LIST FOR THE REST OF THE CELLS
+                if (
+                    index == 0
+                ):  # THE POWER VALUES OF THE FIRST CELL IS ADDED TO THE P_sum LIST
+                    P_sum += P
                 current.extend(I)
                 # plt.savefig('Figures/single PI curve', dpi=500)
                 # print('length check: I =', len(I), ', V =', len(V), ', P =', len(P), ', P_sum =', len(P_sum))
@@ -609,73 +667,105 @@ class SolarModule:
             # plt.ylim(0, 2)
             # plt.xlim(0, 2)
             # plt.show()
-        print('MPP values:', max_P_sum_values)
-        plt.plot(number_of_bypassed,max_P_sum_values,'X',ls='dashed')
-        plt.ylim(min(max_P_sum_values)*0.999999999, max(max_P_sum_values)*1.000000001)
-        plt.xlabel('Number of Bypass Cells')
-        plt.ylabel('Power (W)')
-        plt.rcParams.update({'font.size': 20})
+        print("MPP values:", max_P_sum_values)
+        plt.plot(number_of_bypassed, max_P_sum_values, "X", ls="dashed")
+        plt.ylim(
+            min(max_P_sum_values) * 0.999999999, max(max_P_sum_values) * 1.000000001
+        )
+        plt.xlabel("Number of Bypass Cells")
+        plt.ylabel("Power (W)")
+        plt.rcParams.update({"font.size": 20})
         plt.tight_layout()
-        plt.savefig('Figures/Power vs bypass diodes 5am July', dpi=500)
+        plt.savefig("Figures/Power vs bypass diodes 5am July", dpi=500)
         plt.show()
-        
-    def get_energy(self,solar_zen,
-                   solar_azi,
-                   temperature,
-                   direct_ni,
-                   diffuse_hi,
-                   cells=SC._cell_list,
-                   curved=True):
-        irrad_module=0
+
+    def get_energy(
+        self,
+        solar_zen,
+        solar_azi,
+        temperature,
+        direct_ni,
+        diffuse_hi,
+        cells=SC._cell_list,
+        curved=True,
+    ):
+        irrad_module = 0
         if curved:
             # print('get_energy CURVED')
             for i in range(len(cells)):
-                irrad=SM.get_curved_irradiance(
-                self, cells[i], solar_zen, solar_azi, dni=direct_ni, dhi=diffuse_hi,curve=curved
+                irrad = SM.get_curved_irradiance(
+                    self,
+                    cells[i],
+                    solar_zen,
+                    solar_azi,
+                    dni=direct_ni,
+                    dhi=diffuse_hi,
+                    curve=curved,
                 )
-                irrad_module+=irrad
-                if irrad<0.00015:                   #to avoid runtime error and speed up whole operation
-                    sumP=[0,0,0]
+                irrad_module += irrad
+                if (
+                    irrad < 0.00015
+                ):  # to avoid runtime error and speed up whole operation
+                    sumP = [0, 0, 0]
                     break
                 else:
-                    data=simulate_full_curve(cells[i].get_c_params(), irrad, temperature, ivcurve_pnts=1000,break_volt=cells[i].get_breakdown_voltage())
-                    # (parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-15)            
-                    I,V=data["i_PI"],data["v_PI"]
-                    P=[I*V for I,V in zip(I,V)]
-                    if i==0:
-                        sumP=P
+                    data = simulate_full_curve(
+                        cells[i].get_c_params(),
+                        irrad,
+                        temperature,
+                        ivcurve_pnts=1000,
+                        break_volt=cells[i].get_breakdown_voltage(),
+                    )
+                    # (parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-15)
+                    I, V = data["i_PI"], data["v_PI"]
+                    P = [I * V for I, V in zip(I, V)]
+                    if i == 0:
+                        sumP = P
                     else:
-                        sumP=[sumP+P for sumP,P in zip(sumP,P)]
+                        sumP = [sumP + P for sumP, P in zip(sumP, P)]
         else:
             # print('get_energy FLAT')
-            irrad=SM.get_curved_irradiance(
-            self, cells[1], solar_zen, solar_azi, dni=direct_ni,  dhi=diffuse_hi,curve=curved
+            irrad = SM.get_curved_irradiance(
+                self,
+                cells[1],
+                solar_zen,
+                solar_azi,
+                dni=direct_ni,
+                dhi=diffuse_hi,
+                curve=curved,
             )
-            irrad_module=irrad*self._N
+            irrad_module = irrad * self._N
             # print('irrad =', irrad)
-            if irrad==0:
-                sumP=[0,0,0]
+            if irrad == 0:
+                sumP = [0, 0, 0]
             else:
-                data=simulate_full_curve(cells[1].get_c_params(), irrad, temperature, ivcurve_pnts=1000)
-                # (parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-15)            
-                I,V=data["i_PI"],data["v_PI"]
-                P=[I*V for I,V in zip(I,V)]
-                sumP=np.array(P)*self._N
+                data = simulate_full_curve(
+                    cells[1].get_c_params(), irrad, temperature, ivcurve_pnts=1000
+                )
+                # (parameters, Geff, Tcell, ivcurve_pnts=1000,break_volt=-15)
+                I, V = data["i_PI"], data["v_PI"]
+                P = [I * V for I, V in zip(I, V)]
+                sumP = np.array(P) * self._N
         # plt.plot(I,sumP,'x')
         # plt.ylim(0,15)
         # plt.xlim(0,0.5)
-        index_max=pd.Series(sumP).idxmax() 
+        index_max = pd.Series(sumP).idxmax()
         # print(index_max)
-        E_module=(sumP[index_max]*3600)/(3.6*10**6) #convert J to kWh 
-        return E_module,irrad_module
+        E_module = (sumP[index_max] * 3600) / (3.6 * 10**6)  # convert J to kWh
+        return E_module, irrad_module
 
-
-    def Energy_daily_figure(self, api_frame=api_frame, time_index=np.arange(0,len(api_frame),1),cells=SC._cell_list,curve=True):
+    def Energy_daily_figure(
+        self,
+        api_frame=api_frame,
+        time_index=np.arange(0, len(api_frame), 1),
+        cells=SC._cell_list,
+        curve=True,
+    ):
         # data=generate_dataframe(self, api_frame, time_index, lat=43.3005, long=1.0905)
-        daily_energy=[]
-        daily_energy_sum=0
-        daily_irrad_sum=0
-        daily_irrad_list=[]
+        daily_energy = []
+        daily_energy_sum = 0
+        daily_irrad_sum = 0
+        daily_irrad_list = []
         for i in range(len(time_index)):
             date_time = datetime.fromtimestamp(
                 time_index[i] * 3600 + 1546304400, tz=None
@@ -688,55 +778,64 @@ class SolarModule:
                 date_time.minute,
                 latitude=43.3005,
                 longitude=1.0905,
-                temp=api_frame["temperature"][time_index[i]])
-            energy,irrad_module=SM.get_energy(self,solar_angles[0],
-                                 solar_angles[1],
-                                 api_frame["temperature"][time_index[i]],
-                                 api_frame["irradiance_direct"][time_index[i]],
-                                 api_frame["irradiance_diffuse"][time_index[i]],
-                                 cells=SC._cell_list,
-                                 curved=curve) #calculate the energy produced every hour by using get_energy() function
-            #append this energy to hourly_energy
-            if (i+1)%24!=0:
+                temp=api_frame["temperature"][time_index[i]],
+            )
+            energy, irrad_module = SM.get_energy(
+                self,
+                solar_angles[0],
+                solar_angles[1],
+                api_frame["temperature"][time_index[i]],
+                api_frame["irradiance_direct"][time_index[i]],
+                api_frame["irradiance_diffuse"][time_index[i]],
+                cells=SC._cell_list,
+                curved=curve,
+            )  # calculate the energy produced every hour by using get_energy() function
+            # append this energy to hourly_energy
+            if (i + 1) % 24 != 0:
                 print(energy, irrad_module)
-                daily_energy_sum+=energy
-                daily_irrad_sum+=irrad_module
+                daily_energy_sum += energy
+                daily_irrad_sum += irrad_module
             else:
-                daily_energy_sum+=energy
+                daily_energy_sum += energy
                 daily_energy.append(daily_energy_sum)
-                daily_irrad_sum+=irrad_module
+                daily_irrad_sum += irrad_module
                 daily_irrad_list.append(daily_irrad_sum)
-                print(i, 'daily energy sum =', daily_energy_sum, 'irradiance sum:', daily_irrad_sum)
-                daily_energy_sum=0
-                daily_irrad_sum=0
+                print(
+                    i,
+                    "daily energy sum =",
+                    daily_energy_sum,
+                    "irradiance sum:",
+                    daily_irrad_sum,
+                )
+                daily_energy_sum = 0
+                daily_irrad_sum = 0
 
             # print(i)
         # data.insert(4, "Energy", hourly_energy, True) #i think this is not needed
-        print("length=",len(daily_energy))
-        ax=plt.plot(np.arange(0,len(daily_energy),1),daily_energy,'x')
+        print("length=", len(daily_energy))
+        ax = plt.plot(np.arange(0, len(daily_energy), 1), daily_energy, "x")
         # plt.xlim()
         # plt.ylim(min(daily_energy)*0.99,second_largest(daily_energy)*1.01)
-        plt.xlabel('Days of the year 2019')
-        plt.ylabel('Energy (kWh)')
+        plt.xlabel("Days of the year 2019")
+        plt.ylabel("Energy (kWh)")
 
         # ax.set_xticks(np.arange(1,13))
         # ticklabels=['a','b','c','d','a','b','c','d','a','b','c','d']
         # ax.set_xticklabels(ticklabels) #add monthlabels to the xaxis
-        plt.rcParams.update({'font.size': 15})
-        
+        plt.rcParams.update({"font.size": 15})
+
         plt.tight_layout()
         # plt.savefig('Figures/Power vs bypass diodes 5am July', dpi=500)
         plt.show()
         return daily_energy
-        #sum the energy for every day and add to
-            
+        # sum the energy for every day and add to
+
 
 sns.set_palette("PiYG", n_colors=2)
-sns.set_context("paper", font_scale=1.5) 
+sns.set_context("paper", font_scale=1.5)
 SM = SolarModule
 
 # E_day40=mod.Energy_daily_figure(time_index=np.arange(0*24,30*24,1))
-
 
 
 # E=SM.get_energy(mod,89,90,25,200,20,cells=SC._cell_list)
@@ -760,7 +859,6 @@ SM = SolarModule
 # mod.get_iv_curve_module(solar_zen=10, solar_azi=-90, cells=SC._cell_list, temperature=25)
 
 
-
 # c=0
 # if len(SC._cell_list)%2 == 1:
 #     c=1
@@ -781,17 +879,13 @@ SM = SolarModule
 #     mod.get_iv_curve_module(solar_zen=10, solar_azi=-90, cells=SC._cell_list, temperature=25)
 
 
-
-
 """single PI curve SLIDE 11"""
 # module=SM(N=1, Rc = 5)
 # SM.generate_curved_module(module)
 # module.power_current_graph(cell=SC._cell_list,solar_zen=0, solar_azi=90,temperature=25)     #currently only for one cell
 
 
-
-
-#change pallet: sns.set_palette("mako", n_colors=4)
+# change pallet: sns.set_palette("mako", n_colors=4)
 
 
 """Single IV curve SLIDE 10"""
@@ -850,7 +944,6 @@ SM = SolarModule
 
 
 # sns.set_palette("PiYG", n_colors=20)
-
 
 
 """ figure of MPP and irradiance bar chart of cells on a curved surface"""
@@ -928,9 +1021,11 @@ def generate_times_index(
     return selected_times_index
 
 
-def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,flat=False):
+def generate_dataframe(
+    module, api_frame, time_index, lat=43.3005, long=1.0905, flat=False
+):
     dataframe = pd.DataFrame(
-        columns=["time index", "angle", "irradiance", "temperature","MPP"]
+        columns=["time index", "angle", "irradiance", "temperature", "MPP"]
     )
     # dataframe = pd.DataFrame(columns=['Column 1', 'Column 2', 'Column 3'])
     # dataframe.columns =['time index', 'angle', 'irradiance', 'temperature']
@@ -948,7 +1043,8 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
             long,
             api_frame["temperature"][time_index[i]],
         )  # get solar zenith and azimuth
-        for j in range(module.get_N()
+        for j in range(
+            module.get_N()
         ):  # repeat for every cell in the module to find the irradiance and add to the data frame
             irrad = SM.get_curved_irradiance(
                 module,
@@ -959,15 +1055,17 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
                 dhi=api_frame["irradiance_diffuse"][time_index[i]],
             )  # the dni and the dhi values are all zero!!!!
             # print(irrad)
-            curve=simulate_full_curve(SC._cell_list[j].get_c_params(),irrad,
-            api_frame["temperature"][time_index[i]]
+            curve = simulate_full_curve(
+                SC._cell_list[j].get_c_params(),
+                irrad,
+                api_frame["temperature"][time_index[i]],
             )
             # print(curve["v_PI"])
             # plt.plot(curve["i_PI"][:10],curve["v_PI"][:10] ,'x')
             # plt.ylim(-1,2)
             # plt.xlim(0,1)
             # print(max(curve["v_PI"]))
-            MPP = SM.get_MPP_faster(curve["i_PI"],curve["v_PI"])
+            MPP = SM.get_MPP_faster(curve["i_PI"], curve["v_PI"])
             print(
                 "i=",
                 i,
@@ -980,14 +1078,14 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
                 "dhi=",
                 api_frame["irradiance_diffuse"][time_index[i]],
                 "MPP=",
-                MPP
+                MPP,
             )
             new_row = {
                 "time index": time_index[i],
                 "angle": SC._cell_list[j].get_cell_tilt(),
                 "irradiance": irrad,
                 "temperature": api_frame["temperature"][time_index[i]],
-                "MPP":MPP
+                "MPP": MPP,
             }  # create a row to add to the dataframe of the data calculated
             dataframe.loc[len(dataframe)] = new_row  # add the new row to the dataframe
     return dataframe
@@ -1038,7 +1136,7 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
 # SM.generate_curved_module(mod)
 # # for i in range(len(SC._cell_list)):
 # #     SC._cell_list[i].bypass(-5)
-    
+
 # axis, I_max, sum_P_max, P_sum=mod.power_current_graph(cell=sorted(SC._cell_list),solar_zen=solar_angles[0], solar_azi=solar_angles[1],temperature=25)     #currently only for one cell
 # plt.grid(alpha=0.5)
 # axis.set_facecolor('gainsboro')
@@ -1088,7 +1186,7 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
 # sns.set_theme(
 #     rc={"figure.figsize": (20, 10)}
 # )  # make plot bigger to declutter the x axis lables
-# sns.set_context("paper", font_scale=1.5)                                                  
+# sns.set_context("paper", font_scale=1.5)
 
 # cat_facet_grid = sns.catplot(
 #     data=cat_frame,
@@ -1106,7 +1204,7 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
 
 # cat_ax = plt.gca()
 # cat_ax.figure.set_size_inches(20, 10)
-# sns.set_context("paper", font_scale=3.5)                                                  
+# sns.set_context("paper", font_scale=3.5)
 
 # cat_facet_grid._legend.remove()
 # cat_ax.figure.colorbar(
@@ -1114,7 +1212,7 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
 #         cmap="coolwarm",
 #         norm=plt.Normalize(
 #             cat_frame["temperature"].min(), cat_frame["temperature"].max(),
-        
+
 #     )),
 #     ax=cat_ax,
 # )
@@ -1187,28 +1285,33 @@ def generate_dataframe(module, api_frame, time_index, lat=43.3005, long=1.0905,f
 # plt.tight_layout()
 # plt.savefig('Figures/Max Daily Energy curved panel with angle_coef', dpi=500, transparent=True)
 # plt.show()
-E_yearly_sum_curved=[]
+E_yearly_sum_curved = []
 for i in range(len(E_day)):
-    if E_day[i]<0.3:
+    if E_day[i] < 0.3:
         E_yearly_sum_curved.append(E_day[i])
-print('yearly curved energy output:', np.sum(E_yearly_sum_curved), 'daily curved mean:', np.mean(E_yearly_sum_curved))        
-    
+print(
+    "yearly curved energy output:",
+    np.sum(E_yearly_sum_curved),
+    "daily curved mean:",
+    np.mean(E_yearly_sum_curved),
+)
+
 
 """"----Daily Energy throughout the year 2019 for flat module----"""
 
-mod=SM(cell_length=1.1, N=11,Rc=11)
+mod = SM(cell_length=1.1, N=11, Rc=11)
 SM.generate_flat_module(mod)
 # SM.get_curved_irradiance(mod, SC._cell_list, solar_zenith, solar_azimuth)
-E_day_flat=mod.Energy_daily_figure(curve=False)
+E_day_flat = mod.Energy_daily_figure(curve=False)
 
-ax=plt.figure()
-plt.figure(figsize=(10,6))
+ax = plt.figure()
+plt.figure(figsize=(10, 6))
 
-plt.plot(np.arange(0,len(E_day_flat),1),E_day_flat,'x')
-plt.ylim(0,0.75)
-plt.xlabel('Days of the year 2019',fontsize=20)
-plt.ylabel('Energy (kWh)',fontsize=20)
-plt.grid(color='gainsboro')
+plt.plot(np.arange(0, len(E_day_flat), 1), E_day_flat, "x")
+plt.ylim(0, 0.75)
+plt.xlabel("Days of the year 2019", fontsize=20)
+plt.ylabel("Energy (kWh)", fontsize=20)
+plt.grid(color="gainsboro")
 # ax.set_xticks(np.arange(1,13))
 # ticklabels=['a','b','c','d','a','b','c','d','a','b','c','d']
 # ax.set_xticklabels(ticklabels) #add monthlabels to the xaxis
@@ -1216,12 +1319,20 @@ plt.grid(color='gainsboro')
 # ax.set_facecolor('white')
 
 plt.tight_layout()
-plt.savefig('Figures/Max Daily Energy curved and flat panel same horizontal distance', dpi=500, transparent=True)
+plt.savefig(
+    "Figures/Max Daily Energy curved and flat panel same horizontal distance",
+    dpi=500,
+    transparent=True,
+)
 plt.show()
 
-E_yearly_sum_flat=[]
+E_yearly_sum_flat = []
 for i in range(len(E_day_flat)):
-    if E_day_flat[i]<0.75:
+    if E_day_flat[i] < 0.75:
         E_yearly_sum_flat.append(E_day_flat[i])
-print('yearly flat energy output:', np.sum(E_yearly_sum_flat), 'daily flat mean:', np.mean(E_yearly_sum_flat)) 
-
+print(
+    "yearly flat energy output:",
+    np.sum(E_yearly_sum_flat),
+    "daily flat mean:",
+    np.mean(E_yearly_sum_flat),
+)
