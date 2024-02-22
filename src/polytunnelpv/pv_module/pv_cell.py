@@ -15,9 +15,15 @@ curved PV module.
 
 """
 
-from math import pi
-from pvlib.irradiance import pvlib_get_total_irradiance
+from dataclasses import dataclass
+from math import cos, pi
+from pvlib.irradiance import get_total_irradiance as pvlib_get_total_irradiance
 
+__all__ = ("get_irradiance", "PVCell")
+
+# POA global key:
+#   Keyword for extracting the global irradiance once computed by pvlib.
+POA_GLOBAL_KEY: str = "poa_global"
 
 def _degree_to_radian(angle_in_degrees: float) -> float:
     """
@@ -35,6 +41,7 @@ def _degree_to_radian(angle_in_degrees: float) -> float:
     return (pi / 180) * angle_in_degrees
 
 
+@dataclass
 class PVCell:
     """
     A single cell within the curved PV module.
@@ -58,57 +65,26 @@ class PVCell:
 
     """
 
-    def __init__(
-        self,
-        azimuth: float,
-        length: float,
-        tilt: float,
-        width: float,
-        breakdown_voltage: float = -15,
-        reference_temperature: float = 20,
-    ) -> None:
-        """
-        Instantiate a solar cell instance.
+    azimuth: float
+    length: float
+    tilt: float
+    width: float
+    breakdown_voltage: float
+    reference_temperature: float
+    _azimuth_in_radians: float | None = None
+    _tilt_in_radians: float | None = None
 
-        Inputs:
-            - azimuth:
-                The azimuth angle of the cell, in degrees.
-            - length:
-                The length of the cell, in meters.
-            - tilt:
-                The tilt of the cell, in degrees.
-            - voltage_temperature_coefficient:
-                The temperature coefficient of the open-circuit voltage.
-            - width:
-                The width of the cell, in meters.
-            - breakdown_voltage:
-                The breakdown voltage of the cell, in Volts.
-            - reference_temperature:
-                The reference temperature against which the cell parameters are defined,
-                measured in degrees Celsius.
-
-        """
-
-        self.azimuth = azimuth
-        self._azimuth_in_radians: float | None = None
-        self.length = length
-        self.tilt = tilt
-        self._tilt_in_radians: float | None = None
-        self.width = width
-        self.breakdown_voltage = breakdown_voltage
-        self.reference_temperature = reference_temperature
-
-        # c_params = {
-        #     "I_L_ref": 8.24,
-        #     "I_o_ref": 2.36e-9,
-        #     "a_ref": 1.3 * Vth,
-        #     "R_sh_ref": 1000,
-        #     "R_s": 0.00181,
-        #     "alpha_sc": 0.0042,
-        #     "breakdown_factor": 2e-3,
-        #     "breakdown_exp": 3,
-        #     "breakdown_voltage": self._breakdown_voltage,
-        # }
+    # c_params = {
+    #     "I_L_ref": 8.24,
+    #     "I_o_ref": 2.36e-9,
+    #     "a_ref": 1.3 * Vth,
+    #     "R_sh_ref": 1000,
+    #     "R_s": 0.00181,
+    #     "alpha_sc": 0.0042,
+    #     "breakdown_factor": 2e-3,
+    #     "breakdown_exp": 3,
+    #     "breakdown_voltage": self._breakdown_voltage,
+    # }
         # self._c_params = c_params
 
     def __eq__(self, other) -> bool:
@@ -173,44 +149,55 @@ class PVCell:
 
 
 def get_irradiance(
-    diffuse_horizontal_irradiance: float,
-    direct_normal_irradiance: float,
     pv_cell: PVCell,
+    diffuse_horizontal_irradiance: float,
+    global_horizontal_irradiance: float,
     solar_azimuth: float,
     solar_zenith: float,
-    global_horizontal_irradiance: float | None = None,
+    direct_normal_irradiance: float | None = None,
 ) -> float:
+    """
+    Compute the irradiance falling on an individual solar cell.
+    
+    Inputs:
+        - pv_cell:  
+            The cell to calculate these values for.
+        - diffuse_horizontal_irradiance:
+            The diffuse horizontal irradiance in W/m^2.
+        - global_horizontal_irradiance:
+            The global horizontal irradiance.
+        - solar_azimuth:
+            The current azimuthal angle of the sun.
+        - solar_zenith:
+            The current zenith angle of the sun, _i.e._, it's declanation.
+        - direct_normal_irradiance:
+            If provided, the direct normal irradiance in W/m^2. If not, this is
+            calculated using the solar zenith angle.
+    
+    """
 
-    θs, φs = (
-        solar_zenith * (np.pi / 180),
-        solar_azimuth * (np.pi / 180),
-    )
-    solar_azimuth_in_radians, solar_zenith_in_radians = map(
-        _degree_to_radian, (solar_azimuth, solar_zenith)
-    )
-    alignment_coef = (
-        np.sin(pv_cell.tilt_in_radians)
-        * np.cos(pv_cell.azimuth_in_radians)
-        * np.sin(θs)
-        * np.cos(φs)
-        + np.sin(pv_cell.tilt_in_radians)
-        * np.sin(pv_cell.azimuth_in_radians)
-        * np.sin(θs)
-        * np.sin(φs)
-        + np.cos(pv_cell.tilt_in_radians) * np.cos(θs)
-    )  # using the dot product of the vector normal to the surface of the cell and the vector of the sun relative to the cell
-    ghi = dhi + dni * alignment_coef
-    total_irrad = pvlib_get_total_irradiance(
-        pv_cell.tilt_in_radians,
-        pv_cell.azimuth_in_radians,
+    # If it's nighttime, _i.e._, the sun is below the horizon or the global irradiance
+    # is zero, then simply return zero.
+    if solar_zenith <= 0 or global_horizontal_irradiance <= 0:
+        return 0
+
+    # Determine the DNI from the GHI and DHI.
+    if direct_normal_irradiance is None:
+        direct_normal_irradiance = (global_horizontal_irradiance - diffuse_horizontal_irradiance) / cos(_degree_to_radian(solar_zenith))
+
+    # Call to PVlib to calculate the total irradiance incident on the surface.
+    total_irradiance = pvlib_get_total_irradiance(
+        pv_cell.tilt,
+        pv_cell.azimuth,
         solar_zenith,
         solar_azimuth,
         direct_normal_irradiance,
         global_horizontal_irradiance,
         diffuse_horizontal_irradiance,
-    )  # (surface_tilt, surface_azimuth, solar_zenith, solar_azimuth, dni, ghi, dhi)
-    poa_global = total_irrad["poa_global"]
-    return poa_global
+    )
+
+    # Extract and return the global irradiance striking the surface.
+    return total_irradiance.get(POA_GLOBAL_KEY, None)
 
 
 def get_iv_curve(self, show_axis=True):
