@@ -15,34 +15,182 @@ This module provides functionality for the modelling of the PV module.
 
 """
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import pvlib as pv
-from pvlib import pvsystem
-from pvlib.irradiance import get_total_irradiance
-from scipy.constants import e as qe, k as kB
-import sys
-from datetime import datetime
-import seaborn as sns
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from math import cos, radians, sin
+from numpy import matmul
 
-api_frame = pd.read_csv(
-    "/Users/yaarsafra/Library/CloudStorage/OneDrive-ImperialCollegeLondon/!Year 3 Imperial physics/3rd Year Project/Data/ninja_pv_43.6338_0.6031_uncorrected.csv",
-    skiprows=3,
-    delimiter=",",
-)
-api_frame["irradiance_direct"] = 1000 * api_frame["irradiance_direct"]
-api_frame["irradiance_diffuse"] = 1000 * api_frame["irradiance_diffuse"]
+from .pv_cell import PVCell
 
-"""
-all functions below (above the SolarCell class) have been imported from 
-the 'Calculating power loss from partial module shading' page in pvlib
-"""
+@dataclass
+class Curve(ABC):
+    """
+    Represents a curve around which the PV module curves.
+    
+    A curved surface, _e.g._, a polytunnel, has a given axis around which it curves (in
+    the case of a polytunnel, this is its length) an equation for its curve (which may
+    be a simple circle or a more complex shape like a parabola or hyperbola) and a
+    length scale. These last two are wrapped up in a single function which takes a
+    disaplcement along the curve and returns the angles at that point.
 
-# INDEX:
-#  Manually update this number to stop all plots overwriting
-INDEX: int = 1
+    Attributes:
+        - curvature_azimuth:
+            The azimuthal angle for the curvature axis in degrees.
+        - curvature_tilt:
+            The tilt angle for the curvature axis in degrees.
+        - get_angles_from_surface_disaplacement:
+            A callable function which can return the azimuth and tilt at any point on
+            the surface based on the distance from the central axis.
+            
+    """
 
+    curvature_axis_azimuth: float = 0
+    curvature_axis_tilt: float = 0
+    _azimuthal_rotation_matrix: list[list[float]] | None = None
+    _tilt_rotation_matrix: list[list[float]] | None = None
+
+    @abstractmethod
+    def get_angles_from_surface_displacement(self, displacement: float) -> tuple[float, float]:
+        """
+        Abstract method that must be implemented in subclasses.
+        Calculate the azimuth and zenith angles at a point along the curve.
+
+        Inputs:
+            - displacement:
+                The distance from the central axis.
+
+        Returns:
+            - A tuple, (azimuth, tilt), with angles in degrees.
+
+        """
+
+        raise NotImplementedError("This method must be implemented in subclasses")
+
+    @property
+    def azimuthal_rotation_matrix(self) -> list[list[float]]:
+        """
+        The rotation matrix for an azimuthal rotation.
+
+        Returns:
+            - A `list` of `list`s representing the matrix.
+        
+        """
+
+        if self._azimuthal_rotation_matrix is None:
+            self._azimuthal_rotation_matrix = [
+                [
+                    cos(radians(self.curvature_axis_azimuth)), -sin(radians(self.curvature_axis_azimuth)), 0
+                ],
+                [
+                    sin(radians(self.curvature_axis_azimuth)), cos(radians(self.curvature_axis_azimuth)), 0
+                ],
+                [
+                    0, 0, 1
+                ],
+            ]
+
+        return self._azimuthal_rotation_matrix
+
+    @property
+    def tilt_rotation_matrix(self) -> list[list[float]]:
+        """
+        The rotation matrix for an azimuthal rotation.
+
+        Returns:
+            - A `list` of `list`s representing the matrix.
+        
+        """
+
+        if self._tilt_rotation_matrix is None:
+            self._tilt_rotation_matrix = [
+                [
+                    1, 0, 0
+                ],
+                [
+                    0, cos(radians(self.curvature_axis_tilt)), -sin(radians(self.curvature_axis_tilt))
+                ],
+                [
+                    0, sin(radians(self.curvature_axis_tilt)), cos(radians(self.curvature_axis_tilt))
+                ],
+            ]
+
+        return self._tilt_rotation_matrix
+
+class CircularCurve(Curve):
+    """
+    Represents a circular geometry. In this instance, a radius of curvature is required.
+    
+    Attributes:
+        - radius_of_curvature:
+            Represents the radius of curvature.
+
+    """
+
+    radius_of_curvature: float
+
+    def get_angles_from_surface_displacement(self, displacement: float) -> tuple[float, float]:
+        """
+        Calculate the azimuth and zenith angles at a point along the curve.
+
+        Inputs:
+            - displacement:
+                The distance from the central axis.
+
+        Returns:
+            - A tuple, (azimuth, tilt), with angles in degrees.
+
+        """
+
+        # Compute the zenith angle in radians based on the distance from the axis.
+        zenith_angle: float = displacement / self.radius_of_curvature
+
+        # Compute the components of a unit normal vector with this zenith angle.
+        un_rotated_normal: list[float] = [sin(zenith_angle), 0, cos(zenith_angle)]
+
+        # Rotate this normal vector based on the tilt and azimuth of the polytunnel.
+        rotated_normal = matmul(self.azimuthal_rotation_matrix, matmul(self.tilt_rotation_matrix, un_rotated_normal))
+
+        # Compute the new tilt and zenith angles based on these rotations.
+        # TODO
+
+@dataclass
+class CurvedPVModule:
+    """
+    A curved PV module containing multiple solar cells.
+    
+    Attributes:
+        - pv_cells:
+            A `list` containing all the PV cells contained within the module.
+    
+    """
+
+    pv_cells: list[PVCell]
+
+
+
+# import numpy as np
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# import pvlib as pv
+# from pvlib import pvsystem
+# from pvlib.irradiance import get_total_irradiance
+# from scipy.constants import e as qe, k as kB
+# import sys
+# from datetime import datetime
+# import seaborn as sns
+
+# api_frame = pd.read_csv(
+#     "/Users/yaarsafra/Library/CloudStorage/OneDrive-ImperialCollegeLondon/!Year 3 Imperial physics/3rd Year Project/Data/ninja_pv_43.6338_0.6031_uncorrected.csv",
+#     skiprows=3,
+#     delimiter=",",
+# )
+# api_frame["irradiance_direct"] = 1000 * api_frame["irradiance_direct"]
+# api_frame["irradiance_diffuse"] = 1000 * api_frame["irradiance_diffuse"]
+
+# """
+# all functions below (above the SolarCell class) have been imported from 
+# the 'Calculating power loss from partial module shading' page in pvlib
+# """
 
 def second_largest(list):
     list.sort()
