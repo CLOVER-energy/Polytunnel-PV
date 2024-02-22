@@ -16,7 +16,7 @@ curved PV module.
 """
 
 from dataclasses import dataclass
-from math import cos, pi
+from math import cos, radians
 from pvlib.irradiance import get_total_irradiance as pvlib_get_total_irradiance
 
 __all__ = ("get_irradiance", "PVCell")
@@ -24,21 +24,6 @@ __all__ = ("get_irradiance", "PVCell")
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.
 POA_GLOBAL_KEY: str = "poa_global"
-
-def _degree_to_radian(angle_in_degrees: float) -> float:
-    """
-    Converts an angle from degrees to radians.
-
-    Inputs:
-        - angle_in_degrees:
-            The angle in degrees.
-
-    Returns:
-        The angle in radians.
-
-    """
-
-    return (pi / 180) * angle_in_degrees
 
 
 @dataclass
@@ -123,7 +108,7 @@ class PVCell:
         """Return the tilt in radians."""
 
         if self._azimuth_in_radians is None:
-            self._azimuth_in_radians = _degree_to_radian(self.azimuth)
+            self._azimuth_in_radians = radians(self.azimuth)
 
         return self._azimuth_in_radians
 
@@ -143,7 +128,7 @@ class PVCell:
         """Return the tilt in radians."""
 
         if self._tilt_in_radians is None:
-            self._tilt_in_radians = _degree_to_radian(self.tilt)
+            self._tilt_in_radians = radians(self.tilt)
 
         return self._tilt_in_radians
 
@@ -183,7 +168,7 @@ def get_irradiance(
 
     # Determine the DNI from the GHI and DHI.
     if direct_normal_irradiance is None:
-        direct_normal_irradiance = (global_horizontal_irradiance - diffuse_horizontal_irradiance) / cos(_degree_to_radian(solar_zenith))
+        direct_normal_irradiance = (global_horizontal_irradiance - diffuse_horizontal_irradiance) / cos(radians(solar_zenith))
 
     # Call to PVlib to calculate the total irradiance incident on the surface.
     total_irradiance = pvlib_get_total_irradiance(
