@@ -55,7 +55,7 @@ class PVCell:
     tilt: float
     width: float
     breakdown_voltage: float
-    reference_temperature: float
+    reference_temperature: float = 25
     _azimuth_in_radians: float | None = None
     _tilt_in_radians: float | None = None
 
@@ -101,7 +101,7 @@ class PVCell:
             Information about the cell and light source.
 
         """
-        return f"PVCell(azimuth={self.azimuth:.2g}, tilt={self.tilt:.2g})"
+        return f"PVCell(azimuth={self.azimuth:.2f}, tilt={self.tilt:.2f})"
 
     @property
     def azimuth_in_radians(self) -> float:
@@ -152,7 +152,7 @@ def get_irradiance(
         - global_horizontal_irradiance:
             The global horizontal irradiance.
         - solar_azimuth:
-            The current azimuthal angle of the sun.
+            The current azimuth angle of the sun.
         - solar_zenith:
             The current zenith angle of the sun, _i.e._, it's declanation.
         - direct_normal_irradiance:

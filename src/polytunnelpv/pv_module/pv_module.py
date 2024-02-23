@@ -17,12 +17,30 @@ This module provides functionality for the modelling of the PV module.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from math import acos, cos, degrees, radians, pi, sin
+from math import acos, asin, cos, degrees, isnan, radians, pi, sin
+from multiprocessing import Pool
 from numpy import matmul
+from typing import TypeVar, Type
 
 from .pv_cell import PVCell
 
-__all__ = ("CircularCurve", "Curve")
+__all__ = ("CircularCurve", "Curve", "CurvedPVModule")
+
+# Floating point precision:
+#   The floating-point precision of the numbers to use when doing rotations.
+FLOATING_POINT_PRECISION: int = 8
+
+# Number of processes:
+#   The number of processes to use for parallel computations.
+NUMBER_OF_PROCESSES: int = 8
+
+
+class ImplementationError(Exception):
+    """Raised when an invalid implementation of the classes or methods is used."""
+
+
+class UndergroundCellError(Exception):
+    """Raised when a PV cell is underground."""
 
 
 @dataclass(kw_only=True)
@@ -38,7 +56,7 @@ class Curve(ABC):
 
     Attributes:
         - curvature_azimuth:
-            The azimuthal angle for the curvature axis in degrees.
+            The azimuth angle for the curvature axis in degrees.
         - curvature_tilt:
             The tilt angle for the curvature axis in degrees.
         - get_angles_from_surface_disaplacement:
@@ -49,7 +67,7 @@ class Curve(ABC):
 
     curvature_axis_azimuth: float = 0
     curvature_axis_tilt: float = 0
-    _azimuthal_rotation_matrix: list[list[float]] | None = None
+    _azimuth_rotation_matrix: list[list[float]] | None = None
     _tilt_rotation_matrix: list[list[float]] | None = None
 
     @abstractmethod
@@ -71,19 +89,18 @@ class Curve(ABC):
 
         raise NotImplementedError("This method must be implemented in subclasses")
 
-
     @property
-    def azimuthal_rotation_matrix(self) -> list[list[float]]:
+    def azimuth_rotation_matrix(self) -> list[list[float]]:
         """
-        The rotation matrix for an azimuthal rotation.
+        The rotation matrix for an azimuth rotation.
 
         Returns:
             - A `list` of `list`s representing the matrix.
 
         """
 
-        if self._azimuthal_rotation_matrix is None:
-            self._azimuthal_rotation_matrix = [
+        if self._azimuth_rotation_matrix is None:
+            self._azimuth_rotation_matrix = [
                 [
                     cos(radians(self.curvature_axis_azimuth)),
                     -sin(radians(self.curvature_axis_azimuth)),
@@ -97,12 +114,12 @@ class Curve(ABC):
                 [0, 0, 1],
             ]
 
-        return self._azimuthal_rotation_matrix
+        return self._azimuth_rotation_matrix
 
     @property
     def tilt_rotation_matrix(self) -> list[list[float]]:
         """
-        The rotation matrix for an azimuthal rotation.
+        The rotation matrix for an azimuth rotation.
 
         Returns:
             - A `list` of `list`s representing the matrix.
@@ -126,7 +143,9 @@ class Curve(ABC):
 
         return self._tilt_rotation_matrix
 
-    def _get_rotated_angles_from_surface_normal(self, un_rotated_normal: list[float]) -> tuple[float, float]:
+    def _get_rotated_angles_from_surface_normal(
+        self, un_rotated_normal: list[float]
+    ) -> tuple[float, float]:
         """
         Rotate the normal vector based on the orientation of the curve/Polytunnel.
 
@@ -136,26 +155,58 @@ class Curve(ABC):
 
         Outputs:
             - A `tuple` containing information about the new rotated normal vector:
-                - The azimuthal angle, in degrees,
+                - The azimuth angle, in degrees,
                 - THe tilt angle, in degrees.
 
         """
 
         # Rotate this normal vector based on the tilt and azimuth of the polytunnel.
         rotated_normal = matmul(
-            self.azimuthal_rotation_matrix,
+            self.azimuth_rotation_matrix,
             matmul(self.tilt_rotation_matrix, un_rotated_normal),
         )
 
         # Compute the new azimuth and tilt angles based on these rotations.
         # The tilt angle is simply the z component of the vector.
-        tilt_angle = acos(rotated_normal[2])
+        tilt_angle = round(acos(rotated_normal[2]), FLOATING_POINT_PRECISION)
 
         # The azimuth angle is then pi plus the y component of the vector.
-        azimuth_angle = pi + acos(rotated_normal[1] / sin(tilt_angle))
+        # Use the y-component of the vector if greater, otherwise the x component
+        if abs(rotated_normal[1]) > abs(rotated_normal[0]):
+            azimuth_angle = (
+                pi
+                + acos(
+                    round(
+                        rotated_normal[1] / sin(tilt_angle),
+                        FLOATING_POINT_PRECISION,
+                    )
+                )
+            ) % (2 * pi)
+        else:
+            azimuth_angle = (
+                pi
+                + asin(
+                    round(
+                        rotated_normal[0] / sin(tilt_angle),
+                        FLOATING_POINT_PRECISION,
+                    )
+                )
+            ) % (2 * pi)
+
+        # Check that the tilt is not out-of-bounds
+        if tilt_angle > pi / 2:
+            raise UndergroundCellError(
+                f"A cell in the module has a tilt angle of {tilt_angle} radians, which "
+                "is underground."
+            )
+
+        # Check that the azimuth angle is not `nan` and set it to South if so.
+        if isnan(azimuth_angle):
+            azimuth_angle = pi
 
         # Return these angles in degrees
         return degrees(azimuth_angle), degrees(tilt_angle)
+
 
 @dataclass(kw_only=True)
 class CircularCurve(Curve):
@@ -193,6 +244,11 @@ class CircularCurve(Curve):
 
         return self._get_rotated_angles_from_surface_normal(un_rotated_normal)
 
+
+# Type variable for CurvedPVModule and children.
+CPVM = TypeVar("CPVM", bound="CurvedPVModule")
+
+
 @dataclass
 class CurvedPVModule:
     """
@@ -201,10 +257,124 @@ class CurvedPVModule:
     Attributes:
         - pv_cells:
             A `list` containing all the PV cells contained within the module.
+        - offset_angle:
+            The angle between the length of the PV module and the axis of the
+            polytunnel.
 
     """
 
     pv_cells: list[PVCell]
+    offset_angle: float = 0
+
+    def __post_init__(self) -> None:
+        """
+        Run post initialisation of the class constructor.
+
+        Actions:
+            - Check that the offset angle is within the allowed set of angles.
+              NOTE: this will involve magic floats.
+
+        """
+
+        self._check_offset_angle_allowed()
+
+    def _check_offset_angle_allowed(self) -> None:
+        """
+        Check that the offset angle is allowed.
+
+        Raises:
+            - ImplementationErorr:
+                Raised if the offset angle implementation chosen is not allowed.
+
+        """
+
+        if self.offset_angle not in (allowed_offset_angles := [0.0, 90.0]):
+            raise ImplementationError(
+                f"The offset angle of {self.offset_angle} degrees for the curved PV "
+                "module is not allowed. Allowed values are "
+                f"{', '.join(map(str, allowed_offset_angles))} degrees."
+            )
+
+    @classmethod
+    def thin_film_from_cell_number_and_dimensions(
+        cls: Type[CPVM],
+        cell_breakdown_voltage: float,
+        cell_length: float,
+        cell_spacing: float,
+        cell_width: float,
+        n_cells: int,
+        *,
+        offset_angle: float,
+        polytunnel_curve: Curve,
+        module_centre_offset: float = 0,
+    ) -> CPVM:
+        """
+        Instantiate a thin-film module based on the number of cells and dimensions.
+
+        A thin-film module consists of a series of cells in a row:
+
+            + | cell | cell | cell | cell | cell | cell | cell | cell | cell | -
+
+        where each cell is a single strip.
+
+        The cell dimensions and the number of cells determines the overall dimension of
+        the module. The offset angle is the angle between the axis of the polytunnel and
+        the **length** of the module. In this way, setting an offset angle of zero means
+        that the cells are aligned along the axis of the polytunnel, whilst an offset
+        angle of 90 (degrees) means that the cells are aligned perpendicular to the axis
+        of the polytunnel.
+
+        Inputs:
+            - cell_breakdown_voltage:
+                The breakdown voltage of the PV cells, in Volts.
+            - cell_length:
+                The length of the cells, _i.e._, the dimension parallel to the module
+                length, given in meters.
+            - cell_spacing:
+                The space betweeh the cells, given in meters.
+            - cell_width:
+                The width of the cells, _i.e._, the dimension perpendicular to the
+                module length, given in meters.
+            - n_cells:
+                The number of cells in the module.
+            - offest_angle:
+                The angle between the length of the module and the axis of the
+                polytunnel.
+            - polytunnel_curve:
+                The curve defining the polytunnel.
+            - module_centre_offset:
+                The offset of the centre of the module from the centre of the curve, in
+                meters.
+
+        Returns:
+            The instantiated `CurvedPVModule` instance.
+
+        """
+
+        def _cell_from_index(cell_index: int) -> PVCell:
+            """Construct a PV cell based on its index in the module."""
+            # Compute the cell displacement based on its index and the module offset.
+            cell_displacement = module_start_displacement + (
+                (cell_index + 0.5) * cell_length + cell_index * cell_spacing
+            ) * sin(radians(offset_angle))
+
+            # Construct and return a PV cell.
+            cell_azimuth, cell_tilt = (
+                polytunnel_curve.get_angles_from_surface_displacement(cell_displacement)
+            )
+            return PVCell(
+                cell_azimuth, cell_length, cell_tilt, cell_width, cell_breakdown_voltage
+            )
+
+        # Determine the position of the start of the module.
+        module_length = n_cells * cell_length + (n_cells - 1) * cell_spacing
+        module_start_displacement = module_centre_offset - (module_length / 2) * sin(
+            radians(offset_angle)
+        )
+
+        pv_cells = list(map(_cell_from_index, range(0, n_cells)))
+
+        return cls(pv_cells, offset_angle)
 
 
 # import numpy as np
@@ -1007,7 +1177,7 @@ class CurvedPVModule:
 # #     mod.MPP_barchart(solar_zen=i*10, solar_azi=90)
 
 
-# """ importing the api (irradiances and temp) and the position of the Sun at a given 
+# """ importing the api (irradiances and temp) and the position of the Sun at a given
 # time to get the MPPs of the different cells to create a cat (points) and strip plot"""
 
 
