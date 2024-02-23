@@ -70,7 +70,7 @@ class PVCell:
     #     "breakdown_exp": 3,
     #     "breakdown_voltage": self._breakdown_voltage,
     # }
-        # self._c_params = c_params
+    # self._c_params = c_params
 
     def __eq__(self, other) -> bool:
         """
@@ -143,9 +143,9 @@ def get_irradiance(
 ) -> float:
     """
     Compute the irradiance falling on an individual solar cell.
-    
+
     Inputs:
-        - pv_cell:  
+        - pv_cell:
             The cell to calculate these values for.
         - diffuse_horizontal_irradiance:
             The diffuse horizontal irradiance in W/m^2.
@@ -158,7 +158,7 @@ def get_irradiance(
         - direct_normal_irradiance:
             If provided, the direct normal irradiance in W/m^2. If not, this is
             calculated using the solar zenith angle.
-    
+
     """
 
     # If it's nighttime, _i.e._, the sun is below the horizon or the global irradiance
@@ -168,7 +168,9 @@ def get_irradiance(
 
     # Determine the DNI from the GHI and DHI.
     if direct_normal_irradiance is None:
-        direct_normal_irradiance = (global_horizontal_irradiance - diffuse_horizontal_irradiance) / cos(radians(solar_zenith))
+        direct_normal_irradiance = (
+            global_horizontal_irradiance - diffuse_horizontal_irradiance
+        ) / cos(radians(solar_zenith))
 
     # Call to PVlib to calculate the total irradiance incident on the surface.
     total_irradiance = pvlib_get_total_irradiance(

@@ -22,11 +22,12 @@ from numpy import matmul
 
 from .pv_cell import PVCell
 
+
 @dataclass
 class Curve(ABC):
     """
     Represents a curve around which the PV module curves.
-    
+
     A curved surface, _e.g._, a polytunnel, has a given axis around which it curves (in
     the case of a polytunnel, this is its length) an equation for its curve (which may
     be a simple circle or a more complex shape like a parabola or hyperbola) and a
@@ -41,7 +42,7 @@ class Curve(ABC):
         - get_angles_from_surface_disaplacement:
             A callable function which can return the azimuth and tilt at any point on
             the surface based on the distance from the central axis.
-            
+
     """
 
     curvature_axis_azimuth: float = 0
@@ -50,7 +51,9 @@ class Curve(ABC):
     _tilt_rotation_matrix: list[list[float]] | None = None
 
     @abstractmethod
-    def get_angles_from_surface_displacement(self, displacement: float) -> tuple[float, float]:
+    def get_angles_from_surface_displacement(
+        self, displacement: float
+    ) -> tuple[float, float]:
         """
         Abstract method that must be implemented in subclasses.
         Calculate the azimuth and zenith angles at a point along the curve.
@@ -73,20 +76,22 @@ class Curve(ABC):
 
         Returns:
             - A `list` of `list`s representing the matrix.
-        
+
         """
 
         if self._azimuthal_rotation_matrix is None:
             self._azimuthal_rotation_matrix = [
                 [
-                    cos(radians(self.curvature_axis_azimuth)), -sin(radians(self.curvature_axis_azimuth)), 0
+                    cos(radians(self.curvature_axis_azimuth)),
+                    -sin(radians(self.curvature_axis_azimuth)),
+                    0,
                 ],
                 [
-                    sin(radians(self.curvature_axis_azimuth)), cos(radians(self.curvature_axis_azimuth)), 0
+                    sin(radians(self.curvature_axis_azimuth)),
+                    cos(radians(self.curvature_axis_azimuth)),
+                    0,
                 ],
-                [
-                    0, 0, 1
-                ],
+                [0, 0, 1],
             ]
 
         return self._azimuthal_rotation_matrix
@@ -98,28 +103,31 @@ class Curve(ABC):
 
         Returns:
             - A `list` of `list`s representing the matrix.
-        
+
         """
 
         if self._tilt_rotation_matrix is None:
             self._tilt_rotation_matrix = [
+                [1, 0, 0],
                 [
-                    1, 0, 0
+                    0,
+                    cos(radians(self.curvature_axis_tilt)),
+                    -sin(radians(self.curvature_axis_tilt)),
                 ],
                 [
-                    0, cos(radians(self.curvature_axis_tilt)), -sin(radians(self.curvature_axis_tilt))
-                ],
-                [
-                    0, sin(radians(self.curvature_axis_tilt)), cos(radians(self.curvature_axis_tilt))
+                    0,
+                    sin(radians(self.curvature_axis_tilt)),
+                    cos(radians(self.curvature_axis_tilt)),
                 ],
             ]
 
         return self._tilt_rotation_matrix
 
+
 class CircularCurve(Curve):
     """
     Represents a circular geometry. In this instance, a radius of curvature is required.
-    
+
     Attributes:
         - radius_of_curvature:
             Represents the radius of curvature.
@@ -128,7 +136,9 @@ class CircularCurve(Curve):
 
     radius_of_curvature: float
 
-    def get_angles_from_surface_displacement(self, displacement: float) -> tuple[float, float]:
+    def get_angles_from_surface_displacement(
+        self, displacement: float
+    ) -> tuple[float, float]:
         """
         Calculate the azimuth and zenith angles at a point along the curve.
 
@@ -148,24 +158,27 @@ class CircularCurve(Curve):
         un_rotated_normal: list[float] = [sin(zenith_angle), 0, cos(zenith_angle)]
 
         # Rotate this normal vector based on the tilt and azimuth of the polytunnel.
-        rotated_normal = matmul(self.azimuthal_rotation_matrix, matmul(self.tilt_rotation_matrix, un_rotated_normal))
+        rotated_normal = matmul(
+            self.azimuthal_rotation_matrix,
+            matmul(self.tilt_rotation_matrix, un_rotated_normal),
+        )
 
         # Compute the new tilt and zenith angles based on these rotations.
         # TODO
+
 
 @dataclass
 class CurvedPVModule:
     """
     A curved PV module containing multiple solar cells.
-    
+
     Attributes:
         - pv_cells:
             A `list` containing all the PV cells contained within the module.
-    
+
     """
 
     pv_cells: list[PVCell]
-
 
 
 # import numpy as np
@@ -188,9 +201,10 @@ class CurvedPVModule:
 # api_frame["irradiance_diffuse"] = 1000 * api_frame["irradiance_diffuse"]
 
 # """
-# all functions below (above the SolarCell class) have been imported from 
+# all functions below (above the SolarCell class) have been imported from
 # the 'Calculating power loss from partial module shading' page in pvlib
 # """
+
 
 def second_largest(list):
     list.sort()
