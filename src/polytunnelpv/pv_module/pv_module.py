@@ -353,6 +353,7 @@ class CurvedPVModule:
 
         def _cell_from_index(cell_index: int) -> PVCell:
             """Construct a PV cell based on its index in the module."""
+
             # Compute the cell displacement based on its index and the module offset.
             cell_displacement = module_start_displacement + (
                 (cell_index + 0.5) * cell_length + cell_index * cell_spacing
