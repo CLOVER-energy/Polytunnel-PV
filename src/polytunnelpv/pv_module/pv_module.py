@@ -409,7 +409,12 @@ class CurvedPVModule:
                 polytunnel_curve.get_angles_from_surface_displacement(cell_displacement)
             )
             return PVCell(
-                cell_azimuth, cell_length, cell_tilt, cell_width, cell_breakdown_voltage
+                cell_azimuth,
+                cell_length,
+                cell_tilt,
+                cell_width,
+                cell_breakdown_voltage,
+                _cell_id=cell_index,
             )
 
         # Determine the position of the start of the module.
