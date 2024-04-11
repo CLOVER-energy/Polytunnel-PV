@@ -40,6 +40,10 @@ FILE_ENCODING: str = "UTF-8"
 #   The name of the input-data directory.
 INPUT_DATA_DIRECTORY: str = "input_data"
 
+# LOCATIONS_FILENAME:
+#   The filename for the locations file.
+LOCATIONS_FILENAME: str = "locations.yaml"
+
 # POLYTUNNELS_FILENAME:
 #   The name of the polytunnels file.
 POLYTUNNELS_FILENAME: str = "polytunnels.yaml"
@@ -51,6 +55,22 @@ PV_MODULES_FILENAME: str = "pv_modules.yaml"
 # TYPE:
 #   Keyword used to determine the module type of the PV.
 TYPE: str = "type"
+
+
+def _parse_locations() -> list[pvlib.location.Location]:
+    """Parses the locations based on the input file."""
+
+    with open(
+        os.path.join(INPUT_DATA_DIRECTORY, LOCATIONS_FILENAME),
+        "r",
+        encoding=FILE_ENCODING,
+    ) as f:
+        locations_data = yaml.safe_load(f)
+
+    try:
+        return [pvlib.location.Location(**entry) for entry in locations_data]
+    except KeyError:
+        raise KeyError("Not all location information present in locations file.")
 
 
 def _parse_polytunnel_curves() -> list[Curve]:
@@ -109,6 +129,7 @@ def main(unparsed_arguments) -> None:
 
     """
 
+    locations = _parse_locations()
     polytunnels = _parse_polytunnel_curves()
 
     import pdb
