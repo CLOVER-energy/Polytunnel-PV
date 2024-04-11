@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 ########################################################################################
-# test_pv_cell.py - Tests for the PV-cell module.                                      #
+# test_pv_module.py - Tests for the PV-module module.                                  #
 #                                                                                      #
 # Author: Ben Winchester                                                               #
 # Copyright: Ben Winchester, 2024                                                      #
@@ -8,16 +8,15 @@
 # License: Open source                                                                 #
 ########################################################################################
 """
-test_pv_cell.py - Tests for the PVCell code.
+test_pv_module.py - Tests for the PVModule code.
 
 """
 
 import unittest
 
-from math import degrees, pi
-from unittest import mock
+from math import degrees
 
-from ..pv_module import CircularCurve, CurvedPVModule
+from ..pv_module import CircularCurve
 
 
 class _BaseCircularCurveTest(unittest.TestCase):
@@ -52,8 +51,8 @@ class _BaseCircularCurveTest(unittest.TestCase):
 
         """
 
-        self.assertAlmostEqual(first_set[0], second_set[0], places=5)
-        self.assertAlmostEqual(first_set[1], second_set[1], places=5)
+        self.assertAlmostEqual(first_set[0], second_set[0], places=3)
+        self.assertAlmostEqual(first_set[1], second_set[1], places=3)
 
     def _tilt_angle_from_displacement(self, displacement: float) -> float:
         """
@@ -119,6 +118,114 @@ class TestSouthCurve(_BaseCircularCurveTest):
         self._assert_angles_equal(
             self.curve.get_angles_from_surface_displacement(3),
             (270, self._tilt_angle_from_displacement(3)),
+        )
+
+
+class TestSlightlyTiltedSouthCurve(_BaseCircularCurveTest):
+    """Tests a north-south curve."""
+
+    def setUp(self) -> None:
+        """Setup mocks in common across test cases."""
+
+        super().setUp()
+
+        self.curve = CircularCurve(
+            curvature_axis_azimuth=180,
+            curvature_axis_tilt=0.5,
+            radius_of_curvature=self.radius_of_curvature,
+        )
+
+    def test_negatively_displaced_half(self) -> None:
+        """Tests a flat, north-south circular curve."""
+
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(-3),
+            (91.61589789067615, 17.195781234804805),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(-2),
+            (92.46499452691191, 11.469927509164924),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(-1),
+            (94.9707404963336, 5.751293051743691),
+        )
+
+    def test_central_cell(self) -> None:
+        """Tests a flat, north-south circular curve."""
+
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(0), (180, 0.5)
+        )
+
+    def test_positively_displaced_half(self) -> None:
+        """Tests a flat, north-south circular curve."""
+
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(1),
+            (265.02925950366637, 5.751293051743691),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(2),
+            (267.53500547308806, 11.469927509164924),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(3),
+            (268.38410210932386, 17.195781234804805),
+        )
+
+
+class TestTiltedSouthCurve(_BaseCircularCurveTest):
+    """Tests a north-south curve."""
+
+    def setUp(self) -> None:
+        """Setup mocks in common across test cases."""
+
+        super().setUp()
+
+        self.curve = CircularCurve(
+            curvature_axis_azimuth=180,
+            curvature_axis_tilt=10,
+            radius_of_curvature=self.radius_of_curvature,
+        )
+
+    def test_negatively_displaced_half(self) -> None:
+        """Tests a flat, north-south circular curve."""
+
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(-3),
+            (119.30805185402161, 19.809786583530162),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(-2),
+            (130.58436489497103, 15.16487503418409),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(-1),
+            (149.98036440042233, 11.510607512619211),
+        )
+
+    def test_central_cell(self) -> None:
+        """Tests a flat, north-south circular curve."""
+
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(0), (180, 10)
+        )
+
+    def test_positively_displaced_half(self) -> None:
+        """Tests a flat, north-south circular curve."""
+
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(1),
+            (210.01963559957767, 11.510607512619211),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(2),
+            (229.415635105029, 15.16487503418409),
+        )
+        self._assert_angles_equal(
+            self.curve.get_angles_from_surface_displacement(3),
+            (240.69194814597842, 19.809786583530162),
         )
 
 

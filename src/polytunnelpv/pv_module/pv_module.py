@@ -15,6 +15,7 @@ This module provides functionality for the modelling of the PV module.
 
 """
 
+import enum
 import warnings
 
 from abc import ABC, abstractmethod
@@ -131,6 +132,18 @@ class _Curve(ABC):
         return self._azimuth_rotation_matrix
 
     @property
+    def tilt_rotation_angle(self) -> float:
+        """
+        The rotation angle for the zenith rotation needs to be adjusted also.
+
+        Rotations about the x axis result in a tilting in a southerly rather than a
+        northerly direction. This is adjusted for here.
+
+        """
+
+        return -self.curvature_axis_tilt
+
+    @property
     def tilt_rotation_matrix(self) -> list[list[float]]:
         """
         The rotation matrix for an azimuth rotation.
@@ -145,13 +158,13 @@ class _Curve(ABC):
                 [1, 0, 0],
                 [
                     0,
-                    cos(radians(self.curvature_axis_tilt)),
-                    -sin(radians(self.curvature_axis_tilt)),
+                    cos(radians(self.tilt_rotation_angle)),
+                    -sin(radians(self.tilt_rotation_angle)),
                 ],
                 [
                     0,
-                    sin(radians(self.curvature_axis_tilt)),
-                    cos(radians(self.curvature_axis_tilt)),
+                    sin(radians(self.tilt_rotation_angle)),
+                    cos(radians(self.tilt_rotation_angle)),
                 ],
             ]
 
@@ -254,6 +267,10 @@ class CircularCurve(_Curve):
         # Compute the zenith angle in radians based on the distance from the axis.
         zenith_angle: float = displacement / self.radius_of_curvature
 
+        # Don't both calculating if the displacement is zero
+        if displacement == 0:
+            return (180, self.curvature_axis_tilt)
+
         # Compute the components of a unit normal vector with this zenith angle.
         un_rotated_normal: list[float] = [sin(zenith_angle), 0, cos(zenith_angle)]
 
@@ -262,6 +279,18 @@ class CircularCurve(_Curve):
 
 # Type variable for CurvedPVModule and children.
 CPVM = TypeVar("CPVM", bound="CurvedPVModule")
+
+
+class ModuleType(enum.Enum):
+    """
+    Denotes the type of the module.
+
+    - THIN_FILM:
+        Used to distinguish thin-film modules.
+
+    """
+
+    THIN_FILM: str = "thin_film"
 
 
 @dataclass
@@ -279,6 +308,7 @@ class CurvedPVModule:
     """
 
     pv_cells: list[PVCell]
+    module_type: ModuleType
     offset_angle: float = 0
 
     def __post_init__(self) -> None:
@@ -390,7 +420,7 @@ class CurvedPVModule:
 
         pv_cells = list(map(_cell_from_index, range(0, n_cells)))
 
-        return cls(pv_cells, offset_angle)
+        return cls(pv_cells, ModuleType.THIN_FILM, offset_angle)
 
 
 # import numpy as np
