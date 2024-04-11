@@ -17,7 +17,7 @@ curved PV module.
 
 from dataclasses import dataclass
 from math import cos, radians
-from pvlib.irradiance import get_total_irradiance as pvlib_get_total_irradiance
+from pvlib.irradiance import get_total_irradiance as get_total_irradiance
 
 __all__ = ("get_irradiance", "PVCell")
 
@@ -57,6 +57,7 @@ class PVCell:
     breakdown_voltage: float
     reference_temperature: float = 25
     _azimuth_in_radians: float | None = None
+    _cell_id: float | int | None = None
     _tilt_in_radians: float | None = None
 
     # c_params = {
@@ -74,24 +75,34 @@ class PVCell:
 
     def __eq__(self, other) -> bool:
         """
-        Two cells are equal if they occupy the same position, and, hence, the same tilt.
+        Two cells are equal if they occupy the same space, i.e., are oriented the same.
 
         """
 
-        return self.tilt == other.tilt
+        return (self.tilt == other.tilt) and (self.azimuth == other.azimuth)
 
     def __repr__(self) -> str:
         """The default representation of the cell."""
 
         return self.__str__()
 
+    @property
+    def cell_id(self) -> float | int:
+        """A unique ID for the cell, based on the orientation if not provided."""
+
+        if self._cell_id is None:
+            self._cell_id = self.tilt
+
+        return self._cell_id
+
     def __lt__(self, other) -> bool:
         """
-        The tilt can be used to determine the cell's unique identiy and sort cells.
+        The tilt, combined with the azimuth, can be used to determine the cell's unique
+        identiy and sort cells.
 
         """
 
-        return self.tilt < other.tilt
+        return self.cell_id < other.cell_id
 
     def __str__(self):
         """
@@ -173,7 +184,7 @@ def get_irradiance(
         ) / cos(radians(solar_zenith))
 
     # Call to PVlib to calculate the total irradiance incident on the surface.
-    total_irradiance = pvlib_get_total_irradiance(
+    total_irradiance = get_total_irradiance(
         pv_cell.tilt,
         pv_cell.azimuth,
         solar_zenith,

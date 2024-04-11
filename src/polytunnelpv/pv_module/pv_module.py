@@ -15,6 +15,8 @@ This module provides functionality for the modelling of the PV module.
 
 """
 
+import warnings
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from math import acos, asin, cos, degrees, isnan, radians, pi, sin
@@ -24,7 +26,7 @@ from typing import TypeVar, Type
 
 from .pv_cell import PVCell
 
-__all__ = ("CircularCurve", "Curve", "CurvedPVModule")
+__all__ = ("CircularCurve", "CurvedPVModule")
 
 # Floating point precision:
 #   The floating-point precision of the numbers to use when doing rotations.
@@ -44,7 +46,7 @@ class UndergroundCellError(Exception):
 
 
 @dataclass(kw_only=True)
-class Curve(ABC):
+class _Curve(ABC):
     """
     Represents a curve around which the PV module curves.
 
@@ -65,7 +67,7 @@ class Curve(ABC):
 
     """
 
-    curvature_axis_azimuth: float = 0
+    curvature_axis_azimuth: float = 180
     curvature_axis_tilt: float = 0
     _azimuth_rotation_matrix: list[list[float]] | None = None
     _tilt_rotation_matrix: list[list[float]] | None = None
@@ -90,6 +92,18 @@ class Curve(ABC):
         raise NotImplementedError("This method must be implemented in subclasses")
 
     @property
+    def zenith_rotation_angle(self) -> float:
+        """
+        The rotation about the zenith is not the azimuth this is calculated here.
+
+        A user-specified azimuth angle gives and angle from North (y=0) which is the
+        opposite to a rotation carried out.
+
+        """
+
+        return -self.curvature_axis_azimuth
+
+    @property
     def azimuth_rotation_matrix(self) -> list[list[float]]:
         """
         The rotation matrix for an azimuth rotation.
@@ -102,13 +116,13 @@ class Curve(ABC):
         if self._azimuth_rotation_matrix is None:
             self._azimuth_rotation_matrix = [
                 [
-                    cos(radians(self.curvature_axis_azimuth)),
-                    -sin(radians(self.curvature_axis_azimuth)),
+                    cos(radians(self.zenith_rotation_angle)),
+                    -sin(radians(self.zenith_rotation_angle)),
                     0,
                 ],
                 [
-                    sin(radians(self.curvature_axis_azimuth)),
-                    cos(radians(self.curvature_axis_azimuth)),
+                    sin(radians(self.zenith_rotation_angle)),
+                    cos(radians(self.zenith_rotation_angle)),
                     0,
                 ],
                 [0, 0, 1],
@@ -172,26 +186,45 @@ class Curve(ABC):
 
         # The azimuth angle is then pi plus the y component of the vector.
         # Use the y-component of the vector if greater, otherwise the x component
-        if abs(rotated_normal[1]) > abs(rotated_normal[0]):
-            azimuth_angle = (
-                pi
-                + acos(
-                    round(
-                        rotated_normal[1] / sin(tilt_angle),
-                        FLOATING_POINT_PRECISION,
+        # if rotated_normal[1] > rotated_normal[0] and not (
+        #     rotated_normal[1] < 0 and rotated_normal[0] < 0
+        # ):
+        # import pdb
+
+        # pdb.set_trace()
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error")
+            try:
+                x_y_plane_component = sin(tilt_angle)
+            except (RuntimeError, RuntimeWarning, ZeroDivisionError):
+                azimuth_angle = pi
+            else:
+                if round(rotated_normal[1], 6) == 0:
+                    azimuth_angle = (
+                        pi
+                        if rotated_normal[0] == 0
+                        else pi / 2 if (rotated_normal[0] > 0) else -pi / 2
                     )
-                )
-            ) % (2 * pi)
-        else:
-            azimuth_angle = (
-                pi
-                + asin(
-                    round(
-                        rotated_normal[0] / sin(tilt_angle),
-                        FLOATING_POINT_PRECISION,
+                else:
+                    arccos_angle = acos(
+                        round(
+                            rotated_normal[1] / x_y_plane_component,
+                            FLOATING_POINT_PRECISION,
+                        )
                     )
-                )
-            ) % (2 * pi)
+                    azimuth_angle = (
+                        2 * pi - arccos_angle if rotated_normal[0] < 0 else arccos_angle
+                    )
+        # else:
+        #     azimuth_angle = (
+        #         pi
+        #         + asin(
+        #             round(
+        #                 rotated_normal[0] / sin(tilt_angle),
+        #                 FLOATING_POINT_PRECISION,
+        #             )
+        #         )
+        #     ) % (2 * pi)
 
         # Check that the tilt is not out-of-bounds
         if tilt_angle > pi / 2:
@@ -205,11 +238,11 @@ class Curve(ABC):
             azimuth_angle = pi
 
         # Return these angles in degrees
-        return degrees(azimuth_angle), degrees(tilt_angle)
+        return degrees(azimuth_angle) % 360, degrees(tilt_angle)
 
 
 @dataclass(kw_only=True)
-class CircularCurve(Curve):
+class CircularCurve(_Curve):
     """
     Represents a circular geometry. In this instance, a radius of curvature is required.
 
@@ -305,7 +338,7 @@ class CurvedPVModule:
         n_cells: int,
         *,
         offset_angle: float,
-        polytunnel_curve: Curve,
+        polytunnel_curve: _Curve,
         module_centre_offset: float = 0,
     ) -> CPVM:
         """
