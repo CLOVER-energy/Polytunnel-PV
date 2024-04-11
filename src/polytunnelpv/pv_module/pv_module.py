@@ -19,15 +19,21 @@ import enum
 import warnings
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import acos, asin, cos, degrees, isnan, radians, pi, sin
 from multiprocessing import Pool
 from numpy import matmul
-from typing import TypeVar, Type
+from typing import Callable, TypeVar, Type
 
 from .pv_cell import PVCell
 
-__all__ = ("CircularCurve", "CurvedPVModule")
+__all__ = (
+    "CircularCurve",
+    "CurvedPVModule",
+    "CurveType",
+    "ModuleType",
+    "TYPE_TO_CURVE_MAPPING",
+)
 
 # Floating point precision:
 #   The floating-point precision of the numbers to use when doing rotations.
@@ -46,8 +52,28 @@ class UndergroundCellError(Exception):
     """Raised when a PV cell is underground."""
 
 
+class CurveType(enum.Enum):
+    """
+    Denotes the type of curve. Useful in constructing curves.
+
+    - CIRCULAR:
+        Denotes a circular geometry.
+
+    """
+
+    CIRCULAR: str = "circular"
+
+
+# Type variable for Curve and children.
+_C = TypeVar("_C", bound="Curve")
+
+# TYPE_TO_CURVE_MAPPING:
+#   Mapping between the curve type and curve instances.
+TYPE_TO_CURVE_MAPPING: dict[CurveType:_C] = {}
+
+
 @dataclass(kw_only=True)
-class _Curve(ABC):
+class Curve(ABC):
     """
     Represents a curve around which the PV module curves.
 
@@ -70,8 +96,24 @@ class _Curve(ABC):
 
     curvature_axis_azimuth: float = 180
     curvature_axis_tilt: float = 0
+    name: str | None = None
     _azimuth_rotation_matrix: list[list[float]] | None = None
     _tilt_rotation_matrix: list[list[float]] | None = None
+
+    def __init_subclass__(cls, curve_type: CurveType) -> None:
+        """
+        Hook used to store the type of the curve.
+
+        Inputs:
+            - curve_type:
+                The type of the curve.
+
+        """
+
+        cls.curve_type = curve_type
+        TYPE_TO_CURVE_MAPPING[curve_type] = cls
+
+        super().__init_subclass__()
 
     @abstractmethod
     def get_angles_from_surface_displacement(
@@ -237,7 +279,7 @@ class _Curve(ABC):
 
 
 @dataclass(kw_only=True)
-class CircularCurve(_Curve):
+class CircularCurve(Curve, curve_type=CurveType.CIRCULAR):
     """
     Represents a circular geometry. In this instance, a radius of curvature is required.
 
@@ -309,6 +351,7 @@ class CurvedPVModule:
 
     pv_cells: list[PVCell]
     module_type: ModuleType
+    name: str | None = None
     offset_angle: float = 0
 
     def __post_init__(self) -> None:
@@ -350,8 +393,9 @@ class CurvedPVModule:
         n_cells: int,
         *,
         offset_angle: float,
-        polytunnel_curve: _Curve,
+        polytunnel_curve: Curve,
         module_centre_offset: float = 0,
+        name: str | None = None,
     ) -> CPVM:
         """
         Instantiate a thin-film module based on the number of cells and dimensions.
@@ -425,7 +469,22 @@ class CurvedPVModule:
 
         pv_cells = list(map(_cell_from_index, range(0, n_cells)))
 
-        return cls(pv_cells, ModuleType.THIN_FILM, offset_angle)
+        return cls(pv_cells, ModuleType.THIN_FILM, name, offset_angle)
+
+    @classmethod
+    def constructor_from_module_type(cls, module_type: ModuleType) -> Callable:
+        """
+        Return the proper constructor based on the module type.
+
+        Inputs:
+            - module_type:
+                The type of the PV module to use in the constructor.
+
+        """
+
+        return {ModuleType.THIN_FILM: cls.thin_film_from_cell_number_and_dimensions}[
+            module_type
+        ]
 
 
 # import numpy as np
