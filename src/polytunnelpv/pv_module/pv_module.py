@@ -184,14 +184,6 @@ class _Curve(ABC):
         # The tilt angle is simply the z component of the vector.
         tilt_angle = round(acos(rotated_normal[2]), FLOATING_POINT_PRECISION)
 
-        # The azimuth angle is then pi plus the y component of the vector.
-        # Use the y-component of the vector if greater, otherwise the x component
-        # if rotated_normal[1] > rotated_normal[0] and not (
-        #     rotated_normal[1] < 0 and rotated_normal[0] < 0
-        # ):
-        # import pdb
-
-        # pdb.set_trace()
         with warnings.catch_warnings():
             warnings.filterwarnings("error")
             try:
@@ -215,16 +207,6 @@ class _Curve(ABC):
                     azimuth_angle = (
                         2 * pi - arccos_angle if rotated_normal[0] < 0 else arccos_angle
                     )
-        # else:
-        #     azimuth_angle = (
-        #         pi
-        #         + asin(
-        #             round(
-        #                 rotated_normal[0] / sin(tilt_angle),
-        #                 FLOATING_POINT_PRECISION,
-        #             )
-        #         )
-        #     ) % (2 * pi)
 
         # Check that the tilt is not out-of-bounds
         if tilt_angle > pi / 2:
