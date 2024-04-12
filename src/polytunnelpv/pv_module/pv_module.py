@@ -354,7 +354,7 @@ class CurvedPVModule:
 
     pv_cells: list[PVCell]
     module_type: ModuleType
-    name: str | None = None
+    name: str = ""
     offset_angle: float = 0
 
     def __post_init__(self) -> None:
@@ -368,6 +368,17 @@ class CurvedPVModule:
         """
 
         self._check_offset_angle_allowed()
+
+    def __repr__(self) -> str:
+        """The default representation of the module."""
+
+        return (
+            f"CurvedPVModule(name={self.name}, module_type={self.module_type.value}, "
+            f"offset_angle={self.offset_angle:.3g}, "
+            "pv_cells:\n\t{pv_cells}\n)".format(
+                pv_cells="\n\t".join([str(cell) for cell in self.pv_cells])
+            )
+        )
 
     def _check_offset_angle_allowed(self) -> None:
         """
@@ -398,7 +409,7 @@ class CurvedPVModule:
         offset_angle: float,
         polytunnel_curve: Curve,
         module_centre_offset: float = 0,
-        name: str | None = None,
+        name: str = "",
     ) -> CPVM:
         """
         Instantiate a thin-film module based on the number of cells and dimensions.

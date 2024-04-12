@@ -24,13 +24,13 @@ import sys
 import yaml
 
 from .pv_module.pv_module import (
-    CircularCurve,
     Curve,
     CurveType,
     CurvedPVModule,
     ModuleType,
     TYPE_TO_CURVE_MAPPING,
 )
+from .scenario import Scenario
 
 # FILE_ENCODING:
 #   The encoding to use when opening and closing files.
@@ -56,6 +56,10 @@ POLYTUNNELS_FILENAME: str = "polytunnels.yaml"
 # PV_MODULES_FILENAME:
 #   The name of the PV-modules file.
 PV_MODULES_FILENAME: str = "pv_modules.yaml"
+
+# SCENARIOS_FILENAME:
+#   The name of the scenarios file.
+SCENARIOS_FILENAME: str = "scenarios.yaml"
 
 # TYPE:
 #   Keyword used to determine the module type of the PV.
@@ -140,6 +144,37 @@ def _parse_pv_modules(polytunnels: dict[str, Curve]) -> list[CurvedPVModule]:
     return [_construct_pv_module(pv_module_entry) for pv_module_entry in pv_module_data]
 
 
+def _parse_scenarios(
+    locations: dict[str, pvlib.location.Location], pv_modules: dict[str, CurvedPVModule]
+) -> list[Scenario]:
+    """
+    Parse the scenario information.
+
+    Inputs:
+        - locations:
+            The `list` of locations to use.
+        - pv_modules:
+            The `list` of PVModules that can be installed at each location.
+
+    Outputs:
+        - scenarios:
+            The `list` of scenarios to run.
+
+    """
+
+    with open(
+        os.path.join(INPUT_DATA_DIRECTORY, SCENARIOS_FILENAME),
+        "r",
+        encoding=FILE_ENCODING,
+    ) as f:
+        scenarios_data = yaml.safe_load(f)
+
+    return [
+        Scenario.from_scenarios_file(entry, locations, pv_modules)
+        for entry in scenarios_data
+    ]
+
+
 def main(unparsed_arguments) -> None:
     """
     Main method for Polytunnel-PV.
@@ -150,6 +185,10 @@ def main(unparsed_arguments) -> None:
     polytunnels = _parse_polytunnel_curves()
     pv_modules = _parse_pv_modules(
         {polytunnel.name: polytunnel for polytunnel in polytunnels}
+    )
+    scenarios = _parse_scenarios(
+        {location.name: location for location in locations},
+        {module.name: module for module in pv_modules},
     )
 
     import pdb
