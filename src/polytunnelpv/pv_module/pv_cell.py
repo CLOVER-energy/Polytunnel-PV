@@ -97,6 +97,11 @@ class PVCell:
 
         return self._cell_id
 
+    def __hash__(self) -> int:
+        """Return a unique number based on the cell ID."""
+
+        return hash(self.cell_id)
+
     def __lt__(self, other) -> bool:
         """
         The tilt, combined with the azimuth, can be used to determine the cell's unique
@@ -176,7 +181,7 @@ def get_irradiance(
 
     # If it's nighttime, _i.e._, the sun is below the horizon or the global irradiance
     # is zero, then simply return zero.
-    if solar_zenith <= 0 or global_horizontal_irradiance <= 0:
+    if solar_zenith >= 90 or global_horizontal_irradiance <= 0:
         return 0
 
     # Determine the DNI from the GHI and DHI.
