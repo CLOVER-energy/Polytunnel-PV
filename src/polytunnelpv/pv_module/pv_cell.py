@@ -79,7 +79,9 @@ class PVCell:
 
         """
 
-        return (self.tilt == other.tilt) and (self.azimuth == other.azimuth)
+        return (self.tilt == float(other.tilt)) and (
+            self.azimuth == float(other.azimuth)
+        )
 
     def __repr__(self) -> str:
         """The default representation of the cell."""
@@ -102,9 +104,9 @@ class PVCell:
 
         """
 
-        return self.cell_id < other.cell_id
+        return self.cell_id < float(other.cell_id)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         A nice-looking string representation of the cell.
 
@@ -151,7 +153,7 @@ def get_irradiance(
     solar_azimuth: float,
     solar_zenith: float,
     direct_normal_irradiance: float | None = None,
-) -> float:
+) -> float | None:
     """
     Compute the irradiance falling on an individual solar cell.
 
@@ -195,7 +197,7 @@ def get_irradiance(
     )
 
     # Extract and return the global irradiance striking the surface.
-    return total_irradiance.get(POA_GLOBAL_KEY, None)
+    return total_irradiance.get(POA_GLOBAL_KEY, None)  # type: ignore [no-any-return]
 
 
 def get_iv_curve(self, show_axis=True):

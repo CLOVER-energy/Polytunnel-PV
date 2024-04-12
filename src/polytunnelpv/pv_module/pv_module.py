@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from math import acos, asin, cos, degrees, isnan, radians, pi, sin
 from multiprocessing import Pool
 from numpy import matmul
-from typing import Callable, TypeVar, Type
+from typing import Any, Callable, TypeVar, Type
 
 from .pv_cell import PVCell
 
@@ -65,11 +65,14 @@ class CurveType(enum.Enum):
 
 
 # Type variable for Curve and children.
-_C = TypeVar("_C", bound="Curve")
+_C = TypeVar(
+    "_C",
+    bound="Curve",
+)
 
 # TYPE_TO_CURVE_MAPPING:
 #   Mapping between the curve type and curve instances.
-TYPE_TO_CURVE_MAPPING: dict[CurveType:_C] = {}
+TYPE_TO_CURVE_MAPPING: dict[CurveType, _C] = {}
 
 
 @dataclass(kw_only=True)
@@ -96,7 +99,7 @@ class Curve(ABC):
 
     curvature_axis_azimuth: float = 180
     curvature_axis_tilt: float = 0
-    name: str | None = None
+    name: str = ""
     _azimuth_rotation_matrix: list[list[float]] | None = None
     _tilt_rotation_matrix: list[list[float]] | None = None
 
@@ -110,7 +113,7 @@ class Curve(ABC):
 
         """
 
-        cls.curve_type = curve_type
+        cls.curve_type = curve_type  # type: ignore [attr-defined]
         TYPE_TO_CURVE_MAPPING[curve_type] = cls
 
         super().__init_subclass__()
@@ -472,7 +475,9 @@ class CurvedPVModule:
         return cls(pv_cells, ModuleType.THIN_FILM, name, offset_angle)
 
     @classmethod
-    def constructor_from_module_type(cls, module_type: ModuleType) -> Callable:
+    def constructor_from_module_type(
+        cls, module_type: ModuleType
+    ) -> Callable[..., CPVM]:
         """
         Return the proper constructor based on the module type.
 
@@ -482,9 +487,9 @@ class CurvedPVModule:
 
         """
 
-        return {ModuleType.THIN_FILM: cls.thin_film_from_cell_number_and_dimensions}[
-            module_type
-        ]
+        return {  # type: ignore [return-value]
+            ModuleType.THIN_FILM: cls.thin_film_from_cell_number_and_dimensions
+        }[module_type]
 
 
 # import numpy as np
