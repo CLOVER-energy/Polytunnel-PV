@@ -18,16 +18,18 @@ entrypoint for executing the model.
 
 __version__ = "1.0.0a1"
 
-import functools
 import os
 import pvlib
 import re
+import seaborn as sns
 import sys
 import yaml
 
-from multiprocessing import Pool
+from matplotlib import pyplot as plt
+from matplotlib import rc
 from typing import Any, Hashable
 
+import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
@@ -74,6 +76,10 @@ POLYTUNNEL_CURVE: str = "polytunnel_curve"
 # POLYTUNNELS_FILENAME:
 #   The name of the polytunnels file.
 POLYTUNNELS_FILENAME: str = "polytunnels.yaml"
+
+# PV_CELL:
+#   Keyword for parsing cell-id information.
+PV_CELL: str = "cell_id"
 
 # PV_MODULES_FILENAME:
 #   The name of the PV-modules file.
@@ -269,6 +275,11 @@ def main(unparsed_arguments) -> None:
 
     """
 
+    # Matplotlib setup
+    rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
+    sns.set_context("paper")
+    sns.set_style("whitegrid")
+
     # Parse all of the input files
     locations = _parse_locations()
     polytunnels = _parse_polytunnel_curves()
@@ -339,9 +350,9 @@ def main(unparsed_arguments) -> None:
     cellwise_irradiances = [
         (
             scenario,
-            {
-                pv_cell: [
-                    get_irradiance(
+            [
+                {
+                    entry[LOCAL_TIME]: get_irradiance(
                         pv_cell,
                         entry[IRRADIANCE_DIFFUSE],
                         entry[IRRADIANCE_DIRECT],
@@ -349,12 +360,102 @@ def main(unparsed_arguments) -> None:
                         entry[SOLAR_ZENITH],
                     )
                     for entry in locations_to_weather_and_solar_map[scenario.location]
-                ]
+                }
                 for pv_cell in scenario.pv_module.pv_cells
-            },
+            ],
         )
         for scenario in scenarios
     ]
+
+    # Transform to a pandas DataFrame for plotting.
+    cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
+    for scenario, irradiances_list in cellwise_irradiances:
+        hourly_frames: list[pd.DataFrame] = []
+        for cell_id, hourly_irradiances in enumerate(irradiances_list):
+            hourly_frame = pd.DataFrame.from_dict(hourly_irradiances, orient="index")
+            hourly_frame.columns = pd.Index([cell_id])
+            hourly_frames.append(hourly_frame)
+
+        combined_frame = pd.concat(hourly_frames, axis=1)
+        combined_frame["hour"] = [
+            int(entry.split(" ")[1].split(":")[0])
+            for entry in hourly_frame.index.to_series()
+        ]
+
+        cellwise_irradiance_frames.append((scenario, combined_frame))
+
+    import pdb
+
+    pdb.set_trace()
+
+    start_index: int = 0
+    x = (
+        cellwise_irradiance_frames[0][1]
+        .iloc[start_index : start_index + 24]
+        .set_index("hour")
+    )
+    sns.heatmap(
+        x,
+        cmap=sns.blend_palette(
+            [
+                "#144E56",
+                "#28769C",
+                "teal",
+                "#94B49F",
+                "grey",
+                "silver",
+                "orange",
+                "#E04606",
+            ],
+            as_cmap=True,
+        ),
+        vmin=0,
+        cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+    )
+    plt.xlabel("Cell index within panel")
+    plt.ylabel("Hour of the day")
+    plt.show()
+
+    sns.set_style("ticks")
+    start_index: int = 24 * 31 * 5
+    x = (
+        cellwise_irradiance_frames[0][1]
+        .iloc[start_index : start_index + 24]
+        .set_index("hour")
+    )
+
+    g = sns.jointplot(data=x, kind="hist", bins=(len(x.columns), 24))
+    g.ax_marg_y.cla()
+    g.ax_marg_x.cla()
+    sns.heatmap(
+        x,
+        ax=g.ax_joint,
+        cmap=sns.blend_palette(
+            ["#144E56", "#28769C", "teal", "#94B49F", "orange", "#E04606"], as_cmap=True
+        ),
+        vmin=0,
+        cbar=None,
+    )
+
+    g.ax_marg_y.barh(np.arange(0.5, 24.5), x.mean(axis=1).to_numpy(), color="#E04606")
+    g.ax_marg_x.scatter(
+        np.arange(0.5, len(x.columns) + 0.5), x.mean(axis=0).to_numpy(), color="teal"
+    )
+
+    g.ax_joint.set_xlabel("Cell index within panel")
+    g.ax_joint.set_ylabel("Hour of the day")
+    g.ax_joint.legend().remove()
+
+    # Remove ticks from axes
+    g.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
+    g.ax_marg_x.set_xlabel("Average irradiance / kWm$^{-2}$")
+    g.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
+    g.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
+    # remove ticks showing the heights of the histograms
+    # g.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
+    # g.ax_marg_y.tick_params(axis='x', bottom=False, labelbottom=False)
+
+    plt.show()
 
 
 if __name__ == "__main__":
