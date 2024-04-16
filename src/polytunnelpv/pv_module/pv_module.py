@@ -533,63 +533,63 @@ class CurvedPVModule:
 #     return list[-2]
 
 
-# def simulate_full_curve(parameters, Geff, Tcell, ivcurve_pnts=1000, break_volt=-15):
-#     """
-#     Use De Soto and Bishop to simulate a full IV curve with both
-#     forward and reverse bias regions.
-#     """
-#     # adjust the reference parameters according to the operating
-#     # conditions using the De Soto model:
-#     sde_args = pvsystem.calcparams_desoto(
-#         Geff,
-#         Tcell,
-#         alpha_sc=parameters["alpha_sc"],
-#         a_ref=parameters["a_ref"],
-#         I_L_ref=parameters["I_L_ref"],
-#         I_o_ref=parameters["I_o_ref"],
-#         R_sh_ref=parameters["R_sh_ref"],
-#         R_s=parameters["R_s"],
-#     )
-#     # sde_args has values:
-#     # (photocurrent, saturation_current, resistance_series,
-#     # resistance_shunt, nNsVth)
+def simulate_full_curve(parameters, Geff, Tcell, ivcurve_pnts=1000, break_volt=-15):
+    """
+    Use De Soto and Bishop to simulate a full IV curve with both
+    forward and reverse bias regions.
+    """
+    # adjust the reference parameters according to the operating
+    # conditions using the De Soto model:
+    sde_args = pvsystem.calcparams_desoto(
+        Geff,
+        Tcell,
+        alpha_sc=parameters["alpha_sc"],
+        a_ref=parameters["a_ref"],
+        I_L_ref=parameters["I_L_ref"],
+        I_o_ref=parameters["I_o_ref"],
+        R_sh_ref=parameters["R_sh_ref"],
+        R_s=parameters["R_s"],
+    )
+    # sde_args has values:
+    # (photocurrent, saturation_current, resistance_series,
+    # resistance_shunt, nNsVth)
 
-#     # Use Bishop's method to calculate points on the IV curve with V ranging
-#     # from the reverse breakdown voltage to open circuit
-#     kwargs = {
-#         "breakdown_factor": parameters["breakdown_factor"],
-#         "breakdown_exp": parameters["breakdown_exp"],
-#         "breakdown_voltage": break_volt,  # THE MAXIMUM -VE VOLATAGE (WHERE THE VOLTAGE SPIKES UP)
-#     }
-#     v_oc = pv.singlediode.bishop88_v_from_i(
-#         0.0, *sde_args, **kwargs
-#     )  # CALCULATES THE VOLTAGE AT I = 0 (MAXIMUM +VE VOLTAGE OF IV CURVE)
-#     # print('v_oc =', v_oc)
-#     # print('breakdown voltage =', kwargs["breakdown_voltage"])
-#     # ideally would use some intelligent log-spacing to concentrate points
-#     # around the forward- and reverse-bias knees, but this is good enough:
-#     vd = np.linspace(
-#         0.99 * kwargs["breakdown_voltage"], v_oc, ivcurve_pnts
-#     )  # GENERATES A LIST OF VOLTAGES BETWEEN THE MAXIMUM -VE AND +VE VOLTAGES
-#     ivcurve_i, ivcurve_v, ivcurve_P = pv.singlediode.bishop88(
-#         vd, *sde_args, **kwargs
-#     )  # CALCULATES THE CURRENT AT THE VOLTAGE VALUES GIVEN
+    # Use Bishop's method to calculate points on the IV curve with V ranging
+    # from the reverse breakdown voltage to open circuit
+    kwargs = {
+        "breakdown_factor": parameters["breakdown_factor"],
+        "breakdown_exp": parameters["breakdown_exp"],
+        "breakdown_voltage": break_volt,  # THE MAXIMUM -VE VOLATAGE (WHERE THE VOLTAGE SPIKES UP)
+    }
+    v_oc = pv.singlediode.bishop88_v_from_i(
+        0.0, *sde_args, **kwargs
+    )  # CALCULATES THE VOLTAGE AT I = 0 (MAXIMUM +VE VOLTAGE OF IV CURVE)
+    # print('v_oc =', v_oc)
+    # print('breakdown voltage =', kwargs["breakdown_voltage"])
+    # ideally would use some intelligent log-spacing to concentrate points
+    # around the forward- and reverse-bias knees, but this is good enough:
+    vd = np.linspace(
+        0.99 * kwargs["breakdown_voltage"], v_oc, ivcurve_pnts
+    )  # GENERATES A LIST OF VOLTAGES BETWEEN THE MAXIMUM -VE AND +VE VOLTAGES
+    ivcurve_i, ivcurve_v, ivcurve_P = pv.singlediode.bishop88(
+        vd, *sde_args, **kwargs
+    )  # CALCULATES THE CURRENT AT THE VOLTAGE VALUES GIVEN
 
-#     """CALCULATE THE IV CURVE BY CREATING A CURRENT LINSPACE INSTEAD TO MAKE PI CURVES EASIER TO ANALYSE"""
-#     i_0, v_0, p_0 = pv.singlediode.bishop88(
-#         0, *sde_args, **kwargs
-#     )  # THE CURRENT, VOLTAGE AND POWER VALUES AS V = 0 FOR PI CURVE
-#     i_values_PI = np.linspace(0, 10, ivcurve_pnts)
-#     v_values_PI = pv.singlediode.bishop88_v_from_i(i_values_PI, *sde_args, **kwargs)
-#     # print('MAX I =',i_0)
-#     return pd.DataFrame(  # could also return the power at each point to the database, unsure if this makes things easier
-#         {
-#             "i_PI": i_values_PI,
-#             "v_PI": v_values_PI,
-#             "i": ivcurve_i,
-#             "v": ivcurve_v,
-#         }
-#     )
+    """CALCULATE THE IV CURVE BY CREATING A CURRENT LINSPACE INSTEAD TO MAKE PI CURVES EASIER TO ANALYSE"""
+    i_0, v_0, p_0 = pv.singlediode.bishop88(
+        0, *sde_args, **kwargs
+    )  # THE CURRENT, VOLTAGE AND POWER VALUES AS V = 0 FOR PI CURVE
+    i_values_PI = np.linspace(0, 10, ivcurve_pnts)
+    v_values_PI = pv.singlediode.bishop88_v_from_i(i_values_PI, *sde_args, **kwargs)
+    # print('MAX I =',i_0)
+    return pd.DataFrame(  # could also return the power at each point to the database, unsure if this makes things easier
+        {
+            "i_PI": i_values_PI,
+            "v_PI": v_values_PI,
+            "i": ivcurve_i,
+            "v": ivcurve_v,
+        }
+    )
 
 
 # def plot_curves(dfs, labels):

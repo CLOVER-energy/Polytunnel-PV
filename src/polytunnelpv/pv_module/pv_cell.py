@@ -199,7 +199,7 @@ def get_irradiance(
         direct_normal_irradiance,
         global_horizontal_irradiance,
         diffuse_horizontal_irradiance,
-    )
+    )simulate_full_curve
 
     # Extract and return the global irradiance striking the surface.
     return total_irradiance.get(POA_GLOBAL_KEY, None)  # type: ignore [no-any-return]
@@ -209,7 +209,7 @@ def get_iv_curve(self, show_axis=True):
     curves = []
     labels = []
     for i in range(len(SC._cell_list)):
-        curve = simulate_full_curve(
+        curve = (
             SC._cell_list[i].get_c_params(),
             SC.get_irradiance(SC._cell_list[i]),
             SC._cell_list[i]._temp,

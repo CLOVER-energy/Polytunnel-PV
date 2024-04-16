@@ -581,223 +581,223 @@ def main(unparsed_arguments) -> None:
 
         cellwise_irradiance_frames.append((scenario, combined_frame))
 
-    import pdb
+    # import pdb
 
-    pdb.set_trace()
+    # pdb.set_trace()
 
-    start_index: int = 0
-    frame_slice = (
-        cellwise_irradiance_frames[0][1]
-        .iloc[start_index : start_index + 24]
-        .set_index("hour")
-    )
-    sns.heatmap(
-        frame_slice,
-        cmap=sns.blend_palette(
-            [
-                "#144E56",
-                "#28769C",
-                "teal",
-                "#94B49F",
-                "grey",
-                "silver",
-                "orange",
-                "#E04606",
-            ],
-            as_cmap=True,
-        ),
-        vmin=0,
-        cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
-    )
-    plt.xlabel("Cell index within panel")
-    plt.ylabel("Hour of the day")
-    plt.show()
+    # start_index: int = 0
+    # frame_slice = (
+    #     cellwise_irradiance_frames[0][1]
+    #     .iloc[start_index : start_index + 24]
+    #     .set_index("hour")
+    # )
+    # sns.heatmap(
+    #     frame_slice,
+    #     cmap=sns.blend_palette(
+    #         [
+    #             "#144E56",
+    #             "#28769C",
+    #             "teal",
+    #             "#94B49F",
+    #             "grey",
+    #             "silver",
+    #             "orange",
+    #             "#E04606",
+    #         ],
+    #         as_cmap=True,
+    #     ),
+    #     vmin=0,
+    #     cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+    # )
+    # plt.xlabel("Cell index within panel")
+    # plt.ylabel("Hour of the day")
+    # plt.show()
 
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[0][1],
-        start_index=(start_index := 24 * 31 * 6 + 48),
-        figname="july_eight_small_panel",
-        heatmap_vmax=(
-            heatmap_vmax := cellwise_irradiance_frames[2][1]
-            .set_index("hour")
-            .iloc[start_index : start_index + 24]
-            .max()
-            .max()
-        ),
-        irradiance_bar_vmax=(
-            irradiance_bar_vmax := (
-                max(
-                    cellwise_irradiance_frames[0][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                )
-            )
-        ),
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=(
-            irradiance_scatter_vmax := 1.25
-            * (
-                max(
-                    cellwise_irradiance_frames[0][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                )
-            )
-        ),
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[1][1],
-        start_index=start_index,
-        figname="july_eighth_medium_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[2][1],
-        start_index=start_index,
-        figname="july_eighth_large_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[0][1],
+    #     start_index=(start_index := 24 * 31 * 6 + 48),
+    #     figname="july_eight_small_panel",
+    #     heatmap_vmax=(
+    #         heatmap_vmax := cellwise_irradiance_frames[2][1]
+    #         .set_index("hour")
+    #         .iloc[start_index : start_index + 24]
+    #         .max()
+    #         .max()
+    #     ),
+    #     irradiance_bar_vmax=(
+    #         irradiance_bar_vmax := (
+    #             max(
+    #                 cellwise_irradiance_frames[0][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[1][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[2][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #             )
+    #         )
+    #     ),
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=(
+    #         irradiance_scatter_vmax := 1.25
+    #         * (
+    #             max(
+    #                 cellwise_irradiance_frames[0][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[1][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[2][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #             )
+    #         )
+    #     ),
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[1][1],
+    #     start_index=start_index,
+    #     figname="july_eighth_medium_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[2][1],
+    #     start_index=start_index,
+    #     figname="july_eighth_large_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
 
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[0][1],
-        start_index=(start_index := 24 * 31 * 7 + 48),
-        figname="august_eight_small_panel",
-        heatmap_vmax=(
-            heatmap_vmax := cellwise_irradiance_frames[2][1]
-            .set_index("hour")
-            .iloc[start_index : start_index + 24]
-            .max()
-            .max()
-        ),
-        irradiance_bar_vmax=(
-            irradiance_bar_vmax := (
-                max(
-                    cellwise_irradiance_frames[0][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                )
-            )
-        ),
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=(
-            irradiance_scatter_vmax := 1.25
-            * (
-                max(
-                    cellwise_irradiance_frames[0][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                )
-            )
-        ),
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[1][1],
-        start_index=start_index,
-        figname="august_eighth_medium_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[2][1],
-        start_index=start_index,
-        figname="august_eighth_large_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[0][1],
+    #     start_index=(start_index := 24 * 31 * 7 + 48),
+    #     figname="august_eight_small_panel",
+    #     heatmap_vmax=(
+    #         heatmap_vmax := cellwise_irradiance_frames[2][1]
+    #         .set_index("hour")
+    #         .iloc[start_index : start_index + 24]
+    #         .max()
+    #         .max()
+    #     ),
+    #     irradiance_bar_vmax=(
+    #         irradiance_bar_vmax := (
+    #             max(
+    #                 cellwise_irradiance_frames[0][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[1][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[2][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #             )
+    #         )
+    #     ),
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=(
+    #         irradiance_scatter_vmax := 1.25
+    #         * (
+    #             max(
+    #                 cellwise_irradiance_frames[0][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[1][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[2][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #             )
+    #         )
+    #     ),
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[1][1],
+    #     start_index=start_index,
+    #     figname="august_eighth_medium_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[2][1],
+    #     start_index=start_index,
+    #     figname="august_eighth_large_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
 
-    weather = list(locations_with_weather_and_solar.values())[0]
-    data_to_scatter = weather.iloc[start_index : start_index + 24]
-    plt.scatter(
-        range(24),
-        data_to_scatter["irradiance_direct"],
-        marker="H",
-        s=40,
-        label="Direct irradiance",
-    )
-    plt.scatter(
-        range(24),
-        data_to_scatter["irradiance_diffuse"],
-        marker="H",
-        s=40,
-        label="Diffuse irradiance",
-    )
-    plt.scatter(
-        range(24),
-        data_to_scatter["irradiance_direct_normal"],
-        marker="H",
-        s=40,
-        label="DNI irradiance",
-    )
-    plt.legend()
-    plt.show()
+    # weather = list(locations_with_weather_and_solar.values())[0]
+    # data_to_scatter = weather.iloc[start_index : start_index + 24]
+    # plt.scatter(
+    #     range(24),
+    #     data_to_scatter["irradiance_direct"],
+    #     marker="H",
+    #     s=40,
+    #     label="Direct irradiance",
+    # )
+    # plt.scatter(
+    #     range(24),
+    #     data_to_scatter["irradiance_diffuse"],
+    #     marker="H",
+    #     s=40,
+    #     label="Diffuse irradiance",
+    # )
+    # plt.scatter(
+    #     range(24),
+    #     data_to_scatter["irradiance_direct_normal"],
+    #     marker="H",
+    #     s=40,
+    #     label="DNI irradiance",
+    # )
+    # plt.legend()
+    # plt.show()
 
-    (
-        frame_slice := cellwise_irradiance_frames[2][1].iloc[
-            start_index : start_index + 24
-        ]
-    ).plot(
-        x="hour",
-        y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-        colormap=sns.color_palette("PuBu_r", n_colors=18, as_cmap=True),
-    )
+    # (
+    #     frame_slice := cellwise_irradiance_frames[2][1].iloc[
+    #         start_index : start_index + 24
+    #     ]
+    # ).plot(
+    #     x="hour",
+    #     y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    #     colormap=sns.color_palette("PuBu_r", n_colors=18, as_cmap=True),
+    # )
 
 
 if __name__ == "__main__":
