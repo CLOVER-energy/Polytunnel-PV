@@ -26,27 +26,57 @@ __all__ = ("get_irradiance", "PVCell")
 POA_GLOBAL_KEY: str = "poa_global"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PVCell:
     """
     A single cell within the curved PV module.
 
+    Parameters that govern the IV (current-voltage) curve of the cell, as required to
+    calculate these curves, are included as attributes of the cell as they will depend
+    on the cell material used.
+
     Attributes:
         - azimuth:
             The azimuth angle of the cell, in degrees.
-        - breakdown_voltage:
-            The breakdown voltage of the cell, in Volts.
         - length:
             The length of the cell, in meters.
-        - reference_temperature:
-            The reference temperature against which the cell parameters are defined,
-            measured in degrees Celsius.
         - tilt:
             The tilt of the cell, in degrees.
-        - voltage_temperature_coefficient:
-            The temperature coefficient of the open-circuit voltage.
         - width:
             The width of the cell, in meters.
+        - breakdown_voltage:
+            The breakdown voltage of the cell, in Volts.
+
+    IV-curve-related attributes:
+        NOTE: These are taken, for the most part, from the descriptions provided in the
+        pvlib library.
+        - a_ref:
+            The product between the diode ideality factor and the cell's thermal
+            voltage.
+            NOTE: This value should be cell-specific, not module-wide.
+        - alpha_sc:
+            The temperature coefficient of the short-circuit current, in Amps per
+            degree.
+        - reference_dark_current_density:
+            The reference dark (or reverse-saturation) curren, measured in Amps per
+            meter squared.
+        - reference_photocurrent_density:
+            The reference photocurrent density, measured in Amps per meter squared.
+        - reference_series_resistance:
+            The series resistance at reference conditions, in ohms.
+        - reference_shunt_resistance:
+            The shunt resistance at reference conditions, in ohms.
+        - reference_bandgap_energy:
+            The energy of the bandgap at reference conditions, measured in eV.
+            NOTE: 1.121 eV is the default value for crystalline Silicon.
+        - reference_bandgap_energy_temperature_coefficient:
+            The temperature dependence of the energy bandgap at reference conditions.
+            NOTE: -0.0002677 is the default value for cyrstalline Silicon.
+        - reference_irradiance:
+            The irradiance at reference conditions, measured in Watts per meter squared.
+        - reference_temperature:
+            The cell temeprature at reference conditions, measured in Watts per meter
+            squared.
 
     """
 
@@ -55,6 +85,15 @@ class PVCell:
     tilt: float
     width: float
     breakdown_voltage: float
+    a_ref: float
+    alpha_sc: float
+    reference_dark_current_density: float
+    reference_photocurrent_density: float
+    reference_series_resistance: float
+    reference_shunt_resistance: float
+    reference_bandgap_energy: float = 1.121
+    reference_bandgap_energy_temperature_coefficient: float = -0.0002677
+    reference_irradiance: float = 1000
     reference_temperature: float = 25
     _azimuth_in_radians: float | None = None
     _cell_id: float | int | None = None
@@ -199,26 +238,26 @@ def get_irradiance(
         direct_normal_irradiance,
         global_horizontal_irradiance,
         diffuse_horizontal_irradiance,
-    )simulate_full_curve
+    )
 
     # Extract and return the global irradiance striking the surface.
     return total_irradiance.get(POA_GLOBAL_KEY, None)  # type: ignore [no-any-return]
 
 
-def get_iv_curve(self, show_axis=True):
-    curves = []
-    labels = []
-    for i in range(len(SC._cell_list)):
-        curve = (
-            SC._cell_list[i].get_c_params(),
-            SC.get_irradiance(SC._cell_list[i]),
-            SC._cell_list[i]._temp,
-            break_volt=SC._cell_list[i].get_breakdown_voltage(),
-        )
-        curves.append(curve)
-        labels.append("angle =" + str(round(SC.get_cell_tilt(SC._cell_list[i]), 2)))
-    axis = plot_curves(curves, labels)
-    if show_axis:
-        return axis
-    else:
-        return curves
+# def get_iv_curve(self, show_axis=True):
+#     curves = []
+#     labels = []
+#     for i in range(len(SC._cell_list)):
+#         curve = (
+#             SC._cell_list[i].get_c_params(),
+#             SC.get_irradiance(SC._cell_list[i]),
+#             SC._cell_list[i]._temp,
+#             break_volt=SC._cell_list[i].get_breakdown_voltage(),
+#         )
+#         curves.append(curve)
+#         labels.append("angle =" + str(round(SC.get_cell_tilt(SC._cell_list[i]), 2)))
+#     axis = plot_curves(curves, labels)
+#     if show_axis:
+#         return axis
+#     else:
+#         return curves
