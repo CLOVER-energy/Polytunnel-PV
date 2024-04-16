@@ -18,6 +18,8 @@ entrypoint for executing the model.
 
 __version__ = "1.0.0a1"
 
+import argparse
+import math
 import os
 import pvlib
 import re
@@ -59,6 +61,14 @@ IRRADIANCE_DIFFUSE: str = "irradiance_diffuse"
 # IRRADIANCE_DIRECT:
 #   Keyword for direct irradiance.
 IRRADIANCE_DIRECT: str = "irradiance_direct"
+
+# IRRADIANCE_DIRECT_NORMAL:
+#   Keyword for the DNI.
+IRRADIANCE_DIRECT_NORMAL: str = "irradiance_direct_normal"
+
+# IRRADIANCE_GLOBAL_HORIZONTAL:
+#   Keyword for the GHI.
+IRRADIANCE_GLOBAL_HORIZONTAL: str = "irradiance_global_horizontal"
 
 # LOCAL_TIME:
 #   Column header for local-time column.
@@ -118,6 +128,33 @@ WEATHER_DATA_REGEX = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
 WEATHER_FILE_WITH_SOLAR: str = os.path.join(
     "auto_generated", "w_with_s_{location_name}.csv"
 )
+
+
+def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
+    """
+    Parse the command-line arguments.
+
+    Inputs:
+        - unparsed_args:
+            The unparsed command-line arguments.
+
+    """
+
+    parser = argparse.ArgumentParser()
+
+    # Weather-data arguments.
+    weather_arguments = parser.add_argument_group("weather-data arguments")
+    # Fast mode:
+    #   Used for debugging purposes to run with fsat models.
+    weather_arguments.add_argument(
+        "--regenerate",
+        "-rw",
+        action="store_true",
+        default=False,
+        help="Recalculate the weather and solar information.",
+    )
+
+    return parser.parse_args(unparsed_args)
 
 
 def _parse_locations() -> list[pvlib.location.Location]:
@@ -269,6 +306,138 @@ def _solar_angles_from_weather_row(
     )
 
 
+def plot_irradiance_with_marginal_means(
+    data_to_plot: pd.DataFrame,
+    start_index: int = 0,
+    *,
+    figname: str = "output_figure",
+    fig_format: str = "eps",
+    heatmap_vmax: float | None = None,
+    irradiance_bar_vmax: float | None = None,
+    irradiance_scatter_vmax: float | None = None,
+    irradiance_scatter_vmin: float | None = None,
+    show_figure: bool = True,
+) -> None:
+    """
+    Plot the irradiance heatmap with marginal means.
+
+    Inputs:
+        - data_to_plot:
+            The data to plot.
+        - start_index:
+            The index to start plotting from.
+        - figname:
+            The name to use when saving the figure.
+        - fig_format:
+            The file extension format to use when saving the high-resolution output
+            figures.
+        - heatmap_vmax:
+            The maximum plotting value to use for the irradiance heatmap.
+        - irradiance_bar_vmax:
+            The maximum plotting value to use for the irradiance bars.
+        - irradiance_scatter_vmax:
+            The maximum plotting value to use for the irradiance scatter.
+        - irradiance_scatter_vmin:
+            The minimum plotting value to use for the irradiance scatter.
+
+    """
+
+    sns.set_style("ticks")
+    frame_slice = data_to_plot.iloc[start_index : start_index + 24].set_index("hour")
+
+    # Create a dummy plot and surrounding axes.
+    joint_plot_grid = sns.jointplot(
+        data=frame_slice,
+        kind="hist",
+        bins=(len(frame_slice.columns), 24),
+        marginal_ticks=True,
+    )
+    joint_plot_grid.ax_marg_y.cla()
+    joint_plot_grid.ax_marg_x.cla()
+
+    # Generate the central heatmap.
+    sns.heatmap(
+        frame_slice,
+        ax=joint_plot_grid.ax_joint,
+        cmap=sns.blend_palette(
+            ["#144E56", "teal", "#94B49F", "orange", "#E04606"], as_cmap=True
+        ),
+        vmin=0,
+        vmax=heatmap_vmax,
+        cbar=True,
+        cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+    )
+
+    # Plot the irradiance bars on the RHS of the plot.
+    joint_plot_grid.ax_marg_y.barh(
+        np.arange(0.5, 24.5), frame_slice.mean(axis=1).to_numpy(), color="#E04606"
+    )
+    joint_plot_grid.ax_marg_y.set_xlim(0, irradiance_bar_vmax)
+
+    # Plot the scatter at the top of the plot.
+    joint_plot_grid.ax_marg_x.scatter(
+        np.arange(0.5, len(frame_slice.columns) + 0.5),
+        (cellwise_means := frame_slice.sum(axis=0).to_numpy()),
+        color="#144E56",
+        marker="D",
+        s=60,
+        alpha=0.7,
+    )
+    joint_plot_grid.ax_marg_x.set_ylim(irradiance_scatter_vmin, irradiance_scatter_vmax)
+
+    joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
+    joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+    joint_plot_grid.ax_joint.legend().remove()
+
+    # Remove ticks from axes
+    joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
+    joint_plot_grid.ax_marg_x.set_xlabel("Average irradiance / kWm$^{-2}$")
+    joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
+    # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
+    # remove ticks showing the heights of the histograms
+    # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
+    # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
+
+    joint_plot_grid.ax_marg_x.grid("on")
+    # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
+
+    joint_plot_grid.figure.tight_layout()
+
+    # Adjust the plot such that the colourbar appears to the RHS.
+    # Solution from JohanC (https://stackoverflow.com/users/12046409/johanc)
+    # Obtained with permission from stackoverflow:
+    # https://stackoverflow.com/questions/60845764/how-to-add-a-colorbar-to-the-side-of-a-kde-jointplot
+    #
+    plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
+    pos_joint_ax = joint_plot_grid.ax_joint.get_position()
+    pos_marg_x_ax = joint_plot_grid.ax_marg_x.get_position()
+    joint_plot_grid.ax_joint.set_position(
+        [pos_joint_ax.x0, pos_joint_ax.y0, pos_marg_x_ax.width, pos_joint_ax.height]
+    )
+    joint_plot_grid.figure.axes[-1].set_position(
+        [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
+    )
+
+    # Save the figure in high- and low-resolution formats.
+    plt.savefig(
+        f"{figname}.{fig_format}",
+        transparent=True,
+        format=fig_format,
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.savefig(
+        f"{figname}.png",
+        transparent=True,
+        format="png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+    if show_figure:
+        plt.show()
+
+
 def main(unparsed_arguments) -> None:
     """
     Main method for Polytunnel-PV.
@@ -279,6 +448,9 @@ def main(unparsed_arguments) -> None:
     rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
     sns.set_context("paper")
     sns.set_style("whitegrid")
+
+    # Parse the command-line arguments.
+    parsed_args = _parse_args(unparsed_arguments)
 
     # Parse all of the input files
     locations = _parse_locations()
@@ -308,12 +480,15 @@ def main(unparsed_arguments) -> None:
 
     for location, weather_frame in locations_with_weather.items():
         # Open the existing combined file with solar data if it exists
-        if os.path.isfile(
-            (
-                weather_with_solar_filename := WEATHER_FILE_WITH_SOLAR.format(
-                    location_name=location.name
+        if (
+            os.path.isfile(
+                (
+                    weather_with_solar_filename := WEATHER_FILE_WITH_SOLAR.format(
+                        location_name=location.name
+                    )
                 )
             )
+            and not parsed_args.regenerate
         ):
             with open(weather_with_solar_filename, "r", encoding=FILE_ENCODING) as f:
                 locations_with_weather_and_solar[location] = pd.read_csv(f, index_col=0)
@@ -332,6 +507,20 @@ def main(unparsed_arguments) -> None:
                     )
                 ]
             )
+
+            # Compute the GHI from this information.
+            weather_frame[IRRADIANCE_GLOBAL_HORIZONTAL] = (
+                weather_frame[IRRADIANCE_DIRECT] + weather_frame[IRRADIANCE_DIFFUSE]
+            )
+
+            # Compute the DNI from this information.
+            weather_frame[IRRADIANCE_DIRECT_NORMAL] = pvlib.irradiance.dni(
+                weather_frame[IRRADIANCE_GLOBAL_HORIZONTAL].reset_index(drop=True),
+                pd.Series(weather_frame[IRRADIANCE_DIFFUSE]).reset_index(drop=True),
+                pd.Series(solar_frame[SOLAR_ZENITH]).reset_index(drop=True),
+            )
+
+            # Generate and save the combined frame.
             locations_with_weather_and_solar[location] = pd.concat(
                 [solar_frame.reset_index(drop=True), weather_frame], axis=1
             )
@@ -355,9 +544,10 @@ def main(unparsed_arguments) -> None:
                     entry[LOCAL_TIME]: get_irradiance(
                         pv_cell,
                         entry[IRRADIANCE_DIFFUSE],
-                        entry[IRRADIANCE_DIRECT],
+                        entry[IRRADIANCE_GLOBAL_HORIZONTAL],
                         entry[SOLAR_AZIMUTH],
                         entry[SOLAR_ZENITH],
+                        direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
                     )
                     for entry in locations_to_weather_and_solar_map[scenario.location]
                 }
@@ -377,10 +567,17 @@ def main(unparsed_arguments) -> None:
             hourly_frames.append(hourly_frame)
 
         combined_frame = pd.concat(hourly_frames, axis=1)
+        combined_frame.sort_index(axis=1, inplace=True, ascending=False)
         combined_frame["hour"] = [
             int(entry.split(" ")[1].split(":")[0])
             for entry in hourly_frame.index.to_series()
         ]
+
+        # Use the cell angle from the axis as the column header
+        combined_frame.columns = [
+            f"{'-' if pv_cell.cell_id / len(scenario.pv_module.pv_cells) < 0.5 else ''}{str(round(pv_cell.tilt, 3))}"
+            for pv_cell in scenario.pv_module.pv_cells
+        ] + ["hour"]
 
         cellwise_irradiance_frames.append((scenario, combined_frame))
 
@@ -389,13 +586,13 @@ def main(unparsed_arguments) -> None:
     pdb.set_trace()
 
     start_index: int = 0
-    x = (
+    frame_slice = (
         cellwise_irradiance_frames[0][1]
         .iloc[start_index : start_index + 24]
         .set_index("hour")
     )
     sns.heatmap(
-        x,
+        frame_slice,
         cmap=sns.blend_palette(
             [
                 "#144E56",
@@ -416,46 +613,191 @@ def main(unparsed_arguments) -> None:
     plt.ylabel("Hour of the day")
     plt.show()
 
-    sns.set_style("ticks")
-    start_index: int = 24 * 31 * 5
-    x = (
-        cellwise_irradiance_frames[0][1]
-        .iloc[start_index : start_index + 24]
-        .set_index("hour")
-    )
-
-    g = sns.jointplot(data=x, kind="hist", bins=(len(x.columns), 24))
-    g.ax_marg_y.cla()
-    g.ax_marg_x.cla()
-    sns.heatmap(
-        x,
-        ax=g.ax_joint,
-        cmap=sns.blend_palette(
-            ["#144E56", "#28769C", "teal", "#94B49F", "orange", "#E04606"], as_cmap=True
+    plot_irradiance_with_marginal_means(
+        cellwise_irradiance_frames[0][1],
+        start_index=(start_index := 24 * 31 * 6 + 48),
+        figname="july_eight_small_panel",
+        heatmap_vmax=(
+            heatmap_vmax := cellwise_irradiance_frames[2][1]
+            .set_index("hour")
+            .iloc[start_index : start_index + 24]
+            .max()
+            .max()
         ),
-        vmin=0,
-        cbar=None,
+        irradiance_bar_vmax=(
+            irradiance_bar_vmax := (
+                max(
+                    cellwise_irradiance_frames[0][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .mean(axis=1)
+                    .max(),
+                    cellwise_irradiance_frames[1][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .mean(axis=1)
+                    .max(),
+                    cellwise_irradiance_frames[2][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .mean(axis=1)
+                    .max(),
+                )
+            )
+        ),
+        irradiance_scatter_vmin=0,
+        irradiance_scatter_vmax=(
+            irradiance_scatter_vmax := 1.25
+            * (
+                max(
+                    cellwise_irradiance_frames[0][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .sum(axis=0)
+                    .max(),
+                    cellwise_irradiance_frames[1][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .sum(axis=0)
+                    .max(),
+                    cellwise_irradiance_frames[2][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .sum(axis=0)
+                    .max(),
+                )
+            )
+        ),
+    )
+    plot_irradiance_with_marginal_means(
+        cellwise_irradiance_frames[1][1],
+        start_index=start_index,
+        figname="july_eighth_medium_panel",
+        heatmap_vmax=heatmap_vmax,
+        irradiance_bar_vmax=irradiance_bar_vmax,
+        irradiance_scatter_vmin=0,
+        irradiance_scatter_vmax=irradiance_scatter_vmax,
+    )
+    plot_irradiance_with_marginal_means(
+        cellwise_irradiance_frames[2][1],
+        start_index=start_index,
+        figname="july_eighth_large_panel",
+        heatmap_vmax=heatmap_vmax,
+        irradiance_bar_vmax=irradiance_bar_vmax,
+        irradiance_scatter_vmin=0,
+        irradiance_scatter_vmax=irradiance_scatter_vmax,
     )
 
-    g.ax_marg_y.barh(np.arange(0.5, 24.5), x.mean(axis=1).to_numpy(), color="#E04606")
-    g.ax_marg_x.scatter(
-        np.arange(0.5, len(x.columns) + 0.5), x.mean(axis=0).to_numpy(), color="teal"
+    plot_irradiance_with_marginal_means(
+        cellwise_irradiance_frames[0][1],
+        start_index=(start_index := 24 * 31 * 7 + 48),
+        figname="august_eight_small_panel",
+        heatmap_vmax=(
+            heatmap_vmax := cellwise_irradiance_frames[2][1]
+            .set_index("hour")
+            .iloc[start_index : start_index + 24]
+            .max()
+            .max()
+        ),
+        irradiance_bar_vmax=(
+            irradiance_bar_vmax := (
+                max(
+                    cellwise_irradiance_frames[0][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .mean(axis=1)
+                    .max(),
+                    cellwise_irradiance_frames[1][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .mean(axis=1)
+                    .max(),
+                    cellwise_irradiance_frames[2][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .mean(axis=1)
+                    .max(),
+                )
+            )
+        ),
+        irradiance_scatter_vmin=0,
+        irradiance_scatter_vmax=(
+            irradiance_scatter_vmax := 1.25
+            * (
+                max(
+                    cellwise_irradiance_frames[0][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .sum(axis=0)
+                    .max(),
+                    cellwise_irradiance_frames[1][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .sum(axis=0)
+                    .max(),
+                    cellwise_irradiance_frames[2][1]
+                    .set_index("hour")
+                    .iloc[start_index : start_index + 24]
+                    .sum(axis=0)
+                    .max(),
+                )
+            )
+        ),
+    )
+    plot_irradiance_with_marginal_means(
+        cellwise_irradiance_frames[1][1],
+        start_index=start_index,
+        figname="august_eighth_medium_panel",
+        heatmap_vmax=heatmap_vmax,
+        irradiance_bar_vmax=irradiance_bar_vmax,
+        irradiance_scatter_vmin=0,
+        irradiance_scatter_vmax=irradiance_scatter_vmax,
+    )
+    plot_irradiance_with_marginal_means(
+        cellwise_irradiance_frames[2][1],
+        start_index=start_index,
+        figname="august_eighth_large_panel",
+        heatmap_vmax=heatmap_vmax,
+        irradiance_bar_vmax=irradiance_bar_vmax,
+        irradiance_scatter_vmin=0,
+        irradiance_scatter_vmax=irradiance_scatter_vmax,
     )
 
-    g.ax_joint.set_xlabel("Cell index within panel")
-    g.ax_joint.set_ylabel("Hour of the day")
-    g.ax_joint.legend().remove()
-
-    # Remove ticks from axes
-    g.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
-    g.ax_marg_x.set_xlabel("Average irradiance / kWm$^{-2}$")
-    g.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
-    g.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
-    # remove ticks showing the heights of the histograms
-    # g.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
-    # g.ax_marg_y.tick_params(axis='x', bottom=False, labelbottom=False)
-
+    weather = list(locations_with_weather_and_solar.values())[0]
+    data_to_scatter = weather.iloc[start_index : start_index + 24]
+    plt.scatter(
+        range(24),
+        data_to_scatter["irradiance_direct"],
+        marker="H",
+        s=40,
+        label="Direct irradiance",
+    )
+    plt.scatter(
+        range(24),
+        data_to_scatter["irradiance_diffuse"],
+        marker="H",
+        s=40,
+        label="Diffuse irradiance",
+    )
+    plt.scatter(
+        range(24),
+        data_to_scatter["irradiance_direct_normal"],
+        marker="H",
+        s=40,
+        label="DNI irradiance",
+    )
+    plt.legend()
     plt.show()
+
+    (
+        frame_slice := cellwise_irradiance_frames[2][1].iloc[
+            start_index : start_index + 24
+        ]
+    ).plot(
+        x="hour",
+        y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+        colormap=sns.color_palette("PuBu_r", n_colors=18, as_cmap=True),
+    )
 
 
 if __name__ == "__main__":

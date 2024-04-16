@@ -17,7 +17,7 @@ curved PV module.
 
 from dataclasses import dataclass
 from math import cos, radians
-from pvlib.irradiance import get_total_irradiance as get_total_irradiance
+from pvlib.irradiance import dni, get_total_irradiance
 
 __all__ = ("get_irradiance", "PVCell")
 
@@ -186,9 +186,9 @@ def get_irradiance(
 
     # Determine the DNI from the GHI and DHI.
     if direct_normal_irradiance is None:
-        direct_normal_irradiance = (
-            global_horizontal_irradiance - diffuse_horizontal_irradiance
-        ) / cos(radians(solar_zenith))
+        direct_normal_irradiance = dni(
+            global_horizontal_irradiance, diffuse_horizontal_irradiance, solar_zenith
+        )
 
     # Call to PVlib to calculate the total irradiance incident on the surface.
     total_irradiance = get_total_irradiance(
