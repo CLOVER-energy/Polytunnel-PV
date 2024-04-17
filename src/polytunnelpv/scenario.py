@@ -18,16 +18,13 @@ from typing import Type, TypeVar
 import pvlib
 
 from .pv_module.pv_module import CurvedPVModule
+from .__utils__ import NAME
 
 __all__ = "Scenario"
 
 # LOCATION:
 #   Keyword for parsing location information.
 LOCATION: str = "location"
-
-# NAME:
-#   Keyword for parsing the name.
-NAME: str = "name"
 
 # PV_MODULE:
 #    Keyword for parsing the pv-module information.

@@ -19,12 +19,12 @@ entrypoint for executing the model.
 __version__ = "1.0.0a1"
 
 import argparse
-import math
 import os
 import pvlib
 import re
 import seaborn as sns
 import sys
+import warnings
 import yaml
 
 from matplotlib import pyplot as plt
@@ -36,7 +36,8 @@ import pandas as pd
 
 from tqdm import tqdm
 
-from .pv_module.pv_cell import get_irradiance
+from .__utils__ import NAME
+from .pv_module.pv_cell import get_irradiance, relabel_cell_electrical_parameters
 from .pv_module.pv_module import (
     Curve,
     CurveType,
@@ -45,6 +46,14 @@ from .pv_module.pv_module import (
     TYPE_TO_CURVE_MAPPING,
 )
 from .scenario import Scenario
+
+# CELL_ELECTRICAL_PARAMETERS:
+#   Keyword for the electrical parameters of a PV cell.
+CELL_ELECTRICAL_PARAMETERS: str = "cell_electrical_parameters"
+
+# CELL_TYPE:
+#   Keyword for the name of the cell-type to use.
+CELL_TYPE: str = "cell_type"
 
 # FILE_ENCODING:
 #   The encoding to use when opening and closing files.
@@ -90,6 +99,10 @@ POLYTUNNELS_FILENAME: str = "polytunnels.yaml"
 # PV_CELL:
 #   Keyword for parsing cell-id information.
 PV_CELL: str = "cell_id"
+
+# PV_CELLS_FILENAME:
+#   The name of the PV-cells file.
+PV_CELLS_FILENAME: str = "pv_cells.yaml"
 
 # PV_MODULES_FILENAME:
 #   The name of the PV-modules file.
@@ -157,6 +170,24 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     return parser.parse_args(unparsed_args)
 
 
+def _parse_cells() -> list[dict[str, float]]:
+    """
+    Parses the PV cell parameters based on the input file.
+
+    PV cells can either be fetched from a database of `pvlib` information or specified
+    by the user. If the user is specifying the cell parameters, then this is done in the
+    input file.
+
+    """
+
+    with open(
+        os.path.join(INPUT_DATA_DIRECTORY, PV_CELLS_FILENAME),
+        "r",
+        encoding=FILE_ENCODING,
+    ) as f:
+        return yaml.safe_load(f)
+
+
 def _parse_locations() -> list[pvlib.location.Location]:
     """Parses the locations based on the input file."""
 
@@ -196,13 +227,17 @@ def _parse_polytunnel_curves() -> list[Curve]:
         ) from None
 
 
-def _parse_pv_modules(polytunnels: dict[str, Curve]) -> list[CurvedPVModule]:
+def _parse_pv_modules(
+    polytunnels: dict[str, Curve], user_defined_pv_cells: dict[str, dict[str, float]]
+) -> list[CurvedPVModule]:
     """
     Parse the curved PV module information from the files.
 
     Inputs:
         - polytunnels:
             A mapping between polytunnel names and instances.
+        - user_defined_pv_cells:
+            A mapping between PV cell name and pv cell information.
 
     Outputs:
         The parsed PV modules as a list.
@@ -229,6 +264,35 @@ def _parse_pv_modules(polytunnels: dict[str, Curve]) -> list[CurvedPVModule]:
         pv_module_entry[POLYTUNNEL_CURVE] = polytunnels[
             pv_module_entry[POLYTUNNEL_CURVE]
         ]
+
+        # Attempt to determine the PV-cell parameters
+        try:
+            cell_type_name: str = pv_module_entry.pop(CELL_TYPE)
+        except KeyError:
+            raise KeyError(
+                "Need to specify name of PV-cell material in pv-module file."
+            ) from None
+
+        # Try first to find the cell definition in a user-defined scope.
+        try:
+            cell_electrical_parameters = user_defined_pv_cells[cell_type_name]
+        except KeyError:
+            # Look within the pvlib database for the cell name.
+            try:
+                cell_electrical_parameters = (
+                    pvlib.pvsystem.retrieve_sam("CECmod")
+                    .loc[:, cell_type_name]
+                    .to_dict()
+                )
+            except KeyError:
+                raise (
+                    f"Could not find cell name {cell_type_name} within either local or pvlib-imported scope."
+                ) from None
+
+        # Map the parameters to those electrical parameters that the cell is expecting.
+        pv_module_entry[CELL_ELECTRICAL_PARAMETERS] = (
+            relabel_cell_electrical_parameters(cell_electrical_parameters)
+        )
 
         return constructor(**pv_module_entry)
 
@@ -455,8 +519,10 @@ def main(unparsed_arguments) -> None:
     # Parse all of the input files
     locations = _parse_locations()
     polytunnels = _parse_polytunnel_curves()
+    user_defined_pv_cells = _parse_cells()
     pv_modules = _parse_pv_modules(
-        {polytunnel.name: polytunnel for polytunnel in polytunnels}
+        {polytunnel.name: polytunnel for polytunnel in polytunnels},
+        {entry[NAME]: entry for entry in user_defined_pv_cells},
     )
     scenarios = _parse_scenarios(
         {location.name: location for location in locations},
@@ -581,9 +647,147 @@ def main(unparsed_arguments) -> None:
 
         cellwise_irradiance_frames.append((scenario, combined_frame))
 
+    # current_series = np.linspace(0, 1, 1000)
+    voltage_series = np.linspace(-15, 45, 1000)
+
+    sns.set_palette(
+        sns.cubehelix_palette(
+            start=-0.2, rot=-0.2, n_colors=len(scenarios[0].pv_module.pv_cells)
+        )
+    )
+
+    time_of_day: int = 12 + 24 * 31 * 6
+
+    for pv_cell in tqdm(scenarios[0].pv_module.pv_cells, desc="Plotting PV cell"):
+        _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
+            1000
+            * cellwise_irradiance_frames[0][1]
+            .set_index("hour")
+            .iloc[time_of_day]
+            .values[pv_cell.cell_id],
+            20
+            + locations_to_weather_and_solar_map[
+                cellwise_irradiance_frames[0][0].location
+            ][time_of_day][TEMPERATURE],
+            pv_cell.alpha_sc,
+            pv_cell.a_ref,
+            pv_cell.j_l_ref,
+            pv_cell.j_o_ref,
+            pv_cell.r_sh_ref,
+            pv_cell.r_s,
+            pv_cell.eg_ref,
+            pv_cell.d_eg_dt_ref,
+        )
+
+        # Commented-out code is utilised when making the map from voltage values.
+        # It is included for completeness but should not be utilised.
+        # def bishop88_wrapper_function(*args, **kwargs):
+        #     try:
+        #         voltage = pvlib.singlediode.bishop88_v_from_i(*args, **kwargs)
+        #     except RuntimeError:
+        #         return np.inf
+        #     else:
+        #         if voltage > kwargs["breakdown_voltage"]:
+        #             return voltage  \
+        #
+        #     return np.inf   \
+        #
+        # voltage_series = [bishop88_wrapper_function(
+        #     current, IL, I0, Rs, Rsh, nNsVth, breakdown_voltage=-15, breakdown_factor=2e-3, breakdown_exp=3
+        # ) for current in current_series]
+        # plt.plot(voltage_series, current_series, label=f"Cell #{cell_id}")
+        #
+
+        def bishop88_current_wrapper_function(*args, **kwargs):
+            """
+            Function to wrap around the bishop 88 method.
+
+            The `pvlib.singlediode.bishop88_i_from_v` method throws `RuntimeError`s when
+            the current would result in a value that is out of bounds.
+            Rather than throw this error to the user, it is caught here, and infinities
+            are returned instead.
+
+            Return:
+                - The result of the call to `pvlib.singlediode.bishop88_i_from_v`,
+                  provided that it's an allowed results;
+                - `np.inf` or `-np.inf` otherwise.
+
+            """
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error")
+                try:
+                    current = pvlib.singlediode.bishop88_i_from_v(*args, **kwargs)
+                except (RuntimeError, RuntimeWarning):
+                    return np.inf
+                else:
+                    if current > 0:
+                        return current
+                    return -np.inf
+
+        current_series = [
+            bishop88_current_wrapper_function(
+                voltage,
+                *_calculated_pv_cell_params,
+                breakdown_voltage=-15,
+                breakdown_factor=2e-3,
+                breakdown_exp=3,
+            )
+            for voltage in voltage_series
+        ]
+        plt.plot(voltage_series, current_series, label=f"Cell #{pv_cell.cell_id}")
+
+    plt.legend()
+
+    plt.show()
+
     import pdb
 
     pdb.set_trace()
+
+    curve_info = pvlib.pvsystem.singlediode(
+        photocurrent=IL,
+        saturation_current=I0,
+        resistance_series=Rs,
+        resistance_shunt=Rsh,
+        nNsVth=nNsVth,
+        ivcurve_pnts=100,
+        method="lambertw",
+    )
+    plt.plot(curve_info["v"], curve_info["i"])
+    plt.show()
+
+    pvlib.singlediode.bishop88_i_from_v(
+        -14.95,
+        photocurrent=IL,
+        saturation_current=I0,
+        resistance_series=Rs,
+        resistance_shunt=Rsh,
+        nNsVth=nNsVth,
+        breakdown_voltage=-15,
+        breakdown_factor=2e-3,
+        breakdown_exp=3,
+    )
+
+    v_oc = pvlib.singlediode.bishop88_v_from_i(
+        0.0,
+        photocurrent=IL,
+        saturation_current=I0,
+        resistance_series=Rs,
+        resistance_shunt=Rsh,
+        nNsVth=nNsVth,
+        method="lambertw",
+    )
+    voltage_array = np.linspace(-15 * 0.999, v_oc, 1000)
+    ivcurve_i, ivcurve_v, _ = pvlib.singlediode.bishop88(
+        voltage_array,
+        photocurrent=IL,
+        saturation_current=I0,
+        resistance_series=Rs,
+        resistance_shunt=Rsh,
+        nNsVth=nNsVth,
+        breakdown_voltage=-15,
+    )
 
     start_index: int = 0
     frame_slice = (

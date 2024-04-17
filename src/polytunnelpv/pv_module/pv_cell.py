@@ -16,14 +16,40 @@ curved PV module.
 """
 
 from dataclasses import dataclass
-from math import cos, radians
+from math import radians
 from pvlib.irradiance import dni, get_total_irradiance
 
-__all__ = ("get_irradiance", "PVCell")
+__all__ = ("get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
+
+# A_REF:
+#   Keyword for the a-ref parameter.
+A_REF: str = "a_ref"
 
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.
 POA_GLOBAL_KEY: str = "poa_global"
+
+# REFERENCE_DARK_CURRENT_DENSITY:
+#   Keyword for the reference dark-current-density parameter.
+REFERENCE_DARK_CURRENT_DENSITY: str = "reference_dark_current_density"
+
+# REFERENCE_PHOTOCURRENT_DENSITY:
+#   Keyword for the reference photocurrent density.
+REFERENCE_PHOTOCURRENT_DENSITY: str = "reference_photocurrent_density"
+
+# REFERENCE_SERIES_RESISTANCE:
+#   Keyword for the reference series resistance.
+REFERENCE_SERIES_RESISTANCE: str = "reference_series_resistance"
+
+# REFERENCE_SHUNT_RESISTANCE:
+#   Keyword for the reference series resistance.
+REFERENCE_SHUNT_RESISTANCE: str = "reference_shunt_resistance"
+
+# SHORT_CIRCUIT_CURRENT_DENSITY_TEMPERATURE_COEFFICIENT:
+#   Keyword for the short-circuit current-density temperature coefficient.
+SHORT_CIRCUIT_CURRENT_DENSITY_TEMPERATURE_COEFFICIENT: str = (
+    "short_circuit_current_density_temperature_coefficient"
+)
 
 
 @dataclass(kw_only=True)
@@ -54,9 +80,6 @@ class PVCell:
             The product between the diode ideality factor and the cell's thermal
             voltage.
             NOTE: This value should be cell-specific, not module-wide.
-        - alpha_sc:
-            The temperature coefficient of the short-circuit current, in Amps per
-            degree.
         - reference_dark_current_density:
             The reference dark (or reverse-saturation) curren, measured in Amps per
             meter squared.
@@ -66,6 +89,9 @@ class PVCell:
             The series resistance at reference conditions, in ohms.
         - reference_shunt_resistance:
             The shunt resistance at reference conditions, in ohms.
+        - short_circuit_current_density_temperature_coefficient:
+            The temperature coefficient of the short-circuit current, in Amps per
+            degree.
         - reference_bandgap_energy:
             The energy of the bandgap at reference conditions, measured in eV.
             NOTE: 1.121 eV is the default value for crystalline Silicon.
@@ -86,11 +112,11 @@ class PVCell:
     width: float
     breakdown_voltage: float
     a_ref: float
-    alpha_sc: float
     reference_dark_current_density: float
     reference_photocurrent_density: float
     reference_series_resistance: float
     reference_shunt_resistance: float
+    short_circuit_current_density_temperature_coefficient: float
     reference_bandgap_energy: float = 1.121
     reference_bandgap_energy_temperature_coefficient: float = -0.0002677
     reference_irradiance: float = 1000
@@ -161,6 +187,12 @@ class PVCell:
         return f"PVCell(azimuth={self.azimuth:.2f}, tilt={self.tilt:.2f})"
 
     @property
+    def alpha_sc(self) -> float:
+        """The short-circuit curent density tempearture coefficient."""
+
+        return self.short_circuit_current_density_temperature_coefficient
+
+    @property
     def azimuth_in_radians(self) -> float:
         """Return the tilt in radians."""
 
@@ -176,6 +208,42 @@ class PVCell:
             )
 
         self.set_breakdown_voltage(bypass_diode_voltage)
+
+    @property
+    def d_eg_dt_ref(self) -> float:
+        """The reference temperature dependence of the bandgap energy."""
+
+        return self.reference_bandgap_energy_temperature_coefficient
+
+    @property
+    def eg_ref(self) -> float:
+        """The reference temperature dependence of the bandgap energy."""
+
+        return self.reference_bandgap_energy_temperature_coefficient
+
+    @property
+    def j_l_ref(self) -> float:
+        """The reference photocurrent density."""
+
+        return self.reference_photocurrent_density
+
+    @property
+    def j_o_ref(self) -> float:
+        """The reference dark-current density."""
+
+        return self.reference_dark_current_density
+
+    @property
+    def r_s(self) -> float:
+        """The reference series resistance."""
+
+        return self.reference_series_resistance
+
+    @property
+    def r_sh_ref(self) -> float:
+        """The reference shunt resistance."""
+
+        return self.reference_shunt_resistance
 
     def set_breakdown_voltage(self, breakdown_voltage_to_set) -> None:
         self.breakdown_voltage = breakdown_voltage_to_set
@@ -242,6 +310,34 @@ def get_irradiance(
 
     # Extract and return the global irradiance striking the surface.
     return total_irradiance.get(POA_GLOBAL_KEY, None)  # type: ignore [no-any-return]
+
+
+def relabel_cell_electrical_parameters(
+    cell_electrical_params: dict[str, float]
+) -> dict[str, float]:
+    """
+    Re-map entries within the mapping to more-sensible and user-readable variable names.
+
+    Inputs:
+        The electrical parameters governing a pv cell.
+
+    Returns:
+        The electrical parameters governing a pv cell, with variable names processed.
+
+    """
+
+    return {
+        A_REF: cell_electrical_params["a_ref"],  # / cell_electrical_params["N_s"],
+        REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"]
+        / cell_electrical_params["A_c"],
+        REFERENCE_PHOTOCURRENT_DENSITY: cell_electrical_params["I_L_ref"]
+        / cell_electrical_params["A_c"],
+        REFERENCE_SERIES_RESISTANCE: cell_electrical_params["R_s"],
+        REFERENCE_SHUNT_RESISTANCE: cell_electrical_params["R_sh_ref"],
+        SHORT_CIRCUIT_CURRENT_DENSITY_TEMPERATURE_COEFFICIENT: cell_electrical_params[
+            "alpha_sc"
+        ],
+    }
 
 
 # def get_iv_curve(self, show_axis=True):

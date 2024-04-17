@@ -11,3 +11,9 @@
 __utils__.py - The utility module for Polytunnel-PV.
 
 """
+
+__all__ = ("NAME",)
+
+# NAME:
+#   Keyword for parsing the name.
+NAME: str = "name"

@@ -401,6 +401,7 @@ class CurvedPVModule:
     def thin_film_from_cell_number_and_dimensions(
         cls: Type[CPVM],
         cell_breakdown_voltage: float,
+        cell_electrical_parameters: dict[str, float],
         cell_length: float,
         cell_spacing: float,
         cell_width: float,
@@ -430,6 +431,8 @@ class CurvedPVModule:
         Inputs:
             - cell_breakdown_voltage:
                 The breakdown voltage of the PV cells, in Volts.
+            - cell_electrical_parameters:
+                Electrical parameters used to describe the IV curve of the cell.
             - cell_length:
                 The length of the cells, _i.e._, the dimension parallel to the module
                 length, given in meters.
@@ -467,12 +470,13 @@ class CurvedPVModule:
                 polytunnel_curve.get_angles_from_surface_displacement(cell_displacement)
             )
             return PVCell(
-                cell_azimuth,
-                cell_length,
-                cell_tilt,
-                cell_width,
-                cell_breakdown_voltage,
+                azimuth=cell_azimuth,
+                length=cell_length,
+                tilt=cell_tilt,
+                width=cell_width,
+                breakdown_voltage=cell_breakdown_voltage,
                 _cell_id=cell_index,
+                **cell_electrical_parameters,
             )
 
         # Determine the position of the start of the module.
