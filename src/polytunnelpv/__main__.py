@@ -735,7 +735,11 @@ def main(unparsed_arguments) -> None:
             )
             for voltage in voltage_series
         ]
-        plt.plot(voltage_series, current_series, label=f"Cell #{pv_cell.cell_id}")
+        plt.plot(
+            pv_cell.rescale_voltage(voltage_series),
+            current_series,
+            label=f"Cell #{pv_cell.cell_id}",
+        )
 
     plt.legend()
 

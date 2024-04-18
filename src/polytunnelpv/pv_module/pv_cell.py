@@ -17,13 +17,21 @@ curved PV module.
 
 from dataclasses import dataclass
 from math import radians
+
+import numpy as np
+
 from pvlib.irradiance import dni, get_total_irradiance
+
 
 __all__ = ("get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
 
 # A_REF:
 #   Keyword for the a-ref parameter.
 A_REF: str = "a_ref"
+
+# NUM_CELLS_IN_PARENT_MODULE:
+#   Keyword for the number of cells in the parent module.
+NUM_CELLS_IN_PARENT_MODULE: str = "_num_cells_in_parent_module"
 
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.
@@ -106,6 +114,24 @@ class PVCell:
 
     """
 
+    # Private attributes:
+    #
+    # .. attribute:: _azimuth_in_radians:
+    #   The azimuth angle in radians.
+    #
+    # .. attribute:: _cell_id:
+    #   The ID number for the cell.
+    #
+    # .. attribute:: _num_cells_in_parent_module:
+    #   The number of cells in the parent module from which the electrical parameters
+    #   for the cell are obtained.
+    #   NOTE: This is used purely in electrical calculations and should not be used
+    #   otherwise.
+    #
+    # .. attribute:: _tilt_in_radians:
+    #   The tilt angle in radians.
+    #
+
     azimuth: float
     length: float
     tilt: float
@@ -123,6 +149,7 @@ class PVCell:
     reference_temperature: float = 25
     _azimuth_in_radians: float | None = None
     _cell_id: float | int | None = None
+    _num_cells_in_parent_module: int | None = None
     _tilt_in_radians: float | None = None
 
     # c_params = {
@@ -239,6 +266,19 @@ class PVCell:
 
         return self.reference_series_resistance
 
+    def rescale_voltage(self, voltage_to_rescale: float | np.ndarray) -> float:
+        """Rescale voltage values based on the cell being in series."""
+
+        def _rescale_voltage(voltage: float) -> float:
+            if voltage <= 0:
+                return voltage
+            return voltage / self._num_cells_in_parent_module
+
+        if isinstance(voltage_to_rescale, float):
+            return _rescale_voltage(voltage_to_rescale)
+
+        return np.asarray([_rescale_voltage(voltage) for voltage in voltage_to_rescale])
+
     @property
     def r_sh_ref(self) -> float:
         """The reference shunt resistance."""
@@ -327,10 +367,11 @@ def relabel_cell_electrical_parameters(
     """
 
     return {
-        A_REF: cell_electrical_params["a_ref"],  # / cell_electrical_params["N_s"],
-        REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"]
+        A_REF: cell_electrical_params["a_ref"],
+        NUM_CELLS_IN_PARENT_MODULE: cell_electrical_params["N_s"],
+        REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"]  # ,
         / cell_electrical_params["A_c"],
-        REFERENCE_PHOTOCURRENT_DENSITY: cell_electrical_params["I_L_ref"]
+        REFERENCE_PHOTOCURRENT_DENSITY: cell_electrical_params["I_L_ref"]  # ,
         / cell_electrical_params["A_c"],
         REFERENCE_SERIES_RESISTANCE: cell_electrical_params["R_s"],
         REFERENCE_SHUNT_RESISTANCE: cell_electrical_params["R_sh_ref"],
