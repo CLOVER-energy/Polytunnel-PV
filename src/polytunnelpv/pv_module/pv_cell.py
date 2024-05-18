@@ -20,7 +20,7 @@ from math import radians
 
 import numpy as np
 
-from pvlib.irradiance import dni, get_total_irradiance
+import pvlib
 
 
 __all__ = ("get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
@@ -220,6 +220,12 @@ class PVCell:
         return self.short_circuit_current_density_temperature_coefficient
 
     @property
+    def area(self) -> float:
+        """The area of the cell in meters squared."""
+
+        return self.width * self.length
+
+    @property
     def azimuth_in_radians(self) -> float:
         """Return the tilt in radians."""
 
@@ -298,6 +304,100 @@ class PVCell:
         return self._tilt_in_radians
 
 
+def calculate_cell_iv_curve(irradiance: float):
+    """
+    Calculate the IV curve for a cell.
+
+    NOTE: Depending on the units that the user uses, this function can return a result
+    with units of current OR current density. It _should_ be implemented with units of
+    current, so a user should be passing in reference I values.
+
+    Inputs:
+        - irradiance:
+            The irradiance, in W/m^2, striking the cell.
+
+    """
+
+    _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
+        1000
+        * cellwise_irradiance_frames[2][1]
+        .set_index("hour")
+        .iloc[time_of_day]
+        .values[pv_cell.cell_id],
+        20
+        + locations_to_weather_and_solar_map[cellwise_irradiance_frames[2][0].location][
+            time_of_day
+        ][TEMPERATURE],
+        pv_cell.alpha_sc,
+        pv_cell.a_ref,
+        pv_cell.j_l_ref,
+        pv_cell.j_o_ref,
+        pv_cell.r_sh_ref,
+        pv_cell.r_s,
+        pv_cell.eg_ref,
+        pv_cell.d_eg_dt_ref,
+    )
+
+    # Commented-out code is utilised when making the map from voltage values.
+    # It is included for completeness but should not be utilised.
+    # def bishop88_wrapper_function(*args, **kwargs):
+    #     try:
+    #         voltage = pvlib.singlediode.bishop88_v_from_i(*args, **kwargs)
+    #     except RuntimeError:
+    #         return np.inf
+    #     else:
+    #         if voltage > kwargs["breakdown_voltage"]:
+    #             return voltage  \
+    #
+    #     return np.inf   \
+    #
+    # voltage_series = [bishop88_wrapper_function(
+    #     current, IL, I0, Rs, Rsh, nNsVth, breakdown_voltage=-15, breakdown_factor=2e-3, breakdown_exp=3
+    # ) for current in current_series]
+    # plt.plot(voltage_series, current_series, label=f"Cell #{cell_id}")
+    #
+
+    def bishop88_current_wrapper_function(*args, **kwargs):
+        """
+        Function to wrap around the bishop 88 method.
+
+        The `pvlib.singlediode.bishop88_i_from_v` method throws `RuntimeError`s when
+        the current would result in a value that is out of bounds.
+        Rather than throw this error to the user, it is caught here, and infinities
+        are returned instead.
+
+        Return:
+            - The result of the call to `pvlib.singlediode.bishop88_i_from_v`,
+                provided that it's an allowed results;
+            - `np.inf` or `-np.inf` otherwise.
+
+        """
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error")
+            try:
+                current = pvlib.singlediode.bishop88_i_from_v(*args, **kwargs)
+            except (RuntimeError, RuntimeWarning):
+                return np.inf
+            else:
+                if current > 0:
+                    return current
+                return -np.inf
+
+    current_series = [
+        bishop88_current_wrapper_function(
+            voltage,
+            *_calculated_pv_cell_params,
+            breakdown_voltage=-15,
+            breakdown_factor=2e-3,
+            breakdown_exp=3,
+        )
+        for voltage in voltage_series
+    ]
+
+    power_series = current_series * pv_cell.rescale_voltage(voltage_series)
+
+
 def get_irradiance(
     pv_cell: PVCell,
     diffuse_horizontal_irradiance: float,
@@ -331,14 +431,14 @@ def get_irradiance(
     if solar_zenith >= 90 or global_horizontal_irradiance <= 0:
         return 0
 
-    # Determine the DNI from the GHI and DHI.
+    # Determine the pvlib.irradiance.dni from the GHI and DHI.
     if direct_normal_irradiance is None:
-        direct_normal_irradiance = dni(
+        direct_normal_irradiance = pvlib.irradiance.dni(
             global_horizontal_irradiance, diffuse_horizontal_irradiance, solar_zenith
         )
 
     # Call to PVlib to calculate the total irradiance incident on the surface.
-    total_irradiance = get_total_irradiance(
+    total_irradiance = pvlib.irradiance.get_total_irradiance(
         pv_cell.tilt,
         pv_cell.azimuth,
         solar_zenith,

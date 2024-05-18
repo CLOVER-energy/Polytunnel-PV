@@ -104,6 +104,10 @@ PV_CELL: str = "cell_id"
 #   The name of the PV-cells file.
 PV_CELLS_FILENAME: str = "pv_cells.yaml"
 
+# PVLIB_DATABASE_NAME:
+#   The database to use when fetching data on PV cells from pvilb.
+PVLIB_DATABASE_NAME: str = "CECmod"
+
 # PV_MODULES_FILENAME:
 #   The name of the PV-modules file.
 PV_MODULES_FILENAME: str = "pv_modules.yaml"
@@ -280,7 +284,7 @@ def _parse_pv_modules(
             # Look within the pvlib database for the cell name.
             try:
                 cell_electrical_parameters = (
-                    pvlib.pvsystem.retrieve_sam("CECmod")
+                    pvlib.pvsystem.retrieve_sam(PVLIB_DATABASE_NAME)
                     .loc[:, cell_type_name]
                     .to_dict()
                 )
@@ -648,7 +652,7 @@ def main(unparsed_arguments) -> None:
         cellwise_irradiance_frames.append((scenario, combined_frame))
 
     # current_series = np.linspace(0, 1, 1000)
-    voltage_series = np.linspace(-15, 45, 1000)
+    voltage_series = np.linspace(-15, 100, 1000)
 
     sns.set_palette(
         sns.cubehelix_palette(
@@ -656,88 +660,13 @@ def main(unparsed_arguments) -> None:
         )
     )
 
-    time_of_day: int = 12 + 24 * 31 * 6
+    time_of_day: int = 16 + 24 * 31 * 6
 
     for pv_cell in tqdm(scenarios[0].pv_module.pv_cells, desc="Plotting PV cell"):
-        _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
-            1000
-            * cellwise_irradiance_frames[0][1]
-            .set_index("hour")
-            .iloc[time_of_day]
-            .values[pv_cell.cell_id],
-            20
-            + locations_to_weather_and_solar_map[
-                cellwise_irradiance_frames[0][0].location
-            ][time_of_day][TEMPERATURE],
-            pv_cell.alpha_sc,
-            pv_cell.a_ref,
-            pv_cell.j_l_ref,
-            pv_cell.j_o_ref,
-            pv_cell.r_sh_ref,
-            pv_cell.r_s,
-            pv_cell.eg_ref,
-            pv_cell.d_eg_dt_ref,
-        )
-
-        # Commented-out code is utilised when making the map from voltage values.
-        # It is included for completeness but should not be utilised.
-        # def bishop88_wrapper_function(*args, **kwargs):
-        #     try:
-        #         voltage = pvlib.singlediode.bishop88_v_from_i(*args, **kwargs)
-        #     except RuntimeError:
-        #         return np.inf
-        #     else:
-        #         if voltage > kwargs["breakdown_voltage"]:
-        #             return voltage  \
-        #
-        #     return np.inf   \
-        #
-        # voltage_series = [bishop88_wrapper_function(
-        #     current, IL, I0, Rs, Rsh, nNsVth, breakdown_voltage=-15, breakdown_factor=2e-3, breakdown_exp=3
-        # ) for current in current_series]
-        # plt.plot(voltage_series, current_series, label=f"Cell #{cell_id}")
-        #
-
-        def bishop88_current_wrapper_function(*args, **kwargs):
-            """
-            Function to wrap around the bishop 88 method.
-
-            The `pvlib.singlediode.bishop88_i_from_v` method throws `RuntimeError`s when
-            the current would result in a value that is out of bounds.
-            Rather than throw this error to the user, it is caught here, and infinities
-            are returned instead.
-
-            Return:
-                - The result of the call to `pvlib.singlediode.bishop88_i_from_v`,
-                  provided that it's an allowed results;
-                - `np.inf` or `-np.inf` otherwise.
-
-            """
-
-            with warnings.catch_warnings():
-                warnings.filterwarnings("error")
-                try:
-                    current = pvlib.singlediode.bishop88_i_from_v(*args, **kwargs)
-                except (RuntimeError, RuntimeWarning):
-                    return np.inf
-                else:
-                    if current > 0:
-                        return current
-                    return -np.inf
-
-        current_series = [
-            bishop88_current_wrapper_function(
-                voltage,
-                *_calculated_pv_cell_params,
-                breakdown_voltage=-15,
-                breakdown_factor=2e-3,
-                breakdown_exp=3,
-            )
-            for voltage in voltage_series
-        ]
         plt.plot(
             pv_cell.rescale_voltage(voltage_series),
-            current_series,
+            # current_series,
+            power_series,
             label=f"Cell #{pv_cell.cell_id}",
         )
 
@@ -748,6 +677,55 @@ def main(unparsed_arguments) -> None:
     import pdb
 
     pdb.set_trace()
+
+    # import matplotlib.patches as mpatches
+
+    # def _post_process_split_axes(ax1, ax2):
+    #     """
+    #     Function to post-process the joining of axes.
+    #     Adapted from:
+    #         https://matplotlib.org/stable/gallery/subplots_axes_and_figures/broken_axis.html
+    #     """
+    #     # hide the spines between ax and ax2
+    #     ax1.spines.bottom.set_visible(False)
+    #     ax1.spines.top.set_visible(False)
+    #     ax2.spines.top.set_visible(False)
+    #     ax1.tick_params(
+    #         labeltop=False, labelbottom=False
+    #     )  # don't put tick labels at the top
+    #     ax2.xaxis.tick_bottom()
+    #     # Now, let's turn towards the cut-out slanted lines.
+    #     # We create line objects in axes coordinates, in which (0,0), (0,1),
+    #     # (1,0), and (1,1) are the four corners of the axes.
+    #     # The slanted lines themselves are markers at those locations, such that the
+    #     # lines keep their angle and position, independent of the axes size or scale
+    #     # Finally, we need to disable clipping.
+    #     d = 0.5  # proportion of vertical to horizontal extent of the slanted line
+    #     kwargs = dict(
+    #         marker=[(-1, -d), (1, d)],
+    #         markersize=12,
+    #         linestyle="none",
+    #         color="k",
+    #         mec="k",
+    #         mew=1,
+    #         clip_on=False,
+    #     )
+    #     ax1.plot([0], [0], transform=ax1.transAxes, **kwargs)
+    #     ax2.plot([0], [1], transform=ax2.transAxes, **kwargs)
+
+    # # Joo Plot
+    # gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
+    # fig, axes = plt.subplots(5, 2, figsize=(48 / 5, 32 / 5), gridspec_kw=gridspec)
+    # fig.subplots_adjust(hspace=0, wspace=0.25)
+
+    # axes[2, 0].set_visible(False)
+    # axes[2, 1].set_visible(False)
+    # y_label_coord: int = int(-850)
+
+    # axes[0, 0].get_shared_x_axes().join(axes[0, 0], axes[1, 0])
+    # axes[3, 0].get_shared_x_axes().join(axes[3, 0], axes[4, 0])
+    # axes[3, 1].get_shared_x_axes().join(axes[3, 1], axes[4, 1])
+    # axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
 
     curve_info = pvlib.pvsystem.singlediode(
         photocurrent=IL,
