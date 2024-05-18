@@ -717,9 +717,21 @@ def main(unparsed_arguments) -> None:
     except IndexError:
         raise Exception("Internal error occurred.") from None
 
-    # current_series = np.linspace(0, 1, 1000)
+    current_series = np.linspace(
+        0,
+        2
+        * np.max(
+            [pv_cell.short_circuit_current for pv_cell in scenario.pv_module.pv_cells]
+        ),
+        VOLTAGE_RESOLUTION,
+    )
     voltage_series = np.linspace(
-        np.min([pv_cell.breakdown_voltage for pv_cell in scenario.pv_module.pv_cells]),
+        np.min(
+            [
+                pv_cell.breakdown_voltage
+                for pv_cell in scenario.pv_module.pv_cells_and_cell_strings
+            ]
+        ),
         100,
         VOLTAGE_RESOLUTION,
     )
@@ -751,8 +763,8 @@ def main(unparsed_arguments) -> None:
             ),
             0,
         )
-        current_series, power_series = calculate_cell_iv_curve(
-            cell_temperature, solar_irradiance, pv_cell, voltage_series
+        current_series, power_series, voltage_series = calculate_cell_iv_curve(
+            cell_temperature, solar_irradiance, pv_cell, current_series=current_series
         )
         plt.plot(
             # pv_cell.rescale_voltage(voltage_series),

@@ -247,6 +247,7 @@ class PVCell:
     __open_circuit_voltage: float | None = None
     __mpp_thermal_coefficient: float | None = None
     __reference_efficiency: float | None = None
+    __short_circuit_current: float | None = None
 
     # c_params = {
     #     "I_L_ref": 8.24,
@@ -380,15 +381,9 @@ class PVCell:
                 self.d_eg_dt_ref,
             )
 
-            (
-                _,
-                reference_open_circuit_voltage,
-                _,
-                _,
-                _,
-                _,
-                _,
-            ) = pvlib.pvsystem.singlediode(*_calculated_pv_cell_params)
+            reference_open_circuit_voltage = pvlib.pvsystem.singlediode(
+                *_calculated_pv_cell_params
+            )["v_oc"]
 
             self.__open_circuit_voltage = reference_open_circuit_voltage
 
@@ -428,6 +423,38 @@ class PVCell:
             )
 
         return self.__reference_efficiency
+
+    @property
+    def short_circuit_current(self) -> float:
+        """
+        Calculate (if necessary) and return the short-circuit current of the cell.
+
+        Returns:
+            The short-circuit current of the cell.
+
+        """
+
+        if self.__short_circuit_current is None:
+            _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
+                self.reference_irradiance,
+                self.reference_temperature,
+                self.alpha_sc,
+                self.a_ref,
+                self.j_l_ref,
+                self.j_o_ref,
+                self.r_sh_ref,
+                self.r_s,
+                self.eg_ref,
+                self.d_eg_dt_ref,
+            )
+
+            reference_short_circuit_current = pvlib.pvsystem.singlediode(
+                *_calculated_pv_cell_params
+            )["i_sc"]
+
+            self.__short_circuit_current = reference_short_circuit_current
+
+        return self.__short_circuit_current
 
     def average_cell_temperature(
         self,
@@ -610,7 +637,9 @@ def calculate_cell_iv_curve(
     cell_temperature: float,
     irradiance: float,
     pv_cell: PVCell,
-    voltage_series: np.ndarray,
+    *,
+    current_series: np.ndarray | None = None,
+    voltage_series: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the IV curve for a cell.
@@ -619,6 +648,9 @@ def calculate_cell_iv_curve(
     with units of current OR current density. It _should_ be implemented with units of
     current, so a user should be passing in reference I values.
 
+    NOTE: The current OR the voltage series should be supplied, not both, and this
+    function will calculate whichever is not supplied.
+
     Inputs:
         - cell_temperature:
             The cell temperature, in degrees Celsius.
@@ -626,6 +658,9 @@ def calculate_cell_iv_curve(
             The irradiance, in W/m^2, striking the cell.
         - pv_cell:
             The PV cell being considered.
+        - current_series:
+            The series of current points over which to calculate the current and power
+            output from the cell.
         - voltage_series:
             The series of voltage points over which to calculate the current and power
             output from the cell.
@@ -635,8 +670,15 @@ def calculate_cell_iv_curve(
             The current values.
         - power_series:
             The power values.
+        - voltage_series:
+            The voltage series.
 
     """
+
+    if current_series is not None and voltage_series is not None:
+        raise Exception(
+            "Must supply either the current or voltage ranges to calculate over, not both, as this is ambiguous."
+        )
 
     _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
         irradiance,
@@ -697,20 +739,61 @@ def calculate_cell_iv_curve(
                     return current
                 return -np.inf
 
-    current_series = [
-        bishop88_current_wrapper_function(
-            voltage,
-            *_calculated_pv_cell_params,
-            breakdown_voltage=-pv_cell.breakdown_voltage,
-            breakdown_factor=2e-3,
-            breakdown_exp=3,
+    def bishop_voltage_wrapper_function(*args, **kwargs):
+        """
+        Function to wrap around the bishop 88 method.
+
+        The `pvlib.singlediode.bishop88_v_from_i` method throws `RuntimeError`s when
+        the current would result in a value that is out of bounds.
+        Rather than throw this error to the user, it is caught here, and infinities
+        are returned instead.
+
+        Return:
+            - The result of the call to `pvlib.singlediode.bishop88_v_from_i`,
+                provided that it's an allowed results;
+            - `np.inf` or `-np.inf` otherwise.
+
+        """
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("error")
+            try:
+                voltage = pvlib.singlediode.bishop88_v_from_i(*args, **kwargs)
+            except (RuntimeError, RuntimeWarning):
+                return np.inf
+            else:
+                if voltage > -pv_cell.breakdown_voltage:
+                    return voltage
+                return pv_cell.breakdown_voltage
+
+    if voltage_series is None:
+        voltage_series = pv_cell.rescale_voltage(
+            [
+                bishop_voltage_wrapper_function(
+                    current,
+                    *_calculated_pv_cell_params,
+                    breakdown_voltage=pv_cell.breakdown_voltage,
+                    breakdown_factor=2e-3,
+                    breakdown_exp=3,
+                )
+                for current in current_series
+            ]
         )
-        for voltage in voltage_series
-    ]
+    else:
+        current_series = [
+            bishop88_current_wrapper_function(
+                voltage,
+                *_calculated_pv_cell_params,
+                breakdown_voltage=pv_cell.breakdown_voltage,
+                breakdown_factor=2e-3,
+                breakdown_exp=3,
+            )
+            for voltage in voltage_series
+        ]
 
-    power_series = current_series * pv_cell.rescale_voltage(voltage_series)
+    power_series = current_series * voltage_series
 
-    return current_series, power_series
+    return current_series, power_series, voltage_series
 
 
 def get_irradiance(

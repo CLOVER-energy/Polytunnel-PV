@@ -518,6 +518,8 @@ class CurvedPVModule:
 
         pv_cells = list(map(_cell_from_index, range(0, n_cells)))
 
+        # Bypass the cells accordingly.
+
         return cls(pv_cells, bypass_diodes, ModuleType.THIN_FILM, name, offset_angle)
 
     @classmethod
