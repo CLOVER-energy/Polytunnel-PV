@@ -354,7 +354,6 @@ class CurvedPVModule:
     """
 
     pv_cells_and_cell_strings: list[BypassedCellString | PVCell]
-    bypass_diodes: list[BypassDiode]
     module_type: ModuleType
     name: str = ""
     offset_angle: float = 0
@@ -516,11 +515,54 @@ class CurvedPVModule:
             radians(offset_angle)
         )
 
-        pv_cells = list(map(_cell_from_index, range(0, n_cells)))
+        pv_cells: list[BypassedCellString | PVCell] = list(
+            map(_cell_from_index, range(0, n_cells))
+        )
 
-        # Bypass the cells accordingly.
+        # Bypass the cells accordingly:
+        # Very first, confirm that none of the bypass diode ranges overlap.
+        multiply_bypassed_cell_indicies = set()
+        diode_ranges = [
+            set(range(diode.start_index, diode.end_index)) for diode in bypass_diodes
+        ]
+        for diode_number, diode_range in enumerate(diode_ranges):
+            for other_diode_range in diode_ranges[diode_number + 1 :]:
+                multiply_bypassed_cell_indicies = multiply_bypassed_cell_indicies | (
+                    diode_range & other_diode_range
+                )
 
-        return cls(pv_cells, bypass_diodes, ModuleType.THIN_FILM, name, offset_angle)
+        if len(multiply_bypassed_cell_indicies) > 0:
+            raise Exception(
+                f"Bypass diodes for module {name} overlap. Multiply-bypassed cell indicies: {', '.join(sorted([str(entry) for entry in multiply_bypassed_cell_indicies]))}"
+            )
+
+        # Go in reverse order, popping the cells into bypass diodes where appropriate.
+        bypassed_cell_strings: list[BypassedCellString] = []
+        for bypass_diode in reversed(
+            sorted(bypass_diodes, key=lambda x: x.start_index)
+        ):
+            # Construct the bypassed cell string.
+            bypassed_cell_strings.append(
+                (
+                    bypassed_cell_string := BypassedCellString(
+                        bypass_diode=bypass_diode,
+                        pv_cells=pv_cells[
+                            bypass_diode.start_index : bypass_diode.end_index
+                        ],
+                    )
+                )
+            )
+
+            # Remove these cells from the list.
+            pv_cells = [
+                cell for cell in pv_cells if cell not in bypassed_cell_string.pv_cells
+            ]
+
+        # Insert the bypassed cell strings into the list of PV cells and sort by cell id.
+        pv_cells.extend(bypassed_cell_strings)
+        pv_cells = sorted(pv_cells, key=lambda cell: cell.cell_id)
+
+        return cls(pv_cells, ModuleType.THIN_FILM, name, offset_angle)
 
     @classmethod
     def constructor_from_module_type(

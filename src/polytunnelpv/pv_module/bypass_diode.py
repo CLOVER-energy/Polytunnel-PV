@@ -58,3 +58,15 @@ class BypassedCellString:
 
     bypass_diode: BypassDiode
     pv_cells: list[PVCell]
+
+    @property
+    def cell_id(self) -> float:
+        """
+        Return the cell ID for the fist cell in the string.
+
+        Returns:
+            - The cell ID of the first cell within the string.
+
+        """
+
+        return min([cell.cell_id for cell in self.pv_cells])
