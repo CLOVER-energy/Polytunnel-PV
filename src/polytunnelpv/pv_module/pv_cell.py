@@ -15,6 +15,8 @@ curved PV module.
 
 """
 
+import warnings
+
 from dataclasses import dataclass
 from math import radians
 
@@ -28,6 +30,10 @@ __all__ = ("get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
 # A_REF:
 #   Keyword for the a-ref parameter.
 A_REF: str = "a_ref"
+
+# DIODE_IDEALITY_FACTOR:
+#   Keyword for the diode ideality factor.
+DIODE_IDEALITY_FACTOR: str = "_reference_diode_ideality_factor"
 
 # NUM_CELLS_IN_PARENT_MODULE:
 #   Keyword for the number of cells in the parent module.
@@ -58,6 +64,78 @@ REFERENCE_SHUNT_RESISTANCE: str = "reference_shunt_resistance"
 SHORT_CIRCUIT_CURRENT_DENSITY_TEMPERATURE_COEFFICIENT: str = (
     "short_circuit_current_density_temperature_coefficient"
 )
+
+# STEFAN_BOLTZMAN_CONSTANT:
+#   The Stefan-Boltzman constant in SI units.
+STEFAN_BOLTZMAN_CONSTANT: float = 5.670374419 * (10**-8)
+
+# TEMPERATURE_PRECISION:
+#   The precision required when solving the matrix equation for the system temperatures.
+TEMPERATURE_PRECISION: float = 0.1
+
+
+def _conductive_air_heat_transfer_coefficient(wind_speed: float) -> float:
+    """
+    Calculates the conductive heat-transfer coefficient between PV panels and the air.
+
+    The heat transfer coefficient is given by:
+        h_air = 3.97(13) sWm^3K v_wind
+              + 6.90(5) W/m^2K
+
+    """
+
+    return float(3.97 * wind_speed + 6.90)
+
+
+def _radiation_to_sky_coefficient(
+    collector_emissivity: float, collector_temperature: float, sky_temperature: float
+) -> float:
+    """
+    Returns the heat-transfer coefficient between a collector and the sky in W/m^2.
+
+    This function has been taken, and reproduced with permission, from
+    Winchester, B., Nelson, J., and Markides, C.N., "HEATDesalination" [Software]
+    Available from: https://github.com/BenWinchester/HEATDesalination
+
+    Inputs:
+        - collector_emissivity:
+            The emissivity of the collector.
+        - collector_temperature:
+            The temperature of the collector, measured in Kelvin.
+        - sky_temperature:
+            The sky temperature, measured in Kelvin.
+
+    Outputs:
+        The heat-transfer coefficient between the collector and the sky, measured in
+        Watts per meter squared.
+
+    """
+    return (
+        STEFAN_BOLTZMAN_CONSTANT  # [W/m^2*K^4]
+        * collector_emissivity
+        * (collector_temperature**2 + sky_temperature**2)  # [K^2]
+        * (collector_temperature + sky_temperature)  # [K]
+    )
+
+
+def _sky_temperature(ambient_temperature: float) -> float:
+    """
+    Determines the radiative temperature of the sky.
+
+    This function has been taken, and reproduced with permission, from
+    Winchester, B., Nelson, J., and Markides, C.N., "HEATDesalination" [Software]
+    Available from: https://github.com/BenWinchester/HEATDesalination
+
+    The "sky," as a black body, has a radiative temperature different to that of the
+    surrounding air, or the ambient temperature. This function converts between them and
+    outputs the sky's radiative temperature.
+
+    Outputs:
+        The radiative temperature of the "sky" in Kelvin.
+
+    """
+
+    return float(0.0552 * (ambient_temperature**1.5))
 
 
 @dataclass(kw_only=True)
@@ -119,6 +197,9 @@ class PVCell:
     # .. attribute:: _azimuth_in_radians:
     #   The azimuth angle in radians.
     #
+    # .. attribute:: _reference_diode_ideality_factor:
+    #   The ideality factor for the diode.
+    #
     # .. attribute:: _cell_id:
     #   The ID number for the cell.
     #
@@ -130,6 +211,15 @@ class PVCell:
     #
     # .. attribute:: _tilt_in_radians:
     #   The tilt angle in radians.
+    #
+    # .. attribute:: __open_circuit_voltage:
+    #   The open-circuit voltage, in Volts.
+    #
+    # .. attribute:: __mpp_thermal_coefficient:
+    #   The thermal coefficient of the maximum power point.
+    #
+    # .. attribute:: __reference_efficiency:
+    #   The power-conversion efficiency of the cell at reference conditions.
     #
 
     azimuth: float
@@ -147,10 +237,16 @@ class PVCell:
     reference_bandgap_energy_temperature_coefficient: float = -0.0002677
     reference_irradiance: float = 1000
     reference_temperature: float = 25
+    absorptivity: float = 0.9
+    emissivity: float = 0.9
     _azimuth_in_radians: float | None = None
     _cell_id: float | int | None = None
+    _reference_diode_ideality_factor: float | int | None = None
     _num_cells_in_parent_module: int | None = None
     _tilt_in_radians: float | None = None
+    __open_circuit_voltage: float | None = None
+    __mpp_thermal_coefficient: float | None = None
+    __reference_efficiency: float | None = None
 
     # c_params = {
     #     "I_L_ref": 8.24,
@@ -224,6 +320,212 @@ class PVCell:
         """The area of the cell in meters squared."""
 
         return self.width * self.length
+
+    @property
+    def gamma_ref(self) -> float:
+        """The reference diode ideality factor."""
+
+        return self._reference_diode_ideality_factor
+
+    @property
+    def mpp_thermal_coefficient(self) -> float:
+        """
+        Calculate the thermal coefficient of the maximum power point.
+
+        Returns:
+            The maximum power point of the thermal coefficient.
+
+        """
+
+        # Calculate the MPP thermal coefficient if it hasn't been calculated yet.
+        if self.__mpp_thermal_coefficient is None:
+            self.__mpp_thermal_coefficient = pvlib.ivtools.sdm.pvsyst_temperature_coeff(
+                self.alpha_sc,
+                self.gamma_ref,
+                0,
+                self.reference_photocurrent_density,
+                self.reference_dark_current_density,
+                self.reference_shunt_resistance,
+                self.reference_shunt_resistance,
+                self.reference_series_resistance,
+                self._num_cells_in_parent_module,
+                EgRef=self.eg_ref,
+                irrad_ref=self.reference_irradiance,
+                temp_ref=self.reference_temperature,
+            )
+
+        return self.__mpp_thermal_coefficient
+
+    @property
+    def open_circuit_voltage(self) -> float:
+        """
+        Calculate (if necessary) and return the open-circuit voltage of the cell.
+
+        Returns:
+            The open-circuit voltage of the cell.
+
+        """
+
+        if self.__open_circuit_voltage is None:
+            _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
+                self.reference_irradiance,
+                self.reference_temperature,
+                self.alpha_sc,
+                self.a_ref,
+                self.j_l_ref,
+                self.j_o_ref,
+                self.r_sh_ref,
+                self.r_s,
+                self.eg_ref,
+                self.d_eg_dt_ref,
+            )
+
+            (
+                _,
+                reference_open_circuit_voltage,
+                _,
+                _,
+                _,
+                _,
+                _,
+            ) = pvlib.pvsystem.singlediode(*_calculated_pv_cell_params)
+
+            self.__open_circuit_voltage = reference_open_circuit_voltage
+
+        return self.__open_circuit_voltage
+
+    @property
+    def reference_efficiency(self) -> float:
+        """
+        Calculate an approximate reference efficiency value.
+
+        Returns:
+            An approximate value of the reference efficiency of the cell.
+
+        """
+
+        if self.__reference_efficiency is None:
+            # Compute the efficiency of the cell at reference conditions.
+            _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
+                self.reference_irradiance,
+                self.reference_temperature,
+                self.alpha_sc,
+                self.a_ref,
+                self.j_l_ref,
+                self.j_o_ref,
+                self.r_sh_ref,
+                self.r_s,
+                self.eg_ref,
+                self.d_eg_dt_ref,
+            )
+
+            _, _, maximum_power_point_power = pvlib.singlediode.bishop88_mpp(
+                *_calculated_pv_cell_params
+            )
+
+            self.__reference_efficiency = maximum_power_point_power / (
+                self.reference_irradiance * self.area * self._num_cells_in_parent_module
+            )
+
+        return self.__reference_efficiency
+
+    def average_cell_temperature(
+        self,
+        ambient_temperature: float,
+        solar_irradiance: float,
+        wind_speed: float,
+    ) -> float:
+        """
+        Calculate the temperature of the PV module in Kelvin.
+
+        This function has been taken, and reproduced with permission, from
+        Winchester, B., Nelson, J., and Markides, C.N., "HEATDesalination" [Software]
+        Available from: https://github.com/BenWinchester/HEATDesalination
+
+        Uses a heat-balance calculation iteratively to solve for the average temperature of
+        the PV module:
+            0W = a_pv G (1 - eta_el)
+                 + h_air (T_air - T_pv)
+                 + e' sigma (T_sky - Tpv),
+            where:
+                a_pv    is the absorptivity of the collector,
+                G       the solar irradiance in Watts per meter squared,
+                eta_el  the electrical efficiency of the collector,
+                h_air   the conductive heat-transfer coefficient between the collector
+                        and the surrounding air,
+                e'      the effective emissivity made linear by combining temperature
+                        terms of higher orders,
+            and sigma   is the Stefan-Boltzman coefficient.
+
+        This can be rearranged to the form employed here:
+            T_pv = (
+                a_pv G (1 - eta_ref (1 + beta T_ref))
+                + h_air T_amb
+                + e' sigma T_sky
+            ) / (
+                e' sigma + h_air - a_pv beta eta_ref G
+            )
+        which is linear in temperature and can be solved iteratively as the value of e'
+        contains higher-order terms in temperature.
+
+        Inputs:
+            - ambient_temperature:
+                The ambient temperature, measured in degrees Kelvin.
+            - solar_irradiance:
+                The solar irradiance incident on the collector, measured in Watts per
+                meter squared.
+            - wind_speed:
+                The wind speed in meters per second.
+
+        Outputs:
+            The average temperature of the PV module installed in degrees Kelvin.
+
+        """
+
+        # Calculate variable values which remain constant throughout the iteration
+        sky_temperature: float = _sky_temperature(ambient_temperature)
+
+        # Setup inputs for the iterative loop
+        best_guess_average_temperature: float = ambient_temperature
+        solution_found: bool = False
+
+        # Loop through until a solution is found
+        while not solution_found:
+            # Compute the necessary coefficients
+            radiation_to_sky_coefficient = _radiation_to_sky_coefficient(
+                self.emissivity, best_guess_average_temperature, sky_temperature
+            )
+
+            # Calculate the average temperature of the collector
+            average_temperature: float = (
+                (self.absorptivity * solar_irradiance)
+                * (
+                    1
+                    - self.reference_efficiency
+                    * (1 + self.mpp_thermal_coefficient * self.reference_temperature)
+                )
+                + _conductive_air_heat_transfer_coefficient(wind_speed)
+                * ambient_temperature
+                + radiation_to_sky_coefficient * sky_temperature
+            ) / (
+                radiation_to_sky_coefficient
+                + _conductive_air_heat_transfer_coefficient(wind_speed)
+                - self.absorptivity
+                * self.mpp_thermal_coefficient
+                * self.reference_efficiency
+                * solar_irradiance
+            )
+
+            # Break if this average temperature is within the required precision.
+            if (
+                abs(best_guess_average_temperature - average_temperature)
+                < TEMPERATURE_PRECISION
+            ):
+                solution_found = True
+
+            best_guess_average_temperature = average_temperature
+
+        return average_temperature
 
     @property
     def azimuth_in_radians(self) -> float:
@@ -304,7 +606,12 @@ class PVCell:
         return self._tilt_in_radians
 
 
-def calculate_cell_iv_curve(irradiance: float):
+def calculate_cell_iv_curve(
+    cell_temperature: float,
+    irradiance: float,
+    pv_cell: PVCell,
+    voltage_series: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the IV curve for a cell.
 
@@ -313,21 +620,27 @@ def calculate_cell_iv_curve(irradiance: float):
     current, so a user should be passing in reference I values.
 
     Inputs:
+        - cell_temperature:
+            The cell temperature, in degrees Celsius.
         - irradiance:
             The irradiance, in W/m^2, striking the cell.
+        - pv_cell:
+            The PV cell being considered.
+        - voltage_series:
+            The series of voltage points over which to calculate the current and power
+            output from the cell.
+
+    Returns:
+        - current_series:
+            The current values.
+        - power_series:
+            The power values.
 
     """
 
     _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
-        1000
-        * cellwise_irradiance_frames[2][1]
-        .set_index("hour")
-        .iloc[time_of_day]
-        .values[pv_cell.cell_id],
-        20
-        + locations_to_weather_and_solar_map[cellwise_irradiance_frames[2][0].location][
-            time_of_day
-        ][TEMPERATURE],
+        irradiance,
+        cell_temperature,
         pv_cell.alpha_sc,
         pv_cell.a_ref,
         pv_cell.j_l_ref,
@@ -388,7 +701,7 @@ def calculate_cell_iv_curve(irradiance: float):
         bishop88_current_wrapper_function(
             voltage,
             *_calculated_pv_cell_params,
-            breakdown_voltage=-15,
+            breakdown_voltage=-pv_cell.breakdown_voltage,
             breakdown_factor=2e-3,
             breakdown_exp=3,
         )
@@ -396,6 +709,8 @@ def calculate_cell_iv_curve(irradiance: float):
     ]
 
     power_series = current_series * pv_cell.rescale_voltage(voltage_series)
+
+    return current_series, power_series
 
 
 def get_irradiance(
@@ -468,6 +783,7 @@ def relabel_cell_electrical_parameters(
 
     return {
         A_REF: cell_electrical_params["a_ref"],
+        DIODE_IDEALITY_FACTOR: cell_electrical_params["gamma_r"],
         NUM_CELLS_IN_PARENT_MODULE: cell_electrical_params["N_s"],
         REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"]  # ,
         / cell_electrical_params["A_c"],

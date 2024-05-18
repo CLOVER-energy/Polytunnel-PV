@@ -37,7 +37,11 @@ import pandas as pd
 from tqdm import tqdm
 
 from .__utils__ import NAME
-from .pv_module.pv_cell import get_irradiance, relabel_cell_electrical_parameters
+from .pv_module.pv_cell import (
+    calculate_cell_iv_curve,
+    get_irradiance,
+    relabel_cell_electrical_parameters,
+)
 from .pv_module.pv_module import (
     Curve,
     CurveType,
@@ -132,6 +136,10 @@ TEMPERATURE: str = "temperature"
 #   Keyword used to determine the module type of the PV.
 TYPE: str = "type"
 
+# VOLTAGE_RESOLUTION:
+#   The number of points to use for IV plotting.
+VOLTAGE_RESOLUTION: int = 1000
+
 # WEATHER_DATA_DIRECTORY:
 #   The directory where weather data should be found.
 WEATHER_DATA_DIRECTORY: str = "weather_data"
@@ -146,6 +154,18 @@ WEATHER_FILE_WITH_SOLAR: str = os.path.join(
     "auto_generated", "w_with_s_{location_name}.csv"
 )
 
+# ZERO_CELSIUS_OFFSET:
+#   The offset to convert between Celsius and Kelvin.
+ZERO_CELSIUS_OFFSET: float = 273.15
+
+class ArgumentError(Exception):
+    """Raised when incorrect command-line arguments are passed in."""
+
+    def __init__(self, msg: str) -> None:
+        """Instantiate with the message `msg`."""
+
+        super().__init__(f"Incorrect CLI arguments: {msg}")
+
 
 def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     """
@@ -159,10 +179,16 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
 
+    # Scenario:
+    #   The name of the scenario to use.
+    parser.add_argument(
+        "--scenario", "-s", type=str, help="The name of the scenario to use."
+    )
+
     # Weather-data arguments.
     weather_arguments = parser.add_argument_group("weather-data arguments")
-    # Fast mode:
-    #   Used for debugging purposes to run with fsat models.
+    # Regenerate:
+    #   Used to re-calculate the solar weather information.
     weather_arguments.add_argument(
         "--regenerate",
         "-rw",
@@ -651,8 +677,33 @@ def main(unparsed_arguments) -> None:
 
         cellwise_irradiance_frames.append((scenario, combined_frame))
 
+    # Extract the information for just the scenario that should be plotted.
+    try:
+        scenario = {scenario.name: scenario for scenario in scenarios}[
+            parsed_args.scenario
+        ]
+    except KeyError:
+        if parsed_args.scenario is None:
+            raise ArgumentError(
+                "Scenario must be specified on the command-line."
+            ) from None
+        raise KeyError(
+            f"Scenario {parsed_args.scenario} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
+        ) from None
+
+    try:
+        irradiance_frame = [
+            entry[1] for entry in cellwise_irradiance_frames if entry[0] == scenario
+        ][0]
+    except IndexError:
+        raise Exception("Internal error occurred.") from None
+
     # current_series = np.linspace(0, 1, 1000)
-    voltage_series = np.linspace(-15, 100, 1000)
+    voltage_series = np.linspace(
+        np.min([pv_cell.breakdown_voltage for pv_cell in scenario.pv_module.pv_cells]),
+        100,
+        VOLTAGE_RESOLUTION,
+    )
 
     sns.set_palette(
         sns.cubehelix_palette(
@@ -660,9 +711,27 @@ def main(unparsed_arguments) -> None:
         )
     )
 
-    time_of_day: int = 16 + 24 * 31 * 6
+    time_of_day: int = 8 + 24 * 31 * 6
 
-    for pv_cell in tqdm(scenarios[0].pv_module.pv_cells, desc="Plotting PV cell"):
+    for pv_cell in tqdm(scenario.pv_module.pv_cells, desc="Plotting PV cell"):
+        # Determine the cell temperature
+        cell_temperature = pv_cell.average_cell_temperature(
+            (
+                ambient_celsius_temperature := locations_to_weather_and_solar_map[
+                    scenario.location
+                ][time_of_day][TEMPERATURE]
+            ) + ZERO_CELSIUS_OFFSET,
+            (
+                solar_irradiance := (1000
+                * irradiance_frame.set_index("hour")
+                .iloc[time_of_day]
+                .values[pv_cell.cell_id])
+            ),
+            0,
+        )
+        _, power_series = calculate_cell_iv_curve(
+            cell_temperature, solar_irradiance, pv_cell, voltage_series
+        )
         plt.plot(
             pv_cell.rescale_voltage(voltage_series),
             # current_series,
@@ -673,6 +742,11 @@ def main(unparsed_arguments) -> None:
     plt.legend()
 
     plt.show()
+
+    plt.bar([pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells], [1000
+                * irradiance_frame.set_index("hour")
+                .iloc[time_of_day]
+                .values[pv_cell.cell_id] for pv_cell in scenario.pv_module.pv_cells])
 
     import pdb
 
@@ -727,49 +801,49 @@ def main(unparsed_arguments) -> None:
     # axes[3, 1].get_shared_x_axes().join(axes[3, 1], axes[4, 1])
     # axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
 
-    curve_info = pvlib.pvsystem.singlediode(
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        ivcurve_pnts=100,
-        method="lambertw",
-    )
-    plt.plot(curve_info["v"], curve_info["i"])
-    plt.show()
+    # curve_info = pvlib.pvsystem.singlediode(
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     ivcurve_pnts=100,
+    #     method="lambertw",
+    # )
+    # plt.plot(curve_info["v"], curve_info["i"])
+    # plt.show()
 
-    pvlib.singlediode.bishop88_i_from_v(
-        -14.95,
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        breakdown_voltage=-15,
-        breakdown_factor=2e-3,
-        breakdown_exp=3,
-    )
+    # pvlib.singlediode.bishop88_i_from_v(
+    #     -14.95,
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     breakdown_voltage=-15,
+    #     breakdown_factor=2e-3,
+    #     breakdown_exp=3,
+    # )
 
-    v_oc = pvlib.singlediode.bishop88_v_from_i(
-        0.0,
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        method="lambertw",
-    )
-    voltage_array = np.linspace(-15 * 0.999, v_oc, 1000)
-    ivcurve_i, ivcurve_v, _ = pvlib.singlediode.bishop88(
-        voltage_array,
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        breakdown_voltage=-15,
-    )
+    # v_oc = pvlib.singlediode.bishop88_v_from_i(
+    #     0.0,
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     method="lambertw",
+    # )
+    # voltage_array = np.linspace(-15 * 0.999, v_oc, 1000)
+    # ivcurve_i, ivcurve_v, _ = pvlib.singlediode.bishop88(
+    #     voltage_array,
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     breakdown_voltage=-15,
+    # )
 
     start_index: int = 0
     frame_slice = (
