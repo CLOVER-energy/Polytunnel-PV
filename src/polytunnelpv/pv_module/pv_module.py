@@ -25,6 +25,7 @@ from multiprocessing import Pool
 from numpy import matmul
 from typing import Any, Callable, TypeVar, Type
 
+from .bypass_diode import BypassDiode, BypassedCellString
 from .pv_cell import PVCell
 
 __all__ = (
@@ -352,7 +353,8 @@ class CurvedPVModule:
 
     """
 
-    pv_cells: list[PVCell]
+    pv_cells_and_cell_strings: list[BypassedCellString | PVCell]
+    bypass_diodes: list[BypassDiode]
     module_type: ModuleType
     name: str = ""
     offset_angle: float = 0
@@ -376,7 +378,9 @@ class CurvedPVModule:
             f"CurvedPVModule(name={self.name}, module_type={self.module_type.value}, "
             f"offset_angle={self.offset_angle:.3g}, "
             "pv_cells:\n\t{pv_cells}\n)".format(
-                pv_cells="\n\t".join([str(cell) for cell in self.pv_cells])
+                pv_cells="\n\t".join(
+                    [str(cell) for cell in self.pv_cells_and_cell_strings]
+                )
             )
         )
 
@@ -397,6 +401,30 @@ class CurvedPVModule:
                 f"{', '.join(map(str, allowed_offset_angles))} degrees."
             )
 
+    @property
+    def pv_cells(self) -> list[PVCell]:
+        """
+        Return a `list` of _all_ the PV-cells associated with the module.
+
+        Returns:
+            A `list` of all the PV cells, both bypassed and unbypassed.
+
+        """
+
+        pv_cells: list[PVCell] = []
+
+        # Loop through the cell-or-string attribute and append or extend based on type
+        for cell_or_bypassed_string in self.pv_cells_and_cell_strings:
+            # If the entry is a pv cell, simply append.
+            if isinstance(cell_or_bypassed_string, PVCell):
+                pv_cells.append(cell_or_bypassed_string)
+                continue
+
+            # Otherwise, extend the list by the cells in the bypassed string.
+            pv_cells.extend(cell_or_bypassed_string.pv_cells)
+
+        return pv_cells
+
     @classmethod
     def thin_film_from_cell_number_and_dimensions(
         cls: Type[CPVM],
@@ -407,6 +435,7 @@ class CurvedPVModule:
         cell_width: float,
         n_cells: int,
         *,
+        bypass_diodes: list[BypassDiode],
         offset_angle: float,
         polytunnel_curve: Curve,
         module_centre_offset: float = 0,
@@ -443,6 +472,8 @@ class CurvedPVModule:
                 module length, given in meters.
             - n_cells:
                 The number of cells in the module.
+            - bypass_diodes:
+                The `list` of all bypass diodes present on the module.
             - offest_angle:
                 The angle between the length of the module and the axis of the
                 polytunnel.
@@ -487,7 +518,7 @@ class CurvedPVModule:
 
         pv_cells = list(map(_cell_from_index, range(0, n_cells)))
 
-        return cls(pv_cells, ModuleType.THIN_FILM, name, offset_angle)
+        return cls(pv_cells, bypass_diodes, ModuleType.THIN_FILM, name, offset_angle)
 
     @classmethod
     def constructor_from_module_type(

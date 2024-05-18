@@ -37,6 +37,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from .__utils__ import NAME
+from .pv_module.bypass_diode import BypassDiode
 from .pv_module.pv_cell import (
     calculate_cell_iv_curve,
     get_irradiance,
@@ -50,6 +51,10 @@ from .pv_module.pv_module import (
     TYPE_TO_CURVE_MAPPING,
 )
 from .scenario import Scenario
+
+# BYPASS_DIODES:
+#   Keyword for the bypass-diode parameters.
+BYPASS_DIODES: str = "bypass_diodes"
 
 # CELL_ELECTRICAL_PARAMETERS:
 #   Keyword for the electrical parameters of a PV cell.
@@ -157,6 +162,7 @@ WEATHER_FILE_WITH_SOLAR: str = os.path.join(
 # ZERO_CELSIUS_OFFSET:
 #   The offset to convert between Celsius and Kelvin.
 ZERO_CELSIUS_OFFSET: float = 273.15
+
 
 class ArgumentError(Exception):
     """Raised when incorrect command-line arguments are passed in."""
@@ -315,9 +321,22 @@ def _parse_pv_modules(
                     .to_dict()
                 )
             except KeyError:
-                raise (
-                    f"Could not find cell name {cell_type_name} within either local or pvlib-imported scope."
+                raise Exception(
+                    f"Could not find cell name {cell_type_name} within either local or "
+                    "pvlib-imported scope."
                 ) from None
+
+        # Create bypass diodes based on the information provided.
+        try:
+            pv_module_entry[BYPASS_DIODES] = (
+                [BypassDiode(**entry) for entry in pv_module_entry[BYPASS_DIODES]]
+                if BYPASS_DIODES in pv_module_entry
+                else []
+            )
+        except KeyError as caught_error:
+            raise Exception(
+                "Missing bypass diode information for pv module."
+            ) from caught_error
 
         # Map the parameters to those electrical parameters that the cell is expecting.
         pv_module_entry[CELL_ELECTRICAL_PARAMETERS] = (
@@ -707,7 +726,7 @@ def main(unparsed_arguments) -> None:
 
     sns.set_palette(
         sns.cubehelix_palette(
-            start=-0.2, rot=-0.2, n_colors=len(scenarios[0].pv_module.pv_cells)
+            start=-0.2, rot=-0.2, n_colors=len(scenario.pv_module.pv_cells)
         )
     )
 
@@ -720,21 +739,24 @@ def main(unparsed_arguments) -> None:
                 ambient_celsius_temperature := locations_to_weather_and_solar_map[
                     scenario.location
                 ][time_of_day][TEMPERATURE]
-            ) + ZERO_CELSIUS_OFFSET,
+            )
+            + ZERO_CELSIUS_OFFSET,
             (
-                solar_irradiance := (1000
-                * irradiance_frame.set_index("hour")
-                .iloc[time_of_day]
-                .values[pv_cell.cell_id])
+                solar_irradiance := (
+                    1000
+                    * irradiance_frame.set_index("hour")
+                    .iloc[time_of_day]
+                    .values[pv_cell.cell_id]
+                )
             ),
             0,
         )
-        _, power_series = calculate_cell_iv_curve(
+        current_series, power_series = calculate_cell_iv_curve(
             cell_temperature, solar_irradiance, pv_cell, voltage_series
         )
         plt.plot(
-            pv_cell.rescale_voltage(voltage_series),
-            # current_series,
+            # pv_cell.rescale_voltage(voltage_series),
+            current_series,
             power_series,
             label=f"Cell #{pv_cell.cell_id}",
         )
@@ -743,10 +765,16 @@ def main(unparsed_arguments) -> None:
 
     plt.show()
 
-    plt.bar([pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells], [1000
-                * irradiance_frame.set_index("hour")
-                .iloc[time_of_day]
-                .values[pv_cell.cell_id] for pv_cell in scenario.pv_module.pv_cells])
+    plt.bar(
+        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+        [
+            1000
+            * irradiance_frame.set_index("hour")
+            .iloc[time_of_day]
+            .values[pv_cell.cell_id]
+            for pv_cell in scenario.pv_module.pv_cells
+        ],
+    )
 
     import pdb
 
