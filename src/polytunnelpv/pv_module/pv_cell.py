@@ -15,6 +15,7 @@ curved PV module.
 
 """
 
+import enum
 import warnings
 
 from dataclasses import dataclass
@@ -25,7 +26,7 @@ import numpy as np
 import pvlib
 
 
-__all__ = ("get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
+__all__ = ("CellType", "get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
 
 # A_REF:
 #   Keyword for the a-ref parameter.
@@ -142,6 +143,22 @@ def _sky_temperature(ambient_temperature: float) -> float:
     return float(0.0552 * (ambient_temperature**1.5))
 
 
+class CellType(enum.Enum):
+    """
+    Used to denote whether the cells are mono- or bi-facial in nature.
+
+    - MONO_FACIAL: 0
+        Used to denote mono-facial cells.
+
+    - BIFACIAL: 1
+        Used to denote bi-facial cells.
+
+    """
+
+    MONO_FACIAL: int = 0
+    BIFACIAL: int = 1
+
+
 @dataclass(kw_only=True)
 class PVCell:
     """
@@ -227,6 +244,7 @@ class PVCell:
     #
 
     azimuth: float
+    cell_type: CellType
     length: float
     tilt: float
     width: float

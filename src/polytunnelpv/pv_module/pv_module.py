@@ -16,6 +16,7 @@ This module provides functionality for the modelling of the PV module.
 """
 
 import enum
+import functools
 import warnings
 
 from abc import ABC, abstractmethod
@@ -26,7 +27,7 @@ from numpy import matmul
 from typing import Any, Callable, TypeVar, Type
 
 from .bypass_diode import BypassDiode, BypassedCellString
-from .pv_cell import PVCell
+from .pv_cell import CellType, PVCell
 
 __all__ = (
     "CircularCurve",
@@ -35,6 +36,10 @@ __all__ = (
     "ModuleType",
     "TYPE_TO_CURVE_MAPPING",
 )
+
+# BIFACIAL:
+#   String used to parse information about cell bifaciality.
+BIFACIAL: str = "Bifacial"
 
 # Floating point precision:
 #   The floating-point precision of the numbers to use when doing rotations.
@@ -487,7 +492,7 @@ class CurvedPVModule:
 
         """
 
-        def _cell_from_index(cell_index: int) -> PVCell:
+        def _cell_from_index(cell_index: int, cell_type: CellType) -> PVCell:
             """Construct a PV cell based on its index in the module."""
 
             # Compute the cell displacement based on its index and the module offset.
@@ -501,6 +506,7 @@ class CurvedPVModule:
             )
             return PVCell(
                 azimuth=cell_azimuth,
+                cell_type=cell_type,
                 length=cell_length,
                 tilt=cell_tilt,
                 width=cell_width,
@@ -509,6 +515,11 @@ class CurvedPVModule:
                 **cell_electrical_parameters,
             )
 
+        # Determine whether the cells are mono- or bi-facial.
+        cell_type: CellType = CellType(
+            cell_electrical_parameters.get(BIFACIAL, CellType.MONO_FACIAL.value)
+        )
+
         # Determine the position of the start of the module.
         module_length = n_cells * cell_length + (n_cells - 1) * cell_spacing
         module_start_displacement = module_centre_offset - (module_length / 2) * sin(
@@ -516,7 +527,10 @@ class CurvedPVModule:
         )
 
         pv_cells: list[BypassedCellString | PVCell] = list(
-            map(_cell_from_index, range(0, n_cells))
+            map(
+                functools.partial(_cell_from_index, cell_type=cell_type),
+                range(0, n_cells),
+            )
         )
 
         # Bypass the cells accordingly:
