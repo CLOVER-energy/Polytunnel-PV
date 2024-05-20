@@ -73,6 +73,10 @@ STEFAN_BOLTZMAN_CONSTANT: float = 5.670374419 * (10**-8)
 #   The precision required when solving the matrix equation for the system temperatures.
 TEMPERATURE_PRECISION: float = 0.1
 
+# ZERO_CELSIUS_OFFSET:
+#   The offset to use for converting to Kelvin.
+ZERO_CELSIUS_OFFSET: float = 273.15
+
 
 def _conductive_air_heat_transfer_coefficient(wind_speed: float) -> float:
     """
@@ -632,6 +636,40 @@ class PVCell:
 
         return self._tilt_in_radians
 
+    def calculate_iv_curve(
+        self,
+        ambient_celsius_temperature: float,
+        irradiance_array: np.ndarray,
+        *,
+        current_series: np.ndarray | None = None,
+        voltage_series: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Calculate the IV curve for the cell.
+
+        Inputs:
+            - ambient_celsius_temperature:
+                The ambient temperature in degrees Celsius.
+            - irradiance_array:
+                The array of irradiance values across the PV module.
+
+        """
+
+        cell_temperature = self.average_cell_temperature(
+            ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
+            (solar_irradiance := irradiance_array.iloc[self.cell_id]),
+            # TODO: Implement wind speed here using renewables.ninja data.
+            0,
+        )
+
+        return calculate_cell_iv_curve(
+            cell_temperature,
+            solar_irradiance,
+            self,
+            current_series=current_series,
+            voltage_series=voltage_series,
+        )
+
 
 def calculate_cell_iv_curve(
     cell_temperature: float,
@@ -640,7 +678,7 @@ def calculate_cell_iv_curve(
     *,
     current_series: np.ndarray | None = None,
     voltage_series: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate the IV curve for a cell.
 
@@ -677,7 +715,14 @@ def calculate_cell_iv_curve(
 
     if current_series is not None and voltage_series is not None:
         raise Exception(
-            "Must supply either the current or voltage ranges to calculate over, not both, as this is ambiguous."
+            "Must supply either the current or voltage ranges to calculate over, not "
+            "both, as this is ambiguous."
+        )
+
+    if current_series is None and voltage_series is None:
+        raise Exception(
+            "Must supply either the current or voltage ranges to calculate over: "
+            "neither has been supplied."
         )
 
     _calculated_pv_cell_params = pvlib.pvsystem.calcparams_desoto(
@@ -692,25 +737,6 @@ def calculate_cell_iv_curve(
         pv_cell.eg_ref,
         pv_cell.d_eg_dt_ref,
     )
-
-    # Commented-out code is utilised when making the map from voltage values.
-    # It is included for completeness but should not be utilised.
-    # def bishop88_wrapper_function(*args, **kwargs):
-    #     try:
-    #         voltage = pvlib.singlediode.bishop88_v_from_i(*args, **kwargs)
-    #     except RuntimeError:
-    #         return np.inf
-    #     else:
-    #         if voltage > kwargs["breakdown_voltage"]:
-    #             return voltage  \
-    #
-    #     return np.inf   \
-    #
-    # voltage_series = [bishop88_wrapper_function(
-    #     current, IL, I0, Rs, Rsh, nNsVth, breakdown_voltage=-15, breakdown_factor=2e-3, breakdown_exp=3
-    # ) for current in current_series]
-    # plt.plot(voltage_series, current_series, label=f"Cell #{cell_id}")
-    #
 
     def bishop88_current_wrapper_function(*args, **kwargs):
         """
@@ -760,7 +786,7 @@ def calculate_cell_iv_curve(
             try:
                 voltage = pvlib.singlediode.bishop88_v_from_i(*args, **kwargs)
             except (RuntimeError, RuntimeWarning):
-                return np.inf
+                return 0
             else:
                 if voltage > -pv_cell.breakdown_voltage:
                     return voltage

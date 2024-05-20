@@ -403,7 +403,7 @@ class CurvedPVModule:
     @property
     def pv_cells(self) -> list[PVCell]:
         """
-        Return a `list` of _all_ the PV-cells associated with the module.
+        Return a `list` of _all_ the PV cells associated with the module.
 
         Returns:
             A `list` of all the PV cells, both bypassed and unbypassed.
@@ -533,7 +533,11 @@ class CurvedPVModule:
 
         if len(multiply_bypassed_cell_indicies) > 0:
             raise Exception(
-                f"Bypass diodes for module {name} overlap. Multiply-bypassed cell indicies: {', '.join(sorted([str(entry) for entry in multiply_bypassed_cell_indicies]))}"
+                f"Bypass diodes for module {name} overlap. Multiply-bypassed cell "
+                "indicies: "
+                + ", ".join(
+                    sorted([str(entry) for entry in multiply_bypassed_cell_indicies])
+                )
             )
 
         # Go in reverse order, popping the cells into bypass diodes where appropriate.
@@ -558,7 +562,8 @@ class CurvedPVModule:
                 cell for cell in pv_cells if cell not in bypassed_cell_string.pv_cells
             ]
 
-        # Insert the bypassed cell strings into the list of PV cells and sort by cell id.
+        # Insert the bypassed cell strings into the list of PV cells and sort by cell
+        # id.
         pv_cells.extend(bypassed_cell_strings)
         pv_cells = sorted(pv_cells, key=lambda cell: cell.cell_id)
 

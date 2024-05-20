@@ -28,7 +28,7 @@ import warnings
 import yaml
 
 from matplotlib import pyplot as plt
-from matplotlib import rc
+from matplotlib import rc, rcParams
 from typing import Any, Hashable
 
 import numpy as np
@@ -37,10 +37,10 @@ import pandas as pd
 from tqdm import tqdm
 
 from .__utils__ import NAME
-from .pv_module.bypass_diode import BypassDiode
+from .pv_module.bypass_diode import BypassDiode, BypassedCellString
 from .pv_module.pv_cell import (
-    calculate_cell_iv_curve,
     get_irradiance,
+    PVCell,
     relabel_cell_electrical_parameters,
 )
 from .pv_module.pv_module import (
@@ -51,6 +51,13 @@ from .pv_module.pv_module import (
     TYPE_TO_CURVE_MAPPING,
 )
 from .scenario import Scenario
+
+rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
+# rc("figure", **{"figsize": (48 / 5, 32 / 5)})
+rcParams["pdf.fonttype"] = 42
+rcParams["ps.fonttype"] = 42
+sns.set_context("notebook")
+sns.set_style("ticks")
 
 # BYPASS_DIODES:
 #   Keyword for the bypass-diode parameters.
@@ -158,10 +165,6 @@ WEATHER_DATA_REGEX = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
 WEATHER_FILE_WITH_SOLAR: str = os.path.join(
     "auto_generated", "w_with_s_{location_name}.csv"
 )
-
-# ZERO_CELSIUS_OFFSET:
-#   The offset to convert between Celsius and Kelvin.
-ZERO_CELSIUS_OFFSET: float = 273.15
 
 
 class ArgumentError(Exception):
@@ -559,8 +562,8 @@ def main(unparsed_arguments) -> None:
 
     # Matplotlib setup
     rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
-    sns.set_context("paper")
-    sns.set_style("whitegrid")
+    sns.set_context("notebook")
+    sns.set_style("ticks")
 
     # Parse the command-line arguments.
     parsed_args = _parse_args(unparsed_arguments)
@@ -738,42 +741,72 @@ def main(unparsed_arguments) -> None:
 
     sns.set_palette(
         sns.cubehelix_palette(
-            start=-0.2, rot=-0.2, n_colors=len(scenario.pv_module.pv_cells)
+            start=-0.2,
+            rot=-0.2,
+            n_colors=len(scenario.pv_module.pv_cells_and_cell_strings),
         )
     )
 
     time_of_day: int = 8 + 24 * 31 * 6
 
-    for pv_cell in tqdm(scenario.pv_module.pv_cells, desc="Plotting PV cell"):
-        # Determine the cell temperature
-        cell_temperature = pv_cell.average_cell_temperature(
-            (
-                ambient_celsius_temperature := locations_to_weather_and_solar_map[
-                    scenario.location
-                ][time_of_day][TEMPERATURE]
-            )
-            + ZERO_CELSIUS_OFFSET,
-            (
-                solar_irradiance := (
-                    1000
-                    * irradiance_frame.set_index("hour")
-                    .iloc[time_of_day]
-                    .values[pv_cell.cell_id]
-                )
-            ),
-            0,
+    # Create a mapping between cell and power output
+    cell_to_power_map: dict[BypassedCellString | PVCell] = {}
+    cell_to_voltage_map: dict[BypassedCellString | PVCell] = {}
+
+    fig = plt.figure(figsize=(48 / 5, 32 / 5))
+    for pv_cell in tqdm(
+        scenario.pv_module.pv_cells_and_cell_strings, desc="Plotting PV cell"
+    ):
+        # Determine the cell curves.
+        current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
+            locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                TEMPERATURE
+            ],
+            1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
+            current_series=current_series,
         )
-        current_series, power_series, voltage_series = calculate_cell_iv_curve(
-            cell_temperature, solar_irradiance, pv_cell, current_series=current_series
-        )
+        cell_to_power_map[pv_cell] = power_series
+        cell_to_voltage_map[pv_cell] = voltage_series
         plt.plot(
             # pv_cell.rescale_voltage(voltage_series),
             current_series,
             power_series,
-            label=f"Cell #{pv_cell.cell_id}",
+            label=f"{'Cell' if isinstance(pv_cell, PVCell) else 'Bypassed cell string'} #{pv_cell.cell_id}",
         )
 
-    plt.legend()
+    # Determine the maximum power point
+    combined_power_series = sum(cell_to_power_map.values())
+    combined_voltage_series = sum(cell_to_voltage_map.values())
+
+    maximum_power_index = pd.Series(combined_power_series).idxmax()
+    mpp_current = current_series[maximum_power_index]
+    mpp_power = combined_power_series[maximum_power_index]
+
+    left_axis = plt.gca()
+    right_axis = left_axis.twinx()
+
+    plt.scatter(
+        [mpp_current], [mpp_power], s=100, marker="h", color="orange", label="MPP"
+    )
+    plt.plot(
+        current_series,
+        combined_power_series,
+        "--",
+        label="Combined power",
+        color="orange",
+    )
+
+    left_axis.set_xlabel("Current / A")
+    left_axis.set_ylabel("Power / W")
+    right_axis.set_ylabel("Combined power / W")
+    left_handles, left_labels = left_axis.get_legend_handles_labels()
+    right_handles, right_labels = right_axis.get_legend_handles_labels()
+    right_axis.legend(left_handles + right_handles, left_labels + right_labels)
+
+    # TODO:
+    # - Combine legends across the two axes as, currently, only combined is plotted.
+    # - Improve the speed of the calculation so it can be run for all hours.
+    # - Some way to store whether the cells have been bypassed.
 
     plt.show()
 
@@ -787,6 +820,8 @@ def main(unparsed_arguments) -> None:
             for pv_cell in scenario.pv_module.pv_cells
         ],
     )
+
+    plt.show()
 
     import pdb
 
