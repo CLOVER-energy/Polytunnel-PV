@@ -470,13 +470,11 @@ class PVCell:
                 self.d_eg_dt_ref,
             )
 
-            reference_short_circuit_current_density = pvlib.pvsystem.singlediode(
+            reference_short_circuit_current = pvlib.pvsystem.singlediode(
                 *_calculated_pv_cell_params
             )["i_sc"]
 
-            self.__short_circuit_current = (
-                reference_short_circuit_current_density * self.area
-            )
+            self.__short_circuit_current = reference_short_circuit_current
 
         return self.__short_circuit_current
 
@@ -702,11 +700,14 @@ class PVCell:
 
         """
 
-        cell_temperature = self.average_cell_temperature(
-            ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
-            (solar_irradiance := irradiance_array.iloc[self.cell_id]),
-            # TODO: Implement wind speed here using renewables.ninja data.
-            0,
+        cell_temperature = (
+            self.average_cell_temperature(
+                ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
+                (solar_irradiance := irradiance_array.iloc[self.cell_id]),
+                # TODO: Implement wind speed here using renewables.ninja data.
+                0,
+            )
+            - ZERO_CELSIUS_OFFSET
         )
 
         return calculate_cell_iv_curve(
@@ -959,10 +960,10 @@ def relabel_cell_electrical_parameters(
         A_REF: cell_electrical_params["a_ref"],
         DIODE_IDEALITY_FACTOR: cell_electrical_params["gamma_r"],
         NUM_CELLS_IN_PARENT_MODULE: cell_electrical_params["N_s"],
-        REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"]  # ,
-        / cell_electrical_params["A_c"],
-        REFERENCE_PHOTOCURRENT_DENSITY: cell_electrical_params["I_L_ref"]  # ,
-        / cell_electrical_params["A_c"],
+        REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"],
+        # / cell_electrical_params["A_c"],
+        REFERENCE_PHOTOCURRENT_DENSITY: cell_electrical_params["I_L_ref"],
+        # / cell_electrical_params["A_c"],
         REFERENCE_SERIES_RESISTANCE: cell_electrical_params["R_s"],
         REFERENCE_SHUNT_RESISTANCE: cell_electrical_params["R_sh_ref"],
         SHORT_CIRCUIT_CURRENT_DENSITY_TEMPERATURE_COEFFICIENT: cell_electrical_params[

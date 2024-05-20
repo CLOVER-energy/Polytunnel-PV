@@ -79,6 +79,10 @@ FILE_ENCODING: str = "UTF-8"
 #   The name of the input-data directory.
 INPUT_DATA_DIRECTORY: str = "input_data"
 
+# INTERNAL_AXIS_PADDING_FACTOR:
+#   Factor used to provide space between limits and axis extremes.
+INTERNAL_AXIS_PADDING_FACTOR: float = 0.05
+
 # IRRADIANCE_DIFFUSE:
 #   Keyword for diffuse irradiance.
 IRRADIANCE_DIFFUSE: str = "irradiance_diffuse"
@@ -163,7 +167,7 @@ WEATHER_DATA_REGEX = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
 # WEATHER_FILE_WITH_SOLAR:
 #   The name of the weather file with the solar data.
 WEATHER_FILE_WITH_SOLAR: str = os.path.join(
-    "auto_generated", "w_with_s_{location_name}.csv"
+    "auto_generated", "weather_with_solar_{location_name}.csv"
 )
 
 
@@ -654,26 +658,34 @@ def main(unparsed_arguments) -> None:
     }
 
     # Compute the irradiance on each panel for each location.
-    cellwise_irradiances = [
-        (
-            scenario,
-            [
-                {
-                    entry[LOCAL_TIME]: get_irradiance(
-                        pv_cell,
-                        entry[IRRADIANCE_DIFFUSE],
-                        entry[IRRADIANCE_GLOBAL_HORIZONTAL],
-                        entry[SOLAR_AZIMUTH],
-                        entry[SOLAR_ZENITH],
-                        direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
-                    )
-                    for entry in locations_to_weather_and_solar_map[scenario.location]
-                }
-                for pv_cell in scenario.pv_module.pv_cells
-            ],
-        )
-        for scenario in scenarios
-    ]
+    try:
+        cellwise_irradiances = [
+            (
+                scenario,
+                [
+                    {
+                        entry[LOCAL_TIME]: get_irradiance(
+                            pv_cell,
+                            entry[IRRADIANCE_DIFFUSE],
+                            entry[IRRADIANCE_GLOBAL_HORIZONTAL],
+                            entry[SOLAR_AZIMUTH],
+                            entry[SOLAR_ZENITH],
+                            direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
+                        )
+                        for entry in locations_to_weather_and_solar_map[
+                            scenario.location
+                        ]
+                    }
+                    for pv_cell in scenario.pv_module.pv_cells
+                ],
+            )
+            for scenario in scenarios
+        ]
+    except KeyError as key_error:
+        raise KeyError(
+            "Unable to find weather data for location specified by the scenario. Check "
+            "you have downloaded it and saved it correctly." + str(key_error)
+        ) from None
 
     # Transform to a pandas DataFrame for plotting.
     cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
@@ -699,6 +711,11 @@ def main(unparsed_arguments) -> None:
 
         cellwise_irradiance_frames.append((scenario, combined_frame))
 
+    # Defragment the frame
+    cellwise_irradiance_frames = [
+        (entry[0], entry[1].copy()) for entry in cellwise_irradiance_frames
+    ]
+
     # Extract the information for just the scenario that should be plotted.
     try:
         scenario = {scenario.name: scenario for scenario in scenarios}[
@@ -722,12 +739,20 @@ def main(unparsed_arguments) -> None:
 
     current_density_series = np.linspace(
         0,
-        2
+        1.1
         * np.max(
             [
                 pv_cell.short_circuit_current_density
                 for pv_cell in scenario.pv_module.pv_cells
             ]
+        ),
+        VOLTAGE_RESOLUTION,
+    )
+    current_series = np.linspace(
+        0,
+        1.1
+        * np.max(
+            [pv_cell.short_circuit_current for pv_cell in scenario.pv_module.pv_cells]
         ),
         VOLTAGE_RESOLUTION,
     )
@@ -750,13 +775,14 @@ def main(unparsed_arguments) -> None:
         )
     )
 
-    time_of_day: int = 8 + 24 * 31 * 6
+    time_of_day: int = 11 + (start_day_index := 8016)
 
     # Create a mapping between cell and power output
     cell_to_power_map: dict[BypassedCellString | PVCell] = {}
     cell_to_voltage_map: dict[BypassedCellString | PVCell] = {}
 
     fig = plt.figure(figsize=(48 / 5, 32 / 5))
+    individual_power_extreme: float = 0
     for pv_cell in tqdm(
         scenario.pv_module.pv_cells_and_cell_strings, desc="Plotting PV cell"
     ):
@@ -766,10 +792,11 @@ def main(unparsed_arguments) -> None:
                 TEMPERATURE
             ],
             1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
-            current_density_series=current_density_series,
+            current_series=current_series,
         )
         cell_to_power_map[pv_cell] = power_series
         cell_to_voltage_map[pv_cell] = voltage_series
+        individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
         plt.plot(
             # pv_cell.rescale_voltage(voltage_series),
             current_series,
@@ -806,14 +833,34 @@ def main(unparsed_arguments) -> None:
     right_handles, right_labels = right_axis.get_legend_handles_labels()
     right_axis.legend(left_handles + right_handles, left_labels + right_labels)
 
+    # Set the limits to match up zero
+    left_axis.set_ylim(
+        -(1 + INTERNAL_AXIS_PADDING_FACTOR) * individual_power_extreme,
+        (1 + INTERNAL_AXIS_PADDING_FACTOR) * individual_power_extreme,
+    )
+    right_axis.set_ylim(
+        -(
+            _extreme_value := (1 + INTERNAL_AXIS_PADDING_FACTOR)
+            * max(abs(min(combined_power_series)), max(combined_power_series))
+        ),
+        _extreme_value,
+    )
+
+    plt.savefig(
+        f"mpp_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+        transparent=True,
+        format="png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+
     # TODO:
-    # - Combine legends across the two axes as, currently, only combined is plotted.
     # - Improve the speed of the calculation so it can be run for all hours.
     # - Some way to store whether the cells have been bypassed.
 
     plt.show()
 
-    plt.bar(
+    plt.scatter(
         [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
         [
             1000
@@ -822,13 +869,56 @@ def main(unparsed_arguments) -> None:
             .values[pv_cell.cell_id]
             for pv_cell in scenario.pv_module.pv_cells
         ],
+        color="orange",
+        marker="D",
+        s=100,
+        alpha=0.9,
+    )
+    plt.xlabel("Cell ID")
+    plt.ylabel("Irradiance / W/m$^2$")
+    plt.savefig(
+        f"irradiance_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+        transparent=True,
+        format="png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.show()
+
+    plt.scatter(
+        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+        [
+            pv_cell.average_cell_temperature(
+                locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                    TEMPERATURE
+                ]
+                + 273.15,
+                1000
+                * irradiance_frame.set_index("hour")
+                .iloc[time_of_day]
+                .iloc[pv_cell.cell_id],
+                0,
+            )
+            - 273.15
+            for pv_cell in scenario.pv_module.pv_cells
+        ],
+        color="red",
+        marker="D",
+        s=100,
+        alpha=0.9,
+        edgecolor=None,
+    )
+    plt.xlabel("Cell ID")
+    plt.ylabel("Temperature / Degrees Celsius")
+    plt.savefig(
+        f"temperature_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+        transparent=True,
+        format="png",
+        dpi=300,
+        bbox_inches="tight",
     )
 
     plt.show()
-
-    import pdb
-
-    pdb.set_trace()
 
     # import matplotlib.patches as mpatches
 
@@ -923,9 +1013,22 @@ def main(unparsed_arguments) -> None:
     #     breakdown_voltage=-15,
     # )
 
-    start_index: int = 0
+    start_index: int = start_day_index
+
+    # Determine the scenario index
+    try:
+        scenario_index: int = [
+            index
+            for index, scenario in enumerate(scenarios)
+            if scenario.name == parsed_args.scenario
+        ][0]
+    except IndexError:
+        raise IndexError(
+            "Unable to find current scenario weather information."
+        ) from None
+
     frame_slice = (
-        cellwise_irradiance_frames[0][1]
+        cellwise_irradiance_frames[scenario_index][1]
         .iloc[start_index : start_index + 24]
         .set_index("hour")
     )
@@ -952,11 +1055,11 @@ def main(unparsed_arguments) -> None:
     plt.show()
 
     plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[0][1],
+        cellwise_irradiance_frames[scenario_index][1],
         start_index=(start_index := 24 * 31 * 6 + 48),
-        figname="july_eight_small_panel",
+        figname=f"{scenario.name}_{start_day_index}_small_panel",
         heatmap_vmax=(
-            heatmap_vmax := cellwise_irradiance_frames[2][1]
+            heatmap_vmax := cellwise_irradiance_frames[scenario_index][1]
             .set_index("hour")
             .iloc[start_index : start_index + 24]
             .max()
@@ -965,21 +1068,22 @@ def main(unparsed_arguments) -> None:
         irradiance_bar_vmax=(
             irradiance_bar_vmax := (
                 max(
-                    cellwise_irradiance_frames[0][1]
+                    cellwise_irradiance_frames[scenario_index][1]
                     .set_index("hour")
                     .iloc[start_index : start_index + 24]
                     .mean(axis=1)
                     .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
+                    0,
+                    # cellwise_irradiance_frames[1][1]
+                    # .set_index("hour")
+                    # .iloc[start_index : start_index + 24]
+                    # .mean(axis=1)
+                    # .max(),
+                    # cellwise_irradiance_frames[2][1]
+                    # .set_index("hour")
+                    # .iloc[start_index : start_index + 24]
+                    # .mean(axis=1)
+                    # .max(),
                 )
             )
         ),
@@ -988,25 +1092,31 @@ def main(unparsed_arguments) -> None:
             irradiance_scatter_vmax := 1.25
             * (
                 max(
-                    cellwise_irradiance_frames[0][1]
+                    cellwise_irradiance_frames[scenario_index][1]
                     .set_index("hour")
                     .iloc[start_index : start_index + 24]
                     .sum(axis=0)
                     .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
+                    0,
+                    # cellwise_irradiance_frames[1][1]
+                    # .set_index("hour")
+                    # .iloc[start_index : start_index + 24]
+                    # .sum(axis=0)
+                    # .max(),
+                    # cellwise_irradiance_frames[2][1]
+                    # .set_index("hour")
+                    # .iloc[start_index : start_index + 24]
+                    # .sum(axis=0)
+                    # .max(),
                 )
             )
         ),
     )
+
+    import pdb
+
+    pdb.set_trace()
+
     plot_irradiance_with_marginal_means(
         cellwise_irradiance_frames[1][1],
         start_index=start_index,
@@ -1101,7 +1211,7 @@ def main(unparsed_arguments) -> None:
         irradiance_scatter_vmax=irradiance_scatter_vmax,
     )
 
-    weather = list(locations_with_weather_and_solar.values())[0]
+    weather = locations_with_weather_and_solar[scenario.location]
     data_to_scatter = weather.iloc[start_index : start_index + 24]
     plt.scatter(
         range(24),
