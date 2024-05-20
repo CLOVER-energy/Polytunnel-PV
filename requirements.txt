@@ -1,0 +1,13 @@
+matplotlib>=3.8.3
+mypy>=1.10.0
+mypy-extensions>=1.0.0
+numpy>=1.26.4
+pandas>=2.2.1
+pvlib >= 0.10.3
+pytz>=2024.1
+PyYAML>=6.0.1
+scipy>=1.12.0
+seaborn>=0.13.2
+tqdm>=4.66.4
+typing_extensions>=4.11.0
+urllib3>=2.2.1
