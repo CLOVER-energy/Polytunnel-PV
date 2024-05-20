@@ -846,6 +846,9 @@ def main(unparsed_arguments) -> None:
         _extreme_value,
     )
 
+    if len(scenario.pv_module.pv_cells) >= 20:
+        right_axis.legend().remove()
+
     plt.savefig(
         f"mpp_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
         transparent=True,
