@@ -921,9 +921,10 @@ def get_irradiance(
 
     # Determine the pvlib.irradiance.dni from the GHI and DHI.
     if direct_normal_irradiance is None:
-        direct_normal_irradiance = pvlib.irradiance.dni(
-            global_horizontal_irradiance, diffuse_horizontal_irradiance, solar_zenith
-        )
+        raise Exception("Internal error encountered in irradiance calculation.")
+        # direct_normal_irradiance = pvlib.irradiance.dni(
+        #     global_horizontal_irradiance, diffuse_horizontal_irradiance, solar_zenith
+        # )
 
     # Call to PVlib to calculate the total irradiance incident on the surface.
     total_irradiance = pvlib.irradiance.get_total_irradiance(

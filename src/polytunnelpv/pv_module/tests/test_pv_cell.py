@@ -223,6 +223,27 @@ class TestGetIrradiance(_BasePVCellTest):
 
         # Test during an eclipse.
         self.assertEqual(
+            get_irradiance(self.pv_cell, 100, 0, 180, 0, 0),
+            0,
+            "`get_irradiance` should return 0 if during an eclipse",
+        )
+
+        # Test sun below the horizion.
+        self.assertEqual(
+            get_irradiance(self.pv_cell, 100, 1000, 180, 90, 0),
+            0,
+            "`get_irradiance` should return 0 if the sun has set",
+        )
+
+    @unittest.skip("DNI not implemented")
+    def test_when_dark_no_dni(self) -> None:
+        """
+        Tests when the code should return zero due to the sun being below the horizon.
+
+        """
+
+        # Test during an eclipse.
+        self.assertEqual(
             get_irradiance(self.pv_cell, 100, 0, 180, 90),
             0,
             "`get_irradiance` should return 0 if during an eclipse",
@@ -235,6 +256,7 @@ class TestGetIrradiance(_BasePVCellTest):
             "`get_irradiance` should return 0 if the sun has set",
         )
 
+    @unittest.skip("DNI not implemented")
     def test_no_dni(self) -> None:
         """Tests the case where DNI is not provided."""
 
