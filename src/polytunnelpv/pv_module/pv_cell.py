@@ -452,7 +452,7 @@ class PVCell:
         Calculate (if necessary) and return the short-circuit current of the cell.
 
         Returns:
-            The short-circuit current of the cell.
+            The short-circuit current of the cell in Amps.
 
         """
 
@@ -470,13 +470,24 @@ class PVCell:
                 self.d_eg_dt_ref,
             )
 
-            reference_short_circuit_current = pvlib.pvsystem.singlediode(
+            reference_short_circuit_current_density = pvlib.pvsystem.singlediode(
                 *_calculated_pv_cell_params
             )["i_sc"]
 
-            self.__short_circuit_current = reference_short_circuit_current
+            self.__short_circuit_current = (
+                reference_short_circuit_current_density * self.area
+            )
 
         return self.__short_circuit_current
+
+    @property
+    def short_circuit_current_density(self) -> float:
+        """
+        Return the short-circuit current density of the cell in Amps per meter squared.
+
+        """
+
+        return self.short_circuit_current / self.area
 
     def average_cell_temperature(
         self,
@@ -659,6 +670,7 @@ class PVCell:
         ambient_celsius_temperature: float,
         irradiance_array: np.ndarray,
         *,
+        current_density_series: np.ndarray | None = None,
         current_series: np.ndarray | None = None,
         voltage_series: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -667,9 +679,26 @@ class PVCell:
 
         Inputs:
             - ambient_celsius_temperature:
-                The ambient temperature in degrees Celsius.
+                The ambient temperature, in degrees Celsius.
             - irradiance_array:
-                The array of irradiance values across the PV module.
+                The irradiance, in W/m^2, striking all the cells in the module.
+            - current_density_series:
+                If provided, the current-density series---the series of opints over which to
+                calculate the current an power output from the cell.
+            - current_series:
+                The series of current points over which to calculate the current and power
+                output from the cell.
+            - voltage_series:
+                The series of voltage points over which to calculate the current and power
+                output from the cell.
+
+        Returns:
+            - current_series:
+                The current values.
+            - power_series:
+                The power values.
+            - voltage_series:
+                The voltage series.
 
         """
 
@@ -684,6 +713,7 @@ class PVCell:
             cell_temperature,
             solar_irradiance,
             self,
+            current_density_series=current_density_series,
             current_series=current_series,
             voltage_series=voltage_series,
         )
@@ -694,6 +724,7 @@ def calculate_cell_iv_curve(
     irradiance: float,
     pv_cell: PVCell,
     *,
+    current_density_series: np.ndarray | None = None,
     current_series: np.ndarray | None = None,
     voltage_series: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -702,7 +733,7 @@ def calculate_cell_iv_curve(
 
     NOTE: Depending on the units that the user uses, this function can return a result
     with units of current OR current density. It _should_ be implemented with units of
-    current, so a user should be passing in reference I values.
+    current density, so a user should be passing in reference J values.
 
     NOTE: The current OR the voltage series should be supplied, not both, and this
     function will calculate whichever is not supplied.
@@ -714,6 +745,9 @@ def calculate_cell_iv_curve(
             The irradiance, in W/m^2, striking the cell.
         - pv_cell:
             The PV cell being considered.
+        - current_density_series:
+            If provided, the current-density series---the series of opints over which to
+            calculate the current an power output from the cell.
         - current_series:
             The series of current points over which to calculate the current and power
             output from the cell.
@@ -731,13 +765,17 @@ def calculate_cell_iv_curve(
 
     """
 
-    if current_series is not None and voltage_series is not None:
+    if (
+        current_series is not None or current_density_series is not None
+    ) and voltage_series is not None:
         raise Exception(
             "Must supply either the current or voltage ranges to calculate over, not "
             "both, as this is ambiguous."
         )
 
-    if current_series is None and voltage_series is None:
+    if (
+        current_series is None and current_density_series is None
+    ) and voltage_series is None:
         raise Exception(
             "Must supply either the current or voltage ranges to calculate over: "
             "neither has been supplied."
@@ -811,6 +849,7 @@ def calculate_cell_iv_curve(
                 return pv_cell.breakdown_voltage
 
     if voltage_series is None:
+        # Use the current density if provided, otherwise the current
         voltage_series = pv_cell.rescale_voltage(
             [
                 bishop_voltage_wrapper_function(
@@ -820,7 +859,11 @@ def calculate_cell_iv_curve(
                     breakdown_factor=2e-3,
                     breakdown_exp=3,
                 )
-                for current in current_series
+                for current in (
+                    current_series
+                    if current_series is not None
+                    else current_density_series
+                )
             ]
         )
     else:
@@ -834,6 +877,9 @@ def calculate_cell_iv_curve(
             )
             for voltage in voltage_series
         ]
+
+    if current_density_series is not None:
+        current_series = current_density_series * pv_cell.area
 
     power_series = current_series * voltage_series
 

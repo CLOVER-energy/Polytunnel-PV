@@ -98,6 +98,7 @@ class BypassedCellString:
         ambient_celsius_temperature: float,
         irradiance_array: np.ndarray,
         *,
+        current_density_series: np.ndarray | None = None,
         current_series: np.ndarray | None = None,
         voltage_series: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -106,9 +107,26 @@ class BypassedCellString:
 
         Inputs:
             - ambient_celsius_temperature:
-                The ambient temperature in degrees Celsius.
+                The ambient temperature, in degrees Celsius.
             - irradiance_array:
-                The array of irradiance values across the PV module.
+                The irradiance, in W/m^2, striking all the cells in the module.
+            - current_density_series:
+                If provided, the current-density series---the series of opints over which to
+                calculate the current an power output from the cell.
+            - current_series:
+                The series of current points over which to calculate the current and power
+                output from the cell.
+            - voltage_series:
+                The series of voltage points over which to calculate the current and power
+                output from the cell.
+
+        Returns:
+            - current_series:
+                The current values.
+            - power_series:
+                The power values.
+            - voltage_series:
+                The voltage series.
 
         """
 
@@ -118,6 +136,7 @@ class BypassedCellString:
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,
+                current_density_series=current_density_series,
                 current_series=current_series,
                 voltage_series=voltage_series,
             )

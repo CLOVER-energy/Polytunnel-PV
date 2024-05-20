@@ -517,7 +517,7 @@ class CurvedPVModule:
 
         # Determine whether the cells are mono- or bi-facial.
         cell_type: CellType = CellType(
-            cell_electrical_parameters.get(BIFACIAL, CellType.MONO_FACIAL.value)
+            cell_electrical_parameters.pop(BIFACIAL, CellType.MONO_FACIAL.value)
         )
 
         # Determine the position of the start of the module.

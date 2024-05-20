@@ -720,11 +720,14 @@ def main(unparsed_arguments) -> None:
     except IndexError:
         raise Exception("Internal error occurred.") from None
 
-    current_series = np.linspace(
+    current_density_series = np.linspace(
         0,
         2
         * np.max(
-            [pv_cell.short_circuit_current for pv_cell in scenario.pv_module.pv_cells]
+            [
+                pv_cell.short_circuit_current_density
+                for pv_cell in scenario.pv_module.pv_cells
+            ]
         ),
         VOLTAGE_RESOLUTION,
     )
@@ -763,7 +766,7 @@ def main(unparsed_arguments) -> None:
                 TEMPERATURE
             ],
             1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
-            current_series=current_series,
+            current_density_series=current_density_series,
         )
         cell_to_power_map[pv_cell] = power_series
         cell_to_voltage_map[pv_cell] = voltage_series
