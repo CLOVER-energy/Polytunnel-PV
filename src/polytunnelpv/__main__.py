@@ -278,7 +278,13 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
 
     # Timestamps file:
     #   The name of the timestamps file to use for determining when to simulate.
-    parser.add_argument("--timestamps-file", "-t", type=str, help="The name of the timestamps file to use for simualtions.", default=None)
+    parser.add_argument(
+        "--timestamps-file",
+        "-t",
+        type=str,
+        help="The name of the timestamps file to use for simualtions.",
+        default=None,
+    )
 
     # Weather-data arguments.
     weather_arguments = parser.add_argument_group("weather-data arguments")
@@ -1268,38 +1274,66 @@ def main(unparsed_arguments) -> None:
 
     # Calcualte the MPP of the PV system for each of the horus to be modelled.
     if parsed_args.timestamps_file is None:
-        raise ArgumentError("Cannot carry out hourly calculation without timestamps file.")
+        raise ArgumentError(
+            "Cannot carry out hourly calculation without timestamps file."
+        )
 
     # Open the timestamps file.
     try:
         with open(parsed_args.timestamps_file, "r") as f:
             timestamps_data = pd.read_csv(f, index_col="timestamp")
     except FileNotFoundError:
-        raise FileNotFoundError(f"Could not find timestamps file: {parsed_args.timestamps_file}")
+        raise FileNotFoundError(
+            f"Could not find timestamps file: {parsed_args.timestamps_file}"
+        )
 
     # Compute the start time within the year based on the time stamp if not provided.
-    if (_start_time_column_name:="start_time") not in timestamps_data.columns:
-        timestamps_data[_start_time_column_name] = [(datetime.datetime.combine(datetime.date(year=int(entry[0].split(" ")[0].split("/")[2]), month=int(entry[0].split(" ")[0].split("/")[1]), day=int(entry[0].split(" ")[0].split("/")[0])), datetime.time(hour=int(entry[0].split(" ")[1].split(":")[0]))) - datetime.datetime(year=2023, month=1, day=1, hour=0, minute=0)).total_seconds() / 3600 for entry in hpf.iterrows()]
+    if (_start_time_column_name := "start_time") not in timestamps_data.columns:
+        timestamps_data[_start_time_column_name] = [
+            (
+                datetime.datetime.combine(
+                    datetime.date(
+                        year=int(entry[0].split(" ")[0].split("/")[2]),
+                        month=int(entry[0].split(" ")[0].split("/")[1]),
+                        day=int(entry[0].split(" ")[0].split("/")[0]),
+                    ),
+                    datetime.time(hour=int(entry[0].split(" ")[1].split(":")[0])),
+                )
+                - datetime.datetime(year=2023, month=1, day=1, hour=0, minute=0)
+            ).total_seconds()
+            / 3600
+            for entry in hpf.iterrows()
+        ]
 
     # For each hour within the series of start times, compute the MPP.
     mpp_current_map: dict[int, float] = {}
     mpp_power_map: dict[int, float] = {}
-    for start_index in tqdm(timestamps_data[_start_time_column_name], desc="Computing hourly MPP", leave=True, unit="hour"):
+    for start_index in tqdm(
+        timestamps_data[_start_time_column_name],
+        desc="Computing hourly MPP",
+        leave=True,
+        unit="hour",
+    ):
         individual_power_extreme: float = 0
         for pv_cell in tqdm(
-            scenario.pv_module.pv_cells_and_cell_strings, desc="Cellwise calculation", leave=False, unit="cell"
+            scenario.pv_module.pv_cells_and_cell_strings,
+            desc="Cellwise calculation",
+            leave=False,
+            unit="cell",
         ):
+            # Skip if there's no irradiance.
+            if any(irradiance_frame.set_index("hour").iloc[int(start_index)].isna()):
+                continue
             # Determine the cell curves.
             current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-                locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                locations_to_weather_and_solar_map[scenario.location][int(start_index)][
                     TEMPERATURE
                 ],
-                1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
+                1000 * irradiance_frame.set_index("hour").iloc[int(start_index)],
                 current_series=current_series,
             )
             cell_to_power_map[pv_cell] = power_series
             cell_to_voltage_map[pv_cell] = voltage_series
-
         # Combine the series across each individual module
         combined_power_series = sum(cell_to_power_map.values())
         combined_voltage_series = sum(cell_to_voltage_map.values())
