@@ -1,0 +1,20 @@
+---
+################################################################################
+# pv_cells.yaml - Parameters for specifying PV cells.                          #
+#                                                                              #
+# Author: Ben Winchester                                                       #
+# Copyright: Ben Winchester, 2024                                              #
+# Date created: 16/04/2024                                                     #
+# License: Open source                                                         #
+################################################################################
+
+- name: thin_film_demo_cell
+  A_c: 0.013490566037735848
+  a_ref: 0.056292405660377354
+  alpha_sc: 0.00136
+  I_o_ref: 0.0
+  I_L_ref: 1.716738
+  N_s: 108
+  R_s: 4.704978
+  R_sh_ref: 477.866913
+

@@ -19,6 +19,8 @@ entrypoint for executing the model.
 __version__ = "1.0.0a1"
 
 import argparse
+import datetime
+import math
 import os
 import pvlib
 import re
@@ -27,9 +29,11 @@ import sys
 import warnings
 import yaml
 
+import matplotlib.colors as mcolors
+
 from matplotlib import pyplot as plt
 from matplotlib import rc, rcParams
-from typing import Any, Hashable
+from typing import Any, Hashable, Match, Pattern
 
 import numpy as np
 import pandas as pd
@@ -50,6 +54,7 @@ from .pv_module.pv_module import (
     ModuleType,
     TYPE_TO_CURVE_MAPPING,
 )
+from .pv_system import ModuleString, PVSystem
 from .scenario import Scenario
 
 rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
@@ -70,6 +75,14 @@ CELL_ELECTRICAL_PARAMETERS: str = "cell_electrical_parameters"
 # CELL_TYPE:
 #   Keyword for the name of the cell-type to use.
 CELL_TYPE: str = "cell_type"
+
+# DONE:
+#   The message to display when a task was successful.
+DONE: str = "[   DONE   ]"
+
+# FAILED:
+#   The message to display when a task was successful.
+FAILED: str = "[  FAILED  ]"
 
 # FILE_ENCODING:
 #   The encoding to use when opening and closing files.
@@ -107,10 +120,67 @@ LOCAL_TIME: str = "local_time"
 #   The filename for the locations file.
 LOCATIONS_FILENAME: str = "locations.yaml"
 
+# MODULE_STRINGS:
+#   Keyword for the module strings.
+MODULE_STRINGS: str = "module_strings"
+
+# N_MODULES:
+#   The number of modules in the string.
+N_MODULES: str = "n_modules"
+
 # POLYTUNNEL_CURVE@
 #   Keyword used for parsing the information about the curve on which a solar panel
 # sits.
 POLYTUNNEL_CURVE: str = "polytunnel_curve"
+
+# POLYTUNNEL_HEADER_STRING:
+#   Header string for the polytunnel-PV code.
+POLYTUNNEL_HEADER_STRING: str = """
+                                   #         #        #
+                                   ###       ##     ###
+                            ##      ##################      #
+                             ####  #########################
+                                ##########################
+                          #######################################
+                              ##############################
+                              ##############################
+                                               #############
+                                                    ########
+                              ################           #
+                          #######           #####
+ ###   ###              #####     ########     #####
+ ##### ###             ###      #####  #######    ####
+ ### #####            ###          ########         #####
+ ###   ###           ###                   #################
+                     ##               #######             ####
+        ##            ###          #####         #######    #####
+        #####          ###       ####        ######      ###   ####
+         #######        ####    ###                #########      ####
+          #####           #######                ###                 ####
+          ## ####          #####                       #####################
+              ####           ###                   ######              #######
+                ####           ###             ######                        #####
+                  ###           ####         #####                             #####
+                   ####           ###       ###                                   ###
+                     ###           ####    ###                                     ####
+                      ####           ###  ##                                        ###
+                        ###           ######                                         ###
+                         ####           ###                                          ###
+                           ####
+                            ####
+                              ###
+                               ####
+                                 ####
+                                  ###
+
+{version_line}
+                                     Polytunnel-PV
+    An open-source modelling framework for the simulation and optimisation of curved
+                      photovoltaic panels in agricultural contexts
+
+                             For more information, contact
+                  Benedict Winchester (benedict.winchester@gmail.com)
+"""
 
 # POLYTUNNELS_FILENAME:
 #   The name of the polytunnels file.
@@ -123,6 +193,10 @@ PV_CELL: str = "cell_id"
 # PV_CELLS_FILENAME:
 #   The name of the PV-cells file.
 PV_CELLS_FILENAME: str = "pv_cells.yaml"
+
+# PV_SYSTEM_FILENAME:
+#   The name of the PV-system file.
+PV_SYSTEM_FILENAME: str = "pv_system.yaml"
 
 # PVLIB_DATABASE_NAME:
 #   The database to use when fetching data on PV cells from pvilb.
@@ -152,6 +226,10 @@ TEMPERATURE: str = "temperature"
 #   Keyword used to determine the module type of the PV.
 TYPE: str = "type"
 
+# Version regex:
+#   Regex used to extract the main version number.
+VERSION_REGEX: Pattern[str] = re.compile(r"(?P<number>\d\.\d\.\d)([\.](?P<post>.*))?")
+
 # VOLTAGE_RESOLUTION:
 #   The number of points to use for IV plotting.
 VOLTAGE_RESOLUTION: int = 1000
@@ -162,7 +240,7 @@ WEATHER_DATA_DIRECTORY: str = "weather_data"
 
 # WEATHER_DATA_REGEX:
 #   Regex used for parsing location names from weather data.
-WEATHER_DATA_REGEX = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
+WEATHER_DATA_REGEX: Pattern[str] = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
 
 # WEATHER_FILE_WITH_SOLAR:
 #   The name of the weather file with the solar data.
@@ -196,6 +274,16 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     #   The name of the scenario to use.
     parser.add_argument(
         "--scenario", "-s", type=str, help="The name of the scenario to use."
+    )
+
+    # Timestamps file:
+    #   The name of the timestamps file to use for determining when to simulate.
+    parser.add_argument(
+        "--timestamps-file",
+        "-t",
+        type=str,
+        help="The name of the timestamps file to use for simualtions.",
+        default=None,
     )
 
     # Weather-data arguments.
@@ -355,6 +443,30 @@ def _parse_pv_modules(
     return [_construct_pv_module(pv_module_entry) for pv_module_entry in pv_module_data]
 
 
+def _parse_pv_system() -> PVSystem:
+    """
+    Parse the PV-system information from the input files.
+
+    Outputs:
+        The PV-system information.
+
+    """
+
+    with open(
+        os.path.join(INPUT_DATA_DIRECTORY, PV_SYSTEM_FILENAME),
+        "r",
+        encoding=FILE_ENCODING,
+    ) as f:
+        pv_system_data = yaml.safe_load(f)
+
+    try:
+        return PVSystem(
+            [ModuleString(entry[N_MODULES]) for entry in pv_system_data[MODULE_STRINGS]]
+        )
+    except KeyError:
+        raise KeyError("Missing information in pv-system input file.") from None
+
+
 def _parse_scenarios(
     locations: dict[str, pvlib.location.Location], pv_modules: dict[str, CurvedPVModule]
 ) -> list[Scenario]:
@@ -497,7 +609,7 @@ def plot_irradiance_with_marginal_means(
     # Plot the scatter at the top of the plot.
     joint_plot_grid.ax_marg_x.scatter(
         np.arange(0.5, len(frame_slice.columns) + 0.5),
-        (cellwise_means := frame_slice.sum(axis=0).to_numpy()),
+        (cellwise_means := frame_slice.mean(axis=0).to_numpy()),
         color="#144E56",
         marker="D",
         s=60,
@@ -564,6 +676,24 @@ def main(unparsed_arguments) -> None:
 
     """
 
+    # Snippet taken with permission from CLOVER-energy/CLOVER
+    # >>>
+    version_match: Match[str] | None = VERSION_REGEX.match(__version__)
+    version_number: str = (
+        version_match.group("number") if version_match is not None else __version__
+    )
+    version_string = f"Version {version_number}"
+    print(
+        POLYTUNNEL_HEADER_STRING.format(
+            version_line=(
+                " " * (44 - math.ceil(len(version_string) / 2))
+                + version_string
+                + " " * (44 - math.floor(len(version_string) / 2))
+            )
+        )
+    )
+    # <<< end of reproduced snippted
+
     # Matplotlib setup
     rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
     sns.set_context("notebook")
@@ -580,6 +710,7 @@ def main(unparsed_arguments) -> None:
         {polytunnel.name: polytunnel for polytunnel in polytunnels},
         {entry[NAME]: entry for entry in user_defined_pv_cells},
     )
+    pv_system = _parse_pv_system()
     scenarios = _parse_scenarios(
         {location.name: location for location in locations},
         {module.name: module for module in pv_modules},
@@ -799,17 +930,23 @@ def main(unparsed_arguments) -> None:
         individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
         plt.plot(
             # pv_cell.rescale_voltage(voltage_series),
-            current_series,
+            len(pv_system.strings) * current_series,
             power_series,
             label=f"{'Cell' if isinstance(pv_cell, PVCell) else 'Bypassed cell string'} #{pv_cell.cell_id}",
         )
 
-    # Determine the maximum power point
+    # Combine the series across each individual module
     combined_power_series = sum(cell_to_power_map.values())
     combined_voltage_series = sum(cell_to_voltage_map.values())
 
+    # Combine the series across the modules within the system.
+    combined_power_series = pv_system.combine_powers(combined_power_series)
+    combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
+    combined_current_series = pv_system.combine_currents(current_series)
+
+    # Determine the maximum power point
     maximum_power_index = pd.Series(combined_power_series).idxmax()
-    mpp_current = current_series[maximum_power_index]
+    mpp_current = combined_current_series[maximum_power_index]
     mpp_power = combined_power_series[maximum_power_index]
 
     left_axis = plt.gca()
@@ -819,7 +956,7 @@ def main(unparsed_arguments) -> None:
         [mpp_current], [mpp_power], s=100, marker="h", color="orange", label="MPP"
     )
     plt.plot(
-        current_series,
+        combined_current_series,
         combined_power_series,
         "--",
         label="Combined power",
@@ -828,7 +965,9 @@ def main(unparsed_arguments) -> None:
 
     left_axis.set_xlabel("Current / A")
     left_axis.set_ylabel("Power / W")
-    right_axis.set_ylabel("Combined power / W")
+    right_axis.set_ylabel(
+        f"Combined system power of {len(pv_system.strings) * pv_system.strings[0].n_modules} modules arranged strings of {pv_system.strings[0].n_modules} / W"
+    )
     left_handles, left_labels = left_axis.get_legend_handles_labels()
     right_handles, right_labels = right_axis.get_legend_handles_labels()
     right_axis.legend(left_handles + right_handles, left_labels + right_labels)
@@ -845,6 +984,26 @@ def main(unparsed_arguments) -> None:
         ),
         _extreme_value,
     )
+
+    # Replace the legend with a colour bar if there are too many cells
+    if (num_cells := len(scenario.pv_module.pv_cells)) >= 20:
+        # Remove the current legend.
+        right_axis.legend().remove()
+
+        # Generate the colour map.
+        norm = plt.Normalize(0, num_cells)
+        scalar_mappable = plt.cm.ScalarMappable(
+            cmap=mcolors.LinearSegmentedColormap.from_list(
+                "Custom", sns.color_palette().as_hex(), num_cells
+            ),
+            norm=norm,
+        )
+        colorbar = right_axis.figure.colorbar(
+            scalar_mappable,
+            ax=right_axis,
+            label="Cell (or bypassed cell string) index",
+            pad=(_pad := 0.125),
+        )
 
     plt.savefig(
         f"mpp_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
@@ -1095,7 +1254,7 @@ def main(unparsed_arguments) -> None:
                     cellwise_irradiance_frames[scenario_index][1]
                     .set_index("hour")
                     .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
+                    .mean(axis=0)
                     .max(),
                     0,
                     # cellwise_irradiance_frames[1][1]
@@ -1112,6 +1271,82 @@ def main(unparsed_arguments) -> None:
             )
         ),
     )
+
+    # Calcualte the MPP of the PV system for each of the horus to be modelled.
+    if parsed_args.timestamps_file is None:
+        raise ArgumentError(
+            "Cannot carry out hourly calculation without timestamps file."
+        )
+
+    # Open the timestamps file.
+    try:
+        with open(parsed_args.timestamps_file, "r") as f:
+            timestamps_data = pd.read_csv(f, index_col="timestamp")
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Could not find timestamps file: {parsed_args.timestamps_file}"
+        )
+
+    # Compute the start time within the year based on the time stamp if not provided.
+    if (_start_time_column_name := "start_time") not in timestamps_data.columns:
+        timestamps_data[_start_time_column_name] = [
+            (
+                datetime.datetime.combine(
+                    datetime.date(
+                        year=int(entry[0].split(" ")[0].split("/")[2]),
+                        month=int(entry[0].split(" ")[0].split("/")[1]),
+                        day=int(entry[0].split(" ")[0].split("/")[0]),
+                    ),
+                    datetime.time(hour=int(entry[0].split(" ")[1].split(":")[0])),
+                )
+                - datetime.datetime(year=2023, month=1, day=1, hour=0, minute=0)
+            ).total_seconds()
+            / 3600
+            for entry in timestamps_data.iterrows()
+        ]
+
+    # For each hour within the series of start times, compute the MPP.
+    mpp_current_map: dict[int, float] = {}
+    mpp_power_map: dict[int, float] = {}
+    for start_index in tqdm(
+        timestamps_data[_start_time_column_name],
+        desc="Computing hourly MPP",
+        leave=True,
+        unit="hour",
+    ):
+        individual_power_extreme: float = 0
+        for pv_cell in tqdm(
+            scenario.pv_module.pv_cells_and_cell_strings,
+            desc="Cellwise calculation",
+            leave=False,
+            unit="cell",
+        ):
+            # Skip if there's no irradiance.
+            if any(irradiance_frame.set_index("hour").iloc[int(start_index)].isna()):
+                continue
+            # Determine the cell curves.
+            current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
+                locations_to_weather_and_solar_map[scenario.location][int(start_index)][
+                    TEMPERATURE
+                ],
+                1000 * irradiance_frame.set_index("hour").iloc[int(start_index)],
+                current_series=current_series,
+            )
+            cell_to_power_map[pv_cell] = power_series
+            cell_to_voltage_map[pv_cell] = voltage_series
+        # Combine the series across each individual module
+        combined_power_series = sum(cell_to_power_map.values())
+        combined_voltage_series = sum(cell_to_voltage_map.values())
+
+        # Combine the series across the modules within the system.
+        combined_power_series = pv_system.combine_powers(combined_power_series)
+        combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
+        combined_current_series = pv_system.combine_currents(current_series)
+
+        # Determine the maximum power point
+        maximum_power_index = pd.Series(combined_power_series).idxmax()
+        mpp_current_map[start_index] = combined_current_series[maximum_power_index]
+        mpp_power_map[start_index] = combined_power_series[maximum_power_index]
 
     import pdb
 

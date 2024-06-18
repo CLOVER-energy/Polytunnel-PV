@@ -1,0 +1,28 @@
+---
+################################################################################
+# locations.yaml - Parameters for specifying locations.                        #
+#                                                                              #
+# Author: Ben Winchester                                                       #
+# Copyright: Ben Winchester, 2024                                              #
+# Date created: 16/04/2024                                                     #
+# License: Open source                                                         #
+################################################################################
+
+# A location is specified with:
+# - name:       the name of the location
+#   altitude:   the altitude, in meters, of the location
+#   latitude:   the latitude
+#   longitude:  the longitude
+#   tz:         a `str` giving the timezone. E.G., "UTC" would correspond to UTC time
+#
+
+- name: demo_site
+  altitude: 0
+  latitude: 51
+  longitude: 0.5
+  tz: "UTC"
+- name: polysolar_kent
+  altitude: 110
+  latitude: 51.251841
+  longitude: 0.347040
+  tz: "UTC"

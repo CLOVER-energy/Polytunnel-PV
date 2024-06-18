@@ -38,7 +38,7 @@ DIODE_IDEALITY_FACTOR: str = "_reference_diode_ideality_factor"
 
 # NUM_CELLS_IN_PARENT_MODULE:
 #   Keyword for the number of cells in the parent module.
-NUM_CELLS_IN_PARENT_MODULE: str = "_num_cells_in_parent_module"
+NUM_CELLS_IN_PARENT_MODULE: str = "num_cells_in_parent_module"
 
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.
@@ -224,7 +224,7 @@ class PVCell:
     # .. attribute:: _cell_id:
     #   The ID number for the cell.
     #
-    # .. attribute:: _num_cells_in_parent_module:
+    # .. attribute:: num_cells_in_parent_module:
     #   The number of cells in the parent module from which the electrical parameters
     #   for the cell are obtained.
     #   NOTE: This is used purely in electrical calculations and should not be used
@@ -264,7 +264,7 @@ class PVCell:
     _azimuth_in_radians: float | None = None
     _cell_id: float | int | None = None
     _reference_diode_ideality_factor: float | int | None = None
-    _num_cells_in_parent_module: int | None = None
+    num_cells_in_parent_module: int | None = None
     _tilt_in_radians: float | None = None
     __open_circuit_voltage: float | None = None
     __mpp_thermal_coefficient: float | None = None
@@ -371,7 +371,7 @@ class PVCell:
                 self.reference_shunt_resistance,
                 self.reference_shunt_resistance,
                 self.reference_series_resistance,
-                self._num_cells_in_parent_module,
+                self.num_cells_in_parent_module,
                 EgRef=self.eg_ref,
                 irrad_ref=self.reference_irradiance,
                 temp_ref=self.reference_temperature,
@@ -441,7 +441,7 @@ class PVCell:
             )
 
             self.__reference_efficiency = maximum_power_point_power / (
-                self.reference_irradiance * self.area * self._num_cells_in_parent_module
+                self.reference_irradiance * self.area * self.num_cells_in_parent_module
             )
 
         return self.__reference_efficiency
@@ -636,9 +636,7 @@ class PVCell:
         """Rescale voltage values based on the cell being in series."""
 
         def _rescale_voltage(voltage: float) -> float:
-            if voltage <= 0:
-                return voltage
-            return voltage / self._num_cells_in_parent_module
+            return voltage / self.num_cells_in_parent_module
 
         if isinstance(voltage_to_rescale, float):
             return _rescale_voltage(voltage_to_rescale)
@@ -845,9 +843,13 @@ def calculate_cell_iv_curve(
             except (RuntimeError, RuntimeWarning):
                 return 0
             else:
-                if voltage > -pv_cell.breakdown_voltage:
+                if voltage > (
+                    module_breakdown_voltage := (
+                        pv_cell.num_cells_in_parent_module * pv_cell.breakdown_voltage
+                    )
+                ):
                     return voltage
-                return pv_cell.breakdown_voltage
+                return module_breakdown_voltage
 
     if voltage_series is None:
         # Use the current density if provided, otherwise the current
