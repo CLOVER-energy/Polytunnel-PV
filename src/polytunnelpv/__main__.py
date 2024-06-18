@@ -1302,7 +1302,7 @@ def main(unparsed_arguments) -> None:
                 - datetime.datetime(year=2023, month=1, day=1, hour=0, minute=0)
             ).total_seconds()
             / 3600
-            for entry in hpf.iterrows()
+            for entry in timestamps_data.iterrows()
         ]
 
     # For each hour within the series of start times, compute the MPP.
