@@ -33,7 +33,7 @@ import matplotlib.colors as mcolors
 
 from matplotlib import pyplot as plt
 from matplotlib import rc, rcParams
-from typing import Any, Hashable, Pattern
+from typing import Any, Hashable, Match, Pattern
 
 import numpy as np
 import pandas as pd
