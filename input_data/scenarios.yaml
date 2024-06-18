@@ -1,0 +1,25 @@
+- name: circular_polysolar_kent
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_unbypassed
+- name: circular_polysolar_kent_bypassed
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed
+- name: circular_polysolar_kent_morning_and_evening
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_morning_and_evening
+
+# - name: polysolar_kent
+#   location: polysolar_kent
+#   pv_module: thin_film_demo
+# - name: polysolar_kent_long_1
+#   location: polysolar_kent
+#   pv_module: long_1_thin_film_demo
+# - name: polysolar_kent_long_2
+#   location: polysolar_kent
+#   pv_module: long_2_thin_film_demo
+# - name: polysolar_kent_long_2_with_bypass
+#   location: polysolar_kent
+#   pv_module: long_2_thin_film_demo_bypassed
+# - name: polysolar_kent_long_3
+#   location: polysolar_kent
+#   pv_module: long_3_thin_film_demo

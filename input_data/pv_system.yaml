@@ -1,0 +1,17 @@
+---
+################################################################################
+# pv_system.yaml - Parameters for specifying how PV modules are connected.     #
+#                                                                              #
+# Author: Ben Winchester                                                       #
+# Copyright: Ben Winchester, 2024                                              #
+# Date created: 16/04/2024                                                     #
+# License: Open source                                                         #
+################################################################################
+
+# A PV systems is specified with:
+# - n_modules:  the number of modules within the string
+#
+
+module_strings:
+  - n_modules: 4
+  - n_modules: 4
