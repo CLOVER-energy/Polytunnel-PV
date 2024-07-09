@@ -703,6 +703,12 @@ def main(unparsed_arguments) -> None:
     parsed_args = _parse_args(unparsed_arguments)
 
     # Parse all of the input files
+    print(
+        (this_string := "Parsing input files")
+        + "." * (88 - (len(this_string) + len(DONE)))
+        + " ",
+        end="",
+    )
     locations = _parse_locations()
     polytunnels = _parse_polytunnel_curves()
     user_defined_pv_cells = _parse_cells()
@@ -720,8 +726,15 @@ def main(unparsed_arguments) -> None:
     # NOTE: When integrated this as a Python package, this line should be suppressable
     # by weather data being passed in.
     weather_data = _parse_solar()
+    print(DONE)
 
     # Map locations to weather data.
+    print(
+        (this_string := "Computing weather data")
+        + "." * (88 - (len(this_string) + len(DONE)))
+        + " ",
+        end="",
+    )
     locations_with_weather: dict[pvlib.location.Location, pd.DataFrame] = {
         location: weather_data[location.name]
         for location in locations
@@ -787,8 +800,15 @@ def main(unparsed_arguments) -> None:
         location: entry.to_dict("records")
         for location, entry in locations_with_weather_and_solar.items()
     }
+    print(DONE)
 
     # Compute the irradiance on each panel for each location.
+    print(
+        (this_string := "Calculting cell-wise irradiances")
+        + "." * (88 - (len(this_string) + len(DONE)))
+        + " ",
+        end="",
+    )
     try:
         cellwise_irradiances = [
             (
@@ -846,6 +866,11 @@ def main(unparsed_arguments) -> None:
     cellwise_irradiance_frames = [
         (entry[0], entry[1].copy()) for entry in cellwise_irradiance_frames
     ]
+    print(DONE)
+
+    import pdb
+
+    pdb.set_trace()
 
     # Extract the information for just the scenario that should be plotted.
     try:
@@ -912,6 +937,12 @@ def main(unparsed_arguments) -> None:
     cell_to_power_map: dict[BypassedCellString | PVCell] = {}
     cell_to_voltage_map: dict[BypassedCellString | PVCell] = {}
 
+    print(
+        (this_string := "Computing cell-wise power")
+        + "." * (88 - (len(this_string) + len(DONE)))
+        + " ",
+        end="",
+    )
     fig = plt.figure(figsize=(48 / 5, 32 / 5))
     individual_power_extreme: float = 0
     for pv_cell in tqdm(
@@ -1017,6 +1048,7 @@ def main(unparsed_arguments) -> None:
     # - Improve the speed of the calculation so it can be run for all hours.
     # - Some way to store whether the cells have been bypassed.
 
+    print(DONE)
     plt.show()
 
     plt.scatter(
