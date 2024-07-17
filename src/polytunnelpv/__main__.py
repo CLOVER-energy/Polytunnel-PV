@@ -809,68 +809,81 @@ def main(unparsed_arguments) -> None:
         + " ",
         end="",
     )
-    try:
-        cellwise_irradiances = [
-            (
-                scenario,
-                [
-                    {
-                        entry[LOCAL_TIME]: get_irradiance(
-                            pv_cell,
-                            entry[IRRADIANCE_DIFFUSE],
-                            entry[IRRADIANCE_GLOBAL_HORIZONTAL],
-                            entry[SOLAR_AZIMUTH],
-                            entry[SOLAR_ZENITH],
-                            direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
-                        )
-                        for entry in locations_to_weather_and_solar_map[
-                            scenario.location
-                        ]
-                    }
-                    for pv_cell in scenario.pv_module.pv_cells
-                ],
-            )
-            for scenario in scenarios
-        ]
-    except KeyError as key_error:
-        raise KeyError(
-            "Unable to find weather data for location specified by the scenario. Check "
-            "you have downloaded it and saved it correctly." + str(key_error)
-        ) from None
+    for scenario in scenarios:
+        cellwise_irradiances = []
+        if not os.path.isfile((cellwise_filename:=os.path.join("auto_generated", f"{scenario.name}_cellwise_irradiance.csv"))):
+            try:
+                cellwise_irradiances.append(
+                        (scenario,
+                        [
+                            {
+                                entry[LOCAL_TIME]: get_irradiance(
+                                    pv_cell,
+                                    entry[IRRADIANCE_DIFFUSE],
+                                    entry[IRRADIANCE_GLOBAL_HORIZONTAL],
+                                    entry[SOLAR_AZIMUTH],
+                                    entry[SOLAR_ZENITH],
+                                    direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
+                                )
+                                for entry in locations_to_weather_and_solar_map[
+                                    scenario.location
+                                ]
+                            }
+                            for pv_cell in scenario.pv_module.pv_cells
+                        ])
+                    )
+            except KeyError as key_error:
+                raise KeyError(
+                    "Unable to find weather data for location specified by the scenario. Check "
+                    "you have downloaded it and saved it correctly." + str(key_error)
+                ) from None
 
     # Transform to a pandas DataFrame for plotting.
-    cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
-    for scenario, irradiances_list in cellwise_irradiances:
-        hourly_frames: list[pd.DataFrame] = []
-        for cell_id, hourly_irradiances in enumerate(irradiances_list):
-            hourly_frame = pd.DataFrame.from_dict(hourly_irradiances, orient="index")
-            hourly_frame.columns = pd.Index([cell_id])
-            hourly_frames.append(hourly_frame)
+            cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
+            for scenario, irradiances_list in cellwise_irradiances:
+                hourly_frames: list[pd.DataFrame] = []
+                for cell_id, hourly_irradiances in enumerate(irradiances_list):
+                    hourly_frame = pd.DataFrame.from_dict(hourly_irradiances, orient="index")
+                    hourly_frame.columns = pd.Index([cell_id])
+                    hourly_frames.append(hourly_frame)
 
-        combined_frame = pd.concat(hourly_frames, axis=1)
-        combined_frame.sort_index(axis=1, inplace=True, ascending=False)
-        combined_frame["hour"] = [
-            int(entry.split(" ")[1].split(":")[0])
-            for entry in hourly_frame.index.to_series()
-        ]
+                combined_frame = pd.concat(hourly_frames, axis=1)
+                combined_frame.sort_index(axis=1, inplace=True, ascending=False)
+                combined_frame["hour"] = [
+                    int(entry.split(" ")[1].split(":")[0])
+                    for entry in hourly_frame.index.to_series()
+                ]
 
-        # Use the cell angle from the axis as the column header
-        combined_frame.columns = [
-            f"{'-' if pv_cell.cell_id / len(scenario.pv_module.pv_cells) < 0.5 else ''}{str(round(pv_cell.tilt, 3))}"
-            for pv_cell in scenario.pv_module.pv_cells
-        ] + ["hour"]
+                # Use the cell angle from the axis as the column header
+                combined_frame.columns = [
+                    f"{'-' if pv_cell.cell_id / len(scenario.pv_module.pv_cells) < 0.5 else ''}{str(round(pv_cell.tilt, 3))}"
+                    for pv_cell in scenario.pv_module.pv_cells
+                ] + ["hour"]
 
-        cellwise_irradiance_frames.append((scenario, combined_frame))
+                with open((cellwise_filename:=os.path.join("auto_generated", f"{scenario.name}_cellwise_irradiance.csv")), "w") as f:
+                    combined_frame.to_csv(f)
+
+
+
+            cellwise_irradiance_frames.append((scenario, combined_frame))
+
+    else:
+        print("Skipping calculation of irradiance and using irradiance from file")
+
+        cellwise_irradiance_frames  = []
+
+        for scenario in scenarios:
+            with open(cellwise_filename, "r") as f:
+                combined_frame = pd.read_csv(f, index_col=None)
+
+            cellwise_irradiance_frames.append((scenario, combined_frame))
+
 
     # Defragment the frame
     cellwise_irradiance_frames = [
         (entry[0], entry[1].copy()) for entry in cellwise_irradiance_frames
     ]
     print(DONE)
-
-    import pdb
-
-    pdb.set_trace()
 
     # Extract the information for just the scenario that should be plotted.
     try:
@@ -883,7 +896,7 @@ def main(unparsed_arguments) -> None:
                 "Scenario must be specified on the command-line."
             ) from None
         raise KeyError(
-            f"Scenario {parsed_args.scenario} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
+            f"Scenario {parsed_args.scenario.name} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
         ) from None
 
     try:
@@ -931,118 +944,122 @@ def main(unparsed_arguments) -> None:
         )
     )
 
-    time_of_day: int = 11 + (start_day_index := 8016)
+    start_day_index = 8016
+    for time_of_day in range(start_day_index, start_day_index + 24, 1):
 
-    # Create a mapping between cell and power output
-    cell_to_power_map: dict[BypassedCellString | PVCell] = {}
-    cell_to_voltage_map: dict[BypassedCellString | PVCell] = {}
+        if np.max(irradiance_frame.set_index("hour").iloc[time_of_day]) == 0:
+            continue
 
-    print(
-        (this_string := "Computing cell-wise power")
-        + "." * (88 - (len(this_string) + len(DONE)))
-        + " ",
-        end="",
-    )
-    fig = plt.figure(figsize=(48 / 5, 32 / 5))
-    individual_power_extreme: float = 0
-    for pv_cell in tqdm(
-        scenario.pv_module.pv_cells_and_cell_strings, desc="Plotting PV cell"
-    ):
-        # Determine the cell curves.
-        current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-            locations_to_weather_and_solar_map[scenario.location][time_of_day][
-                TEMPERATURE
-            ],
-            1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
-            current_series=current_series,
+        # Create a mapping between cell and power output
+        cell_to_power_map: dict[BypassedCellString | PVCell] = {}
+        cell_to_voltage_map: dict[BypassedCellString | PVCell] = {}
+
+        print(
+            (this_string := "Computing cell-wise power")
+            + "." * (88 - (len(this_string) + len(DONE)))
+            + " ",
+            end="",
         )
-        cell_to_power_map[pv_cell] = power_series
-        cell_to_voltage_map[pv_cell] = voltage_series
-        individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
+        fig = plt.figure(figsize=(48 / 5, 32 / 5))
+        individual_power_extreme: float = 0
+        for pv_cell in tqdm(
+            scenario.pv_module.pv_cells_and_cell_strings, desc="Plotting PV cell"
+        ):
+            # Determine the cell curves.
+            current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
+                locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                    TEMPERATURE
+                ],
+                1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
+                current_series=current_series,
+            )
+            cell_to_power_map[pv_cell] = power_series
+            cell_to_voltage_map[pv_cell] = voltage_series
+            individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
+            plt.plot(
+                # pv_cell.rescale_voltage(voltage_series),
+                len(pv_system.strings) * current_series,
+                power_series,
+                label=f"{'Cell' if isinstance(pv_cell, PVCell) else 'Bypassed cell string'} #{pv_cell.cell_id}",
+            )
+
+        # Combine the series across each individual module
+        combined_power_series = sum(cell_to_power_map.values())
+        combined_voltage_series = sum(cell_to_voltage_map.values())
+
+        # Combine the series across the modules within the system.
+        combined_power_series = pv_system.combine_powers(combined_power_series)
+        combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
+        combined_current_series = pv_system.combine_currents(current_series)
+
+        # Determine the maximum power point
+        maximum_power_index = pd.Series(combined_power_series).idxmax()
+        mpp_current = combined_current_series[maximum_power_index]
+        mpp_power = combined_power_series[maximum_power_index]
+
+        left_axis = plt.gca()
+        right_axis = left_axis.twinx()
+
+        plt.scatter(
+            [mpp_current], [mpp_power], s=100, marker="h", color="orange", label="MPP"
+        )
         plt.plot(
-            # pv_cell.rescale_voltage(voltage_series),
-            len(pv_system.strings) * current_series,
-            power_series,
-            label=f"{'Cell' if isinstance(pv_cell, PVCell) else 'Bypassed cell string'} #{pv_cell.cell_id}",
+            combined_current_series,
+            combined_power_series,
+            "--",
+            label="Combined power",
+            color="orange",
         )
 
-    # Combine the series across each individual module
-    combined_power_series = sum(cell_to_power_map.values())
-    combined_voltage_series = sum(cell_to_voltage_map.values())
+        left_axis.set_xlabel("Current / A")
+        left_axis.set_ylabel("Power / W")
+        right_axis.set_ylabel(
+            f"Combined system power of {len(pv_system.strings) * pv_system.strings[0].n_modules} modules arranged strings of {pv_system.strings[0].n_modules} / W"
+        )
+        left_handles, left_labels = left_axis.get_legend_handles_labels()
+        right_handles, right_labels = right_axis.get_legend_handles_labels()
+        right_axis.legend(left_handles + right_handles, left_labels + right_labels)
 
-    # Combine the series across the modules within the system.
-    combined_power_series = pv_system.combine_powers(combined_power_series)
-    combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
-    combined_current_series = pv_system.combine_currents(current_series)
-
-    # Determine the maximum power point
-    maximum_power_index = pd.Series(combined_power_series).idxmax()
-    mpp_current = combined_current_series[maximum_power_index]
-    mpp_power = combined_power_series[maximum_power_index]
-
-    left_axis = plt.gca()
-    right_axis = left_axis.twinx()
-
-    plt.scatter(
-        [mpp_current], [mpp_power], s=100, marker="h", color="orange", label="MPP"
-    )
-    plt.plot(
-        combined_current_series,
-        combined_power_series,
-        "--",
-        label="Combined power",
-        color="orange",
-    )
-
-    left_axis.set_xlabel("Current / A")
-    left_axis.set_ylabel("Power / W")
-    right_axis.set_ylabel(
-        f"Combined system power of {len(pv_system.strings) * pv_system.strings[0].n_modules} modules arranged strings of {pv_system.strings[0].n_modules} / W"
-    )
-    left_handles, left_labels = left_axis.get_legend_handles_labels()
-    right_handles, right_labels = right_axis.get_legend_handles_labels()
-    right_axis.legend(left_handles + right_handles, left_labels + right_labels)
-
-    # Set the limits to match up zero
-    left_axis.set_ylim(
-        -(1 + INTERNAL_AXIS_PADDING_FACTOR) * individual_power_extreme,
-        (1 + INTERNAL_AXIS_PADDING_FACTOR) * individual_power_extreme,
-    )
-    right_axis.set_ylim(
-        -(
-            _extreme_value := (1 + INTERNAL_AXIS_PADDING_FACTOR)
-            * max(abs(min(combined_power_series)), max(combined_power_series))
-        ),
-        _extreme_value,
-    )
-
-    # Replace the legend with a colour bar if there are too many cells
-    if (num_cells := len(scenario.pv_module.pv_cells)) >= 20:
-        # Remove the current legend.
-        right_axis.legend().remove()
-
-        # Generate the colour map.
-        norm = plt.Normalize(0, num_cells)
-        scalar_mappable = plt.cm.ScalarMappable(
-            cmap=mcolors.LinearSegmentedColormap.from_list(
-                "Custom", sns.color_palette().as_hex(), num_cells
+        # Set the limits to match up zero
+        left_axis.set_ylim(
+            -(1 + INTERNAL_AXIS_PADDING_FACTOR) * individual_power_extreme,
+            (1 + INTERNAL_AXIS_PADDING_FACTOR) * individual_power_extreme,
+        )
+        right_axis.set_ylim(
+            -(
+                _extreme_value := (1 + INTERNAL_AXIS_PADDING_FACTOR)
+                * max(abs(min(combined_power_series)), max(combined_power_series))
             ),
-            norm=norm,
-        )
-        colorbar = right_axis.figure.colorbar(
-            scalar_mappable,
-            ax=right_axis,
-            label="Cell (or bypassed cell string) index",
-            pad=(_pad := 0.125),
+            _extreme_value,
         )
 
-    plt.savefig(
-        f"mpp_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
-        transparent=True,
-        format="png",
-        dpi=300,
-        bbox_inches="tight",
-    )
+        # Replace the legend with a colour bar if there are too many cells
+        if (num_cells := len(scenario.pv_module.pv_cells)) >= 20:
+            # Remove the current legend.
+            right_axis.legend().remove()
+
+            # Generate the colour map.
+            norm = plt.Normalize(0, num_cells)
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), num_cells
+                ),
+                norm=norm,
+            )
+            colorbar = right_axis.figure.colorbar(
+                scalar_mappable,
+                ax=right_axis,
+                label="Cell (or bypassed cell string) index",
+                pad=(_pad := 0.125),
+            )
+
+        plt.savefig(
+            f"mpp_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+            transparent=True,
+            format="png",
+            dpi=300,
+            bbox_inches="tight",
+        )
 
     # TODO:
     # - Improve the speed of the calculation so it can be run for all hours.
