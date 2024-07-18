@@ -83,3 +83,8 @@ class Scenario:
             )
         except KeyError:
             raise KeyError("Missing information in scenarios file.") from None
+
+    def __eq__(self, other) -> bool:
+        """Says two scenarios are equal if their names are equal."""
+
+        return self.name == other.name

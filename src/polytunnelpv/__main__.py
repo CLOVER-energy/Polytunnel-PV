@@ -811,10 +811,17 @@ def main(unparsed_arguments) -> None:
     )
     for scenario in scenarios:
         cellwise_irradiances = []
-        if not os.path.isfile((cellwise_filename:=os.path.join("auto_generated", f"{scenario.name}_cellwise_irradiance.csv"))):
+        if not os.path.isfile(
+            (
+                cellwise_filename := os.path.join(
+                    "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
+                )
+            )
+        ):
             try:
                 cellwise_irradiances.append(
-                        (scenario,
+                    (
+                        scenario,
                         [
                             {
                                 entry[LOCAL_TIME]: get_irradiance(
@@ -823,27 +830,32 @@ def main(unparsed_arguments) -> None:
                                     entry[IRRADIANCE_GLOBAL_HORIZONTAL],
                                     entry[SOLAR_AZIMUTH],
                                     entry[SOLAR_ZENITH],
-                                    direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
+                                    direct_normal_irradiance=entry[
+                                        IRRADIANCE_DIRECT_NORMAL
+                                    ],
                                 )
                                 for entry in locations_to_weather_and_solar_map[
                                     scenario.location
                                 ]
                             }
                             for pv_cell in scenario.pv_module.pv_cells
-                        ])
+                        ],
                     )
+                )
             except KeyError as key_error:
                 raise KeyError(
                     "Unable to find weather data for location specified by the scenario. Check "
                     "you have downloaded it and saved it correctly." + str(key_error)
                 ) from None
 
-    # Transform to a pandas DataFrame for plotting.
+            # Transform to a pandas DataFrame for plotting.
             cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
             for scenario, irradiances_list in cellwise_irradiances:
                 hourly_frames: list[pd.DataFrame] = []
                 for cell_id, hourly_irradiances in enumerate(irradiances_list):
-                    hourly_frame = pd.DataFrame.from_dict(hourly_irradiances, orient="index")
+                    hourly_frame = pd.DataFrame.from_dict(
+                        hourly_irradiances, orient="index"
+                    )
                     hourly_frame.columns = pd.Index([cell_id])
                     hourly_frames.append(hourly_frame)
 
@@ -860,24 +872,31 @@ def main(unparsed_arguments) -> None:
                     for pv_cell in scenario.pv_module.pv_cells
                 ] + ["hour"]
 
-                with open((cellwise_filename:=os.path.join("auto_generated", f"{scenario.name}_cellwise_irradiance.csv")), "w") as f:
+                with open(
+                    os.path.join(
+                        "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
+                    ),
+                    "w",
+                ) as f:
                     combined_frame.to_csv(f)
-
-
 
             cellwise_irradiance_frames.append((scenario, combined_frame))
 
     else:
         print("Skipping calculation of irradiance and using irradiance from file")
 
-        cellwise_irradiance_frames  = []
+        cellwise_irradiance_frames = []
 
         for scenario in scenarios:
-            with open(cellwise_filename, "r") as f:
+            with open(
+                os.path.join(
+                    "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
+                ),
+                "r",
+            ) as f:
                 combined_frame = pd.read_csv(f, index_col=None)
 
-            cellwise_irradiance_frames.append((scenario, combined_frame))
-
+            cellwise_irradiance_frames.append((scenario, combined_frame.copy()))
 
     # Defragment the frame
     cellwise_irradiance_frames = [
@@ -944,10 +963,13 @@ def main(unparsed_arguments) -> None:
         )
     )
 
+    # Fix nan errors:
+    irradiance_frame = irradiance_frame.fillna(0)
+
     start_day_index = 8016
     for time_of_day in range(start_day_index, start_day_index + 24, 1):
 
-        if np.max(irradiance_frame.set_index("hour").iloc[time_of_day]) == 0:
+        if np.max(irradiance_frame.set_index("hour").iloc[time_of_day][1:]) == 0:
             continue
 
         # Create a mapping between cell and power output
@@ -970,12 +992,17 @@ def main(unparsed_arguments) -> None:
                 locations_to_weather_and_solar_map[scenario.location][time_of_day][
                     TEMPERATURE
                 ],
-                1000 * irradiance_frame.set_index("hour").iloc[time_of_day],
+                1000
+                * irradiance_frame.set_index("hour")
+                .iloc[time_of_day][1:]
+                .reset_index(drop=True),
                 current_series=current_series,
             )
             cell_to_power_map[pv_cell] = power_series
             cell_to_voltage_map[pv_cell] = voltage_series
-            individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
+            individual_power_extreme = max(
+                individual_power_extreme, max(abs(power_series))
+            )
             plt.plot(
                 # pv_cell.rescale_voltage(voltage_series),
                 len(pv_system.strings) * current_series,
