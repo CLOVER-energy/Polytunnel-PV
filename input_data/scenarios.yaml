@@ -17,9 +17,9 @@
 # - name: polysolar_kent_long_2
 #   location: polysolar_kent
 #   pv_module: long_2_thin_film_demo
-# - name: polysolar_kent_long_2_with_bypass
-#   location: polysolar_kent
-#   pv_module: long_2_thin_film_demo_bypassed
+- name: polysolar_kent_long_2_with_bypass
+  location: polysolar_kent
+  pv_module: long_2_thin_film_demo_bypassed
 # - name: polysolar_kent_long_3
 #   location: polysolar_kent
 #   pv_module: long_3_thin_film_demo

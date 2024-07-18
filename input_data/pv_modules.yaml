@@ -76,7 +76,7 @@
   offset_angle: 90
   polytunnel_curve: north_south_5m_circle
   bypass_diodes:
-    - bypass_voltage: -0.5
+    - bypass_voltage: -0.5  # V_BD
       start_index: 0
       end_index: 4
     - bypass_voltage: -0.5
