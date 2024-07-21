@@ -28,7 +28,7 @@ import seaborn as sns
 import sys
 import warnings
 import yaml
-
+from datetime import datetime, timedelta
 import matplotlib.colors as mcolors
 
 from matplotlib import pyplot as plt
@@ -967,11 +967,20 @@ def main(unparsed_arguments) -> None:
     irradiance_frame = irradiance_frame.fillna(0)
 
     start_day_index = 8016
+    mpp_values = []
+    hours = []
     for time_of_day in range(start_day_index, start_day_index + 24, 1):
 
         if np.max(irradiance_frame.set_index("hour").iloc[time_of_day][1:]) == 0:
             continue
-
+        
+        # Extract the hour from the time_of_day index
+        hour = time_of_day % 24
+        hours.append(hour)
+        
+        start_date = datetime(2023, 1, 1) + timedelta(hours=start_day_index)
+        date_str = start_date.strftime("%d_%b_%Y")  
+        
         # Create a mapping between cell and power output
         cell_to_power_map: dict[BypassedCellString | PVCell] = {}
         cell_to_voltage_map: dict[BypassedCellString | PVCell] = {}
@@ -1023,6 +1032,8 @@ def main(unparsed_arguments) -> None:
         maximum_power_index = pd.Series(combined_power_series).idxmax()
         mpp_current = combined_current_series[maximum_power_index]
         mpp_power = combined_power_series[maximum_power_index]
+        
+        mpp_values.append(mpp_power)
 
         left_axis = plt.gca()
         right_axis = left_axis.twinx()
@@ -1079,9 +1090,10 @@ def main(unparsed_arguments) -> None:
                 label="Cell (or bypassed cell string) index",
                 pad=(_pad := 0.125),
             )
-
+        
+        plt.title(f"MPP Graph at {hour}:00")
         plt.savefig(
-            f"mpp_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+            f"mpp_graph_{scenario.name}_{date_str}_{hour}.{(format:='png')}",
             transparent=True,
             format="png",
             dpi=300,
@@ -1094,66 +1106,91 @@ def main(unparsed_arguments) -> None:
 
     print(DONE)
     plt.show()
+    
+    # Plotting the MPP values for the whole day
+    plt.figure(figsize=(12, 6))
+    plt.plot(hours, mpp_values, marker='o', linestyle='-')
+    plt.xlabel('Hour of the Day')
+    plt.ylabel('Maximum Power Point (W)')
+    plt.title(f'Maximum Power Point for Each Hour on {date_str}')
+    plt.grid(True)
 
-    plt.scatter(
-        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
-        [
-            1000
-            * irradiance_frame.set_index("hour")
-            .iloc[time_of_day]
-            .values[pv_cell.cell_id]
-            for pv_cell in scenario.pv_module.pv_cells
-        ],
-        color="orange",
-        marker="D",
-        s=100,
-        alpha=0.9,
-    )
-    plt.xlabel("Cell ID")
-    plt.ylabel("Irradiance / W/m$^2$")
+    # Calculate and display the sum of MPP values
+    total_mpp = sum(mpp_values)
+    plt.figtext(0.15, 0.85, f"Total MPP: {total_mpp:.2f} W", fontsize=12, color='red')
+
     plt.savefig(
-        f"irradiance_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+         f"mpp_{date_str}_summary_{scenario.name}.{(format:='png')}",
         transparent=True,
         format="png",
         dpi=300,
         bbox_inches="tight",
     )
     plt.show()
+    
+    # Save the MPP values and total MPP to an Excel file
+    mpp_data = pd.DataFrame({'Hour': hours, 'MPP (W)': mpp_values})
+    mpp_data.loc['Total'] = ['Total', total_mpp]  # Adding the total MPP at the end
+    mpp_data.to_excel(f"mpp_{date_str}_summary_{scenario.name}.xlsx", index=False)
+    # plt.scatter(
+    #     [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+    #     [
+    #         1000
+    #         * irradiance_frame.set_index("hour")
+    #         .iloc[time_of_day]
+    #         .values[pv_cell.cell_id]
+    #         for pv_cell in scenario.pv_module.pv_cells
+    #     ],
+    #     color="orange",
+    #     marker="D",
+    #     s=100,
+    #     alpha=0.9,
+    # )
+    # plt.xlabel("Cell ID")
+    # plt.ylabel("Irradiance / W/m$^2$")
+    # plt.savefig(
+    #     f"irradiance_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+    #     transparent=True,
+    #     format="png",
+    #     dpi=300,
+    #     bbox_inches="tight",
+    # )
+    # plt.show()
 
-    plt.scatter(
-        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
-        [
-            pv_cell.average_cell_temperature(
-                locations_to_weather_and_solar_map[scenario.location][time_of_day][
-                    TEMPERATURE
-                ]
-                + 273.15,
-                1000
-                * irradiance_frame.set_index("hour")
-                .iloc[time_of_day]
-                .iloc[pv_cell.cell_id],
-                0,
-            )
-            - 273.15
-            for pv_cell in scenario.pv_module.pv_cells
-        ],
-        color="red",
-        marker="D",
-        s=100,
-        alpha=0.9,
-        edgecolor=None,
-    )
-    plt.xlabel("Cell ID")
-    plt.ylabel("Temperature / Degrees Celsius")
-    plt.savefig(
-        f"temperature_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
-        transparent=True,
-        format="png",
-        dpi=300,
-        bbox_inches="tight",
-    )
+    # plt.scatter(
+    #     [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+    #     [
+    #         pv_cell.average_cell_temperature(
+    #             locations_to_weather_and_solar_map[scenario.location][time_of_day][
+    #                 TEMPERATURE
+    #             ]
+    #             + 273.15,
+    #             1000
+    #             * irradiance_frame.set_index("hour")
+    #             .iloc[time_of_day]
+    #             .iloc[pv_cell.cell_id],
+    #             0,
+    #         )
+    #         - 273.15
+    #         for pv_cell in scenario.pv_module.pv_cells
+    #     ],
+    #     color="red",
+    #     marker="D",
+    #     s=100,
+    #     alpha=0.9,
+    #     edgecolor=None,
+    # )
+    # plt.xlabel("Cell ID")
+    # plt.ylabel("Temperature / Degrees Celsius")
+    # plt.savefig(
+    #     f"temperature_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
+    #     transparent=True,
+    #     format="png",
+    #     dpi=300,
+    #     bbox_inches="tight",
+    # )
 
-    plt.show()
+    # plt.show()
 
     # import matplotlib.patches as mpatches
 
@@ -1428,135 +1465,135 @@ def main(unparsed_arguments) -> None:
 
     pdb.set_trace()
 
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[1][1],
-        start_index=start_index,
-        figname="july_eighth_medium_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[2][1],
-        start_index=start_index,
-        figname="july_eighth_large_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[1][1],
+    #     start_index=start_index,
+    #     figname="july_eighth_medium_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[2][1],
+    #     start_index=start_index,
+    #     figname="july_eighth_large_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
 
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[0][1],
-        start_index=(start_index := 24 * 31 * 7 + 48),
-        figname="august_eight_small_panel",
-        heatmap_vmax=(
-            heatmap_vmax := cellwise_irradiance_frames[2][1]
-            .set_index("hour")
-            .iloc[start_index : start_index + 24]
-            .max()
-            .max()
-        ),
-        irradiance_bar_vmax=(
-            irradiance_bar_vmax := (
-                max(
-                    cellwise_irradiance_frames[0][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                )
-            )
-        ),
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=(
-            irradiance_scatter_vmax := 1.25
-            * (
-                max(
-                    cellwise_irradiance_frames[0][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[1][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                    cellwise_irradiance_frames[2][1]
-                    .set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .sum(axis=0)
-                    .max(),
-                )
-            )
-        ),
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[1][1],
-        start_index=start_index,
-        figname="august_eighth_medium_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
-    plot_irradiance_with_marginal_means(
-        cellwise_irradiance_frames[2][1],
-        start_index=start_index,
-        figname="august_eighth_large_panel",
-        heatmap_vmax=heatmap_vmax,
-        irradiance_bar_vmax=irradiance_bar_vmax,
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=irradiance_scatter_vmax,
-    )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[0][1],
+    #     start_index=(start_index := 24 * 31 * 7 + 48),
+    #     figname="august_eight_small_panel",
+    #     heatmap_vmax=(
+    #         heatmap_vmax := cellwise_irradiance_frames[2][1]
+    #         .set_index("hour")
+    #         .iloc[start_index : start_index + 24]
+    #         .max()
+    #         .max()
+    #     ),
+    #     irradiance_bar_vmax=(
+    #         irradiance_bar_vmax := (
+    #             max(
+    #                 cellwise_irradiance_frames[0][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[1][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[2][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .mean(axis=1)
+    #                 .max(),
+    #             )
+    #         )
+    #     ),
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=(
+    #         irradiance_scatter_vmax := 1.25
+    #         * (
+    #             max(
+    #                 cellwise_irradiance_frames[0][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[1][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #                 cellwise_irradiance_frames[2][1]
+    #                 .set_index("hour")
+    #                 .iloc[start_index : start_index + 24]
+    #                 .sum(axis=0)
+    #                 .max(),
+    #             )
+    #         )
+    #     ),
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[1][1],
+    #     start_index=start_index,
+    #     figname="august_eighth_medium_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
+    # plot_irradiance_with_marginal_means(
+    #     cellwise_irradiance_frames[2][1],
+    #     start_index=start_index,
+    #     figname="august_eighth_large_panel",
+    #     heatmap_vmax=heatmap_vmax,
+    #     irradiance_bar_vmax=irradiance_bar_vmax,
+    #     irradiance_scatter_vmin=0,
+    #     irradiance_scatter_vmax=irradiance_scatter_vmax,
+    # )
 
-    weather = locations_with_weather_and_solar[scenario.location]
-    data_to_scatter = weather.iloc[start_index : start_index + 24]
-    plt.scatter(
-        range(24),
-        data_to_scatter["irradiance_direct"],
-        marker="H",
-        s=40,
-        label="Direct irradiance",
-    )
-    plt.scatter(
-        range(24),
-        data_to_scatter["irradiance_diffuse"],
-        marker="H",
-        s=40,
-        label="Diffuse irradiance",
-    )
-    plt.scatter(
-        range(24),
-        data_to_scatter["irradiance_direct_normal"],
-        marker="H",
-        s=40,
-        label="DNI irradiance",
-    )
-    plt.legend()
-    plt.show()
+    # weather = locations_with_weather_and_solar[scenario.location]
+    # data_to_scatter = weather.iloc[start_index : start_index + 24]
+    # plt.scatter(
+    #     range(24),
+    #     data_to_scatter["irradiance_direct"],
+    #     marker="H",
+    #     s=40,
+    #     label="Direct irradiance",
+    # )
+    # plt.scatter(
+    #     range(24),
+    #     data_to_scatter["irradiance_diffuse"],
+    #     marker="H",
+    #     s=40,
+    #     label="Diffuse irradiance",
+    # )
+    # plt.scatter(
+    #     range(24),
+    #     data_to_scatter["irradiance_direct_normal"],
+    #     marker="H",
+    #     s=40,
+    #     label="DNI irradiance",
+    # )
+    # plt.legend()
+    # plt.show()
 
-    (
-        frame_slice := cellwise_irradiance_frames[2][1].iloc[
-            start_index : start_index + 24
-        ]
-    ).plot(
-        x="hour",
-        y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-        colormap=sns.color_palette("PuBu_r", n_colors=18, as_cmap=True),
-    )
+    # (
+    #     frame_slice := cellwise_irradiance_frames[2][1].iloc[
+    #         start_index : start_index + 24
+    #     ]
+    # ).plot(
+    #     x="hour",
+    #     y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    #     colormap=sns.color_palette("PuBu_r", n_colors=18, as_cmap=True),
+    # )
 
 
 if __name__ == "__main__":

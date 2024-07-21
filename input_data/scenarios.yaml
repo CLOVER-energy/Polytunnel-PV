@@ -7,6 +7,27 @@
 - name: circular_polysolar_kent_morning_and_evening
   location: polysolar_kent
   pv_module: mia_sole_flex_03_280nl_morning_and_evening
+- name: circular_polysolar_kent_bypassed_3
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_3
+- name: circular_polysolar_kent_bypassed_4
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_4
+- name: circular_polysolar_kent_bypassed_6
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_6
+- name: circular_polysolar_kent_bypassed_11
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_11
+- name: circular_polysolar_kent_bypassed_12
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_12
+- name: circular_polysolar_kent_bypassed_10_2
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_10_2
+- name: circular_polysolar_kent_morning_and_evening
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_morning_and_evening
 
 # - name: polysolar_kent
 #   location: polysolar_kent
