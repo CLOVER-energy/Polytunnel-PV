@@ -28,67 +28,6 @@
 #   polytunneL_curve:       the name of the polytunnel on which the module sits
 #
 
-- name: thin_film_demo
-  cell_type: Sharp_NU_SC360
-  type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.01  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 18
-  offset_angle: 90
-  polytunnel_curve: north_south_5m_circle
-
-- name: long_1_thin_film_demo
-  cell_type: Sharp_NU_SC360
-  type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.3  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 18
-  offset_angle: 90
-  polytunnel_curve: north_south_5m_circle
-
-- name: long_2_thin_film_demo
-  cell_type: Sharp_NU_SC360
-  type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.7  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 18
-  offset_angle: 90
-  polytunnel_curve: north_south_5m_circle
-
-- name: long_2_thin_film_demo_bypassed
-  cell_type: Sharp_NU_SC360
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.7  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 18
-  offset_angle: 90
-  polytunnel_curve: north_south_5m_circle
-  bypass_diodes:
-    - bypass_voltage: -0.5  # V_BD
-      start_index: 0
-      end_index: 4
-    - bypass_voltage: -0.5
-      start_index: 4
-      end_index: 8
-    - bypass_voltage: -0.5
-      start_index: 10
-      end_index: 14
-    - bypass_voltage: -0.5
-      start_index: 14
-      end_index: 18
-
 - name: mia_sole_flex_03_280nl_unbypassed
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
@@ -100,25 +39,6 @@
   n_cells: 132
   offset_angle: 90
   polytunnel_curve: tilted_kent_circle
-
-- name: mia_sole_flex_03_280nl_morning_and_evening
-  cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.04473  # [m] - The dimension parallel to the module
-  cell_spacing: 0.0  # [m] - The spacing between the cells
-  cell_width: 0.348  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 132
-  offset_angle: 90
-  polytunnel_curve: tilted_kent_circle
-  bypass_diodes:
-  - bypass_voltage: -0.5
-    end_index: 50
-    start_index: 0
-  - bypass_voltage: -0.5
-    end_index: 132
-    start_index: 82
 
 - name: mia_sole_flex_03_280nl_bypassed
   cell_type: Miasole_FLEX_03_280NL
@@ -331,7 +251,7 @@
     end_index: 132
     start_index: 130
 
-- name: mia_sole_flex_03_280nl_bypassed_3
+- name: mia_sole_flex_03_280nl_bypassed_132
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
   cell_breakdown_voltage: -1
@@ -344,425 +264,10 @@
   polytunnel_curve: tilted_kent_circle
   bypass_diodes:
     - bypass_voltage: -0.5
-      end_index: 3
-      start_index: 0
-    - bypass_voltage: -0.5
-      end_index: 6
-      start_index: 3
-    - bypass_voltage: -0.5
-      end_index: 9
-      start_index: 6
-    - bypass_voltage: -0.5
-      end_index: 12
-      start_index: 9
-    - bypass_voltage: -0.5
-      end_index: 15
-      start_index: 12
-    - bypass_voltage: -0.5
-      end_index: 18
-      start_index: 15
-    - bypass_voltage: -0.5
-      end_index: 21
-      start_index: 18
-    - bypass_voltage: -0.5
-      end_index: 24
-      start_index: 21
-    - bypass_voltage: -0.5
-      end_index: 27
-      start_index: 24
-    - bypass_voltage: -0.5
-      end_index: 30
-      start_index: 27
-    - bypass_voltage: -0.5
-      end_index: 33
-      start_index: 30
-    - bypass_voltage: -0.5
-      end_index: 36
-      start_index: 33
-    - bypass_voltage: -0.5
-      end_index: 39
-      start_index: 36
-    - bypass_voltage: -0.5
-      end_index: 42
-      start_index: 39
-    - bypass_voltage: -0.5
-      end_index: 45
-      start_index: 42
-    - bypass_voltage: -0.5
-      end_index: 48
-      start_index: 45
-    - bypass_voltage: -0.5
-      end_index: 51
-      start_index: 48
-    - bypass_voltage: -0.5
-      end_index: 54
-      start_index: 51
-    - bypass_voltage: -0.5
-      end_index: 57
-      start_index: 54
-    - bypass_voltage: -0.5
-      end_index: 60
-      start_index: 57
-    - bypass_voltage: -0.5
-      end_index: 63
-      start_index: 60
-    - bypass_voltage: -0.5
-      end_index: 66
-      start_index: 63
-    - bypass_voltage: -0.5
-      end_index: 69
-      start_index: 66
-    - bypass_voltage: -0.5
-      end_index: 72
-      start_index: 69
-    - bypass_voltage: -0.5
-      end_index: 75
-      start_index: 72
-    - bypass_voltage: -0.5
-      end_index: 78
-      start_index: 75
-    - bypass_voltage: -0.5
-      end_index: 81
-      start_index: 78
-    - bypass_voltage: -0.5
-      end_index: 84
-      start_index: 81
-    - bypass_voltage: -0.5
-      end_index: 87
-      start_index: 84
-    - bypass_voltage: -0.5
-      end_index: 90
-      start_index: 87
-    - bypass_voltage: -0.5
-      end_index: 93
-      start_index: 90
-    - bypass_voltage: -0.5
-      end_index: 96
-      start_index: 93
-    - bypass_voltage: -0.5
-      end_index: 99
-      start_index: 96
-    - bypass_voltage: -0.5
-      end_index: 102
-      start_index: 99
-    - bypass_voltage: -0.5
-      end_index: 105
-      start_index: 102
-    - bypass_voltage: -0.5
-      end_index: 108
-      start_index: 105
-    - bypass_voltage: -0.5
-      end_index: 111
-      start_index: 108
-    - bypass_voltage: -0.5
-      end_index: 114
-      start_index: 111
-    - bypass_voltage: -0.5
-      end_index: 117
-      start_index: 114
-    - bypass_voltage: -0.5
-      end_index: 120
-      start_index: 117
-    - bypass_voltage: -0.5
-      end_index: 123
-      start_index: 120
-    - bypass_voltage: -0.5
-      end_index: 126
-      start_index: 123
-    - bypass_voltage: -0.5
-      end_index: 129
-      start_index: 126
-    - bypass_voltage: -0.5
       end_index: 132
-      start_index: 129
-
-- name: mia_sole_flex_03_280nl_bypassed_4
-  cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.04473  # [m] - The dimension parallel to the module
-  cell_spacing: 0.0  # [m] - The spacing between the cells
-  cell_width: 0.348  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 132
-  offset_angle: 90
-  polytunnel_curve: tilted_kent_circle
-  bypass_diodes:
-    - bypass_voltage: -0.5
-      end_index: 4
       start_index: 0
-    - bypass_voltage: -0.5
-      end_index: 8
-      start_index: 4
-    - bypass_voltage: -0.5
-      end_index: 12
-      start_index: 8
-    - bypass_voltage: -0.5
-      end_index: 16
-      start_index: 12
-    - bypass_voltage: -0.5
-      end_index: 20
-      start_index: 16
-    - bypass_voltage: -0.5
-      end_index: 24
-      start_index: 20
-    - bypass_voltage: -0.5
-      end_index: 28
-      start_index: 24
-    - bypass_voltage: -0.5
-      end_index: 32
-      start_index: 28
-    - bypass_voltage: -0.5
-      end_index: 36
-      start_index: 32
-    - bypass_voltage: -0.5
-      end_index: 40
-      start_index: 36
-    - bypass_voltage: -0.5
-      end_index: 44
-      start_index: 40
-    - bypass_voltage: -0.5
-      end_index: 48
-      start_index: 44
-    - bypass_voltage: -0.5
-      end_index: 52
-      start_index: 48
-    - bypass_voltage: -0.5
-      end_index: 56
-      start_index: 52
-    - bypass_voltage: -0.5
-      end_index: 60
-      start_index: 56
-    - bypass_voltage: -0.5
-      end_index: 64
-      start_index: 60
-    - bypass_voltage: -0.5
-      end_index: 68
-      start_index: 64
-    - bypass_voltage: -0.5
-      end_index: 72
-      start_index: 68
-    - bypass_voltage: -0.5
-      end_index: 76
-      start_index: 72
-    - bypass_voltage: -0.5
-      end_index: 80
-      start_index: 76
-    - bypass_voltage: -0.5
-      end_index: 84
-      start_index: 80
-    - bypass_voltage: -0.5
-      end_index: 88
-      start_index: 84
-    - bypass_voltage: -0.5
-      end_index: 92
-      start_index: 88
-    - bypass_voltage: -0.5
-      end_index: 96
-      start_index: 92
-    - bypass_voltage: -0.5
-      end_index: 100
-      start_index: 96
-    - bypass_voltage: -0.5
-      end_index: 104
-      start_index: 100
-    - bypass_voltage: -0.5
-      end_index: 108
-      start_index: 104
-    - bypass_voltage: -0.5
-      end_index: 112
-      start_index: 108
-    - bypass_voltage: -0.5
-      end_index: 116
-      start_index: 112
-    - bypass_voltage: -0.5
-      end_index: 120
-      start_index: 116
-    - bypass_voltage: -0.5
-      end_index: 124
-      start_index: 120
-    - bypass_voltage: -0.5
-      end_index: 128
-      start_index: 124
-    - bypass_voltage: -0.5
-      end_index: 132
-      start_index: 128
 
-- name: mia_sole_flex_03_280nl_bypassed_6
-  cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.04473  # [m] - The dimension parallel to the module
-  cell_spacing: 0.0  # [m] - The spacing between the cells
-  cell_width: 0.348  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 132
-  offset_angle: 90
-  polytunnel_curve: tilted_kent_circle
-  bypass_diodes:
-    - bypass_voltage: -0.5
-      end_index: 6
-      start_index: 0
-    - bypass_voltage: -0.5
-      end_index: 12
-      start_index: 6
-    - bypass_voltage: -0.5
-      end_index: 18
-      start_index: 12
-    - bypass_voltage: -0.5
-      end_index: 24
-      start_index: 18
-    - bypass_voltage: -0.5
-      end_index: 30
-      start_index: 24
-    - bypass_voltage: -0.5
-      end_index: 36
-      start_index: 30
-    - bypass_voltage: -0.5
-      end_index: 42
-      start_index: 36
-    - bypass_voltage: -0.5
-      end_index: 48
-      start_index: 42
-    - bypass_voltage: -0.5
-      end_index: 54
-      start_index: 48
-    - bypass_voltage: -0.5
-      end_index: 60
-      start_index: 54
-    - bypass_voltage: -0.5
-      end_index: 66
-      start_index: 60
-    - bypass_voltage: -0.5
-      end_index: 72
-      start_index: 66
-    - bypass_voltage: -0.5
-      end_index: 78
-      start_index: 72
-    - bypass_voltage: -0.5
-      end_index: 84
-      start_index: 78
-    - bypass_voltage: -0.5
-      end_index: 90
-      start_index: 84
-    - bypass_voltage: -0.5
-      end_index: 96
-      start_index: 90
-    - bypass_voltage: -0.5
-      end_index: 102
-      start_index: 96
-    - bypass_voltage: -0.5
-      end_index: 108
-      start_index: 102
-    - bypass_voltage: -0.5
-      end_index: 114
-      start_index: 108
-    - bypass_voltage: -0.5
-      end_index: 120
-      start_index: 114
-    - bypass_voltage: -0.5
-      end_index: 126
-      start_index: 120
-    - bypass_voltage: -0.5
-      end_index: 132
-      start_index: 126
-
-- name: mia_sole_flex_03_280nl_bypassed_11
-  cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.04473  # [m] - The dimension parallel to the module
-  cell_spacing: 0.0  # [m] - The spacing between the cells
-  cell_width: 0.348  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 132
-  offset_angle: 90
-  polytunnel_curve: tilted_kent_circle
-  bypass_diodes:
-    - bypass_voltage: -0.5
-      end_index: 11
-      start_index: 0
-    - bypass_voltage: -0.5
-      end_index: 22
-      start_index: 11
-    - bypass_voltage: -0.5
-      end_index: 33
-      start_index: 22
-    - bypass_voltage: -0.5
-      end_index: 44
-      start_index: 33
-    - bypass_voltage: -0.5
-      end_index: 55
-      start_index: 44
-    - bypass_voltage: -0.5
-      end_index: 66
-      start_index: 55
-    - bypass_voltage: -0.5
-      end_index: 77
-      start_index: 66
-    - bypass_voltage: -0.5
-      end_index: 88
-      start_index: 77
-    - bypass_voltage: -0.5
-      end_index: 99
-      start_index: 88
-    - bypass_voltage: -0.5
-      end_index: 110
-      start_index: 99
-    - bypass_voltage: -0.5
-      end_index: 121
-      start_index: 110
-    - bypass_voltage: -0.5
-      end_index: 132
-      start_index: 121
-
-- name: mia_sole_flex_03_280nl_bypassed_12
-  cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.04473  # [m] - The dimension parallel to the module
-  cell_spacing: 0.0  # [m] - The spacing between the cells
-  cell_width: 0.348  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 132
-  offset_angle: 90
-  polytunnel_curve: tilted_kent_circle
-  bypass_diodes:
-    - bypass_voltage: -0.5
-      end_index: 12
-      start_index: 0
-    - bypass_voltage: -0.5
-      end_index: 24
-      start_index: 12
-    - bypass_voltage: -0.5
-      end_index: 36
-      start_index: 24
-    - bypass_voltage: -0.5
-      end_index: 48
-      start_index: 36
-    - bypass_voltage: -0.5
-      end_index: 60
-      start_index: 48
-    - bypass_voltage: -0.5
-      end_index: 72
-      start_index: 60
-    - bypass_voltage: -0.5
-      end_index: 84
-      start_index: 72
-    - bypass_voltage: -0.5
-      end_index: 96
-      start_index: 84
-    - bypass_voltage: -0.5
-      end_index: 108
-      start_index: 96
-    - bypass_voltage: -0.5
-      end_index: 120
-      start_index: 108
-    - bypass_voltage: -0.5
-      end_index: 132
-      start_index: 120
-
-- name: mia_sole_flex_03_280nl_bypassed_10_2
+- name: mia_sole_flex_03_280nl_bypassed_10
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
   cell_breakdown_voltage: -1
@@ -854,8 +359,57 @@
       end_index: 132
       start_index: 112
 
+- name: mia_sole_flex_03_280nl_bypassed_66
+  cell_type: Miasole_FLEX_03_280NL
+  type: thin_film
+  cell_breakdown_voltage: -1
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
+  module_centre_offset: 0
+  n_cells: 132
+  offset_angle: 90
+  polytunnel_curve: tilted_kent_circle
+  bypass_diodes:
+    - bypass_voltage: -0.5
+      end_index: 66
+      start_index: 0
+    - bypass_voltage: -0.5
+      end_index: 132
+      start_index: 66
 
-- name: mia_sole_flex_03_280nl_bypassed_50
+- name: mia_sole_flex_03_280nl_bypassed_30_edges
+  cell_type: Miasole_FLEX_03_280NL
+  type: thin_film
+  cell_breakdown_voltage: -1
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
+  module_centre_offset: 0
+  n_cells: 132
+  offset_angle: 90
+  polytunnel_curve: tilted_kent_circle
+  bypass_diodes:
+    - bypass_voltage: -0.5
+      end_index: 30
+      start_index: 0   
+    - bypass_voltage: -0.5
+      end_index: 60
+      start_index: 30 
+    - bypass_voltage: -0.5
+      end_index: 66
+      start_index: 60 
+    - bypass_voltage: -0.5
+      end_index: 72
+      start_index: 66  
+    - bypass_voltage: -0.5
+      end_index: 102
+      start_index: 72
+    - bypass_voltage: -0.5
+      end_index: 132
+      start_index: 102
+
+- name: mia_sole_flex_03_280nl_bypassed_50_edges
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
   cell_breakdown_voltage: -1
@@ -880,7 +434,7 @@
       end_index: 132
       start_index: 82
 
-- name: mia_sole_flex_03_280nl_bypassed_132
+- name: mia_sole_flex_03_280nl_bypassed_30_middle
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
   cell_breakdown_voltage: -1
@@ -893,11 +447,537 @@
   polytunnel_curve: tilted_kent_circle
   bypass_diodes:
     - bypass_voltage: -0.5
-      end_index: 100
-      start_index: 0    
+      end_index: 6
+      start_index: 0   
+    - bypass_voltage: -0.5
+      end_index: 12
+      start_index: 6 
+    - bypass_voltage: -0.5
+      end_index: 18
+      start_index: 12 
+    - bypass_voltage: -0.5
+      end_index: 24
+      start_index: 18  
+    - bypass_voltage: -0.5
+      end_index: 30
+      start_index: 24
+    - bypass_voltage: -0.5
+      end_index: 36
+      start_index: 30
+    - bypass_voltage: -0.5
+      end_index: 66
+      start_index: 36
+    - bypass_voltage: -0.5
+      end_index: 96
+      start_index: 66
+    - bypass_voltage: -0.5
+      end_index: 102
+      start_index: 96
+    - bypass_voltage: -0.5
+      end_index: 108
+      start_index: 102
+    - bypass_voltage: -0.5
+      end_index: 114
+      start_index: 108
+    - bypass_voltage: -0.5
+      end_index: 120
+      start_index: 114
+    - bypass_voltage: -0.5
+      end_index: 126
+      start_index: 120
     - bypass_voltage: -0.5
       end_index: 132
-      start_index: 100
+      start_index: 126
+
+- name: mia_sole_flex_03_280nl_bypassed_50_middle
+  cell_type: Miasole_FLEX_03_280NL
+  type: thin_film
+  cell_breakdown_voltage: -1
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
+  module_centre_offset: 0
+  n_cells: 132
+  offset_angle: 90
+  polytunnel_curve: tilted_kent_circle
+  bypass_diodes:
+    - bypass_voltage: -0.5
+      end_index: 10
+      start_index: 0   
+    - bypass_voltage: -0.5
+      end_index: 20
+      start_index: 10
+    - bypass_voltage: -0.5
+      end_index: 30
+      start_index: 20 
+    - bypass_voltage: -0.5
+      end_index: 80
+      start_index: 30  
+    - bypass_voltage: -0.5
+      end_index: 90
+      start_index: 80
+    - bypass_voltage: -0.5
+      end_index: 102
+      start_index: 90
+    - bypass_voltage: -0.5
+      end_index: 112
+      start_index: 102
+    - bypass_voltage: -0.5
+      end_index: 132
+      start_index: 112
+
+
+
+# - name: mia_sole_flex_03_280nl_bypassed_3
+#   cell_type: Miasole_FLEX_03_280NL
+  # type: thin_film
+  # cell_breakdown_voltage: -1
+  # cell_length: 0.04473  # [m] - The dimension parallel to the module
+  # cell_spacing: 0.0  # [m] - The spacing between the cells
+  # cell_width: 0.348  # [m] - The dimension perpendicular to the module
+  # module_centre_offset: 0
+  # n_cells: 132
+  # offset_angle: 90
+  # polytunnel_curve: tilted_kent_circle
+  # bypass_diodes:
+  #   - bypass_voltage: -0.5
+  #     end_index: 3
+  #     start_index: 0
+  #   - bypass_voltage: -0.5
+  #     end_index: 6
+  #     start_index: 3
+  #   - bypass_voltage: -0.5
+  #     end_index: 9
+  #     start_index: 6
+  #   - bypass_voltage: -0.5
+  #     end_index: 12
+  #     start_index: 9
+  #   - bypass_voltage: -0.5
+  #     end_index: 15
+  #     start_index: 12
+  #   - bypass_voltage: -0.5
+  #     end_index: 18
+  #     start_index: 15
+  #   - bypass_voltage: -0.5
+  #     end_index: 21
+  #     start_index: 18
+  #   - bypass_voltage: -0.5
+  #     end_index: 24
+  #     start_index: 21
+  #   - bypass_voltage: -0.5
+  #     end_index: 27
+  #     start_index: 24
+  #   - bypass_voltage: -0.5
+  #     end_index: 30
+  #     start_index: 27
+  #   - bypass_voltage: -0.5
+  #     end_index: 33
+  #     start_index: 30
+  #   - bypass_voltage: -0.5
+  #     end_index: 36
+  #     start_index: 33
+  #   - bypass_voltage: -0.5
+  #     end_index: 39
+  #     start_index: 36
+  #   - bypass_voltage: -0.5
+  #     end_index: 42
+  #     start_index: 39
+  #   - bypass_voltage: -0.5
+  #     end_index: 45
+  #     start_index: 42
+  #   - bypass_voltage: -0.5
+  #     end_index: 48
+  #     start_index: 45
+  #   - bypass_voltage: -0.5
+  #     end_index: 51
+  #     start_index: 48
+  #   - bypass_voltage: -0.5
+  #     end_index: 54
+  #     start_index: 51
+  #   - bypass_voltage: -0.5
+  #     end_index: 57
+  #     start_index: 54
+  #   - bypass_voltage: -0.5
+  #     end_index: 60
+  #     start_index: 57
+  #   - bypass_voltage: -0.5
+  #     end_index: 63
+  #     start_index: 60
+  #   - bypass_voltage: -0.5
+  #     end_index: 66
+  #     start_index: 63
+  #   - bypass_voltage: -0.5
+  #     end_index: 69
+  #     start_index: 66
+  #   - bypass_voltage: -0.5
+  #     end_index: 72
+  #     start_index: 69
+  #   - bypass_voltage: -0.5
+  #     end_index: 75
+  #     start_index: 72
+  #   - bypass_voltage: -0.5
+  #     end_index: 78
+  #     start_index: 75
+  #   - bypass_voltage: -0.5
+  #     end_index: 81
+  #     start_index: 78
+  #   - bypass_voltage: -0.5
+  #     end_index: 84
+  #     start_index: 81
+  #   - bypass_voltage: -0.5
+  #     end_index: 87
+  #     start_index: 84
+  #   - bypass_voltage: -0.5
+  #     end_index: 90
+  #     start_index: 87
+  #   - bypass_voltage: -0.5
+  #     end_index: 93
+  #     start_index: 90
+  #   - bypass_voltage: -0.5
+  #     end_index: 96
+  #     start_index: 93
+  #   - bypass_voltage: -0.5
+  #     end_index: 99
+  #     start_index: 96
+  #   - bypass_voltage: -0.5
+  #     end_index: 102
+  #     start_index: 99
+  #   - bypass_voltage: -0.5
+  #     end_index: 105
+  #     start_index: 102
+  #   - bypass_voltage: -0.5
+  #     end_index: 108
+  #     start_index: 105
+  #   - bypass_voltage: -0.5
+  #     end_index: 111
+  #     start_index: 108
+  #   - bypass_voltage: -0.5
+  #     end_index: 114
+  #     start_index: 111
+  #   - bypass_voltage: -0.5
+  #     end_index: 117
+  #     start_index: 114
+  #   - bypass_voltage: -0.5
+  #     end_index: 120
+  #     start_index: 117
+  #   - bypass_voltage: -0.5
+  #     end_index: 123
+  #     start_index: 120
+  #   - bypass_voltage: -0.5
+  #     end_index: 126
+  #     start_index: 123
+  #   - bypass_voltage: -0.5
+  #     end_index: 129
+  #     start_index: 126
+  #   - bypass_voltage: -0.5
+  #     end_index: 132
+  #     start_index: 129
+
+# - name: mia_sole_flex_03_280nl_bypassed_4
+#   cell_type: Miasole_FLEX_03_280NL
+#   type: thin_film
+#   cell_breakdown_voltage: -1
+#   cell_length: 0.04473  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.0  # [m] - The spacing between the cells
+#   cell_width: 0.348  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 132
+#   offset_angle: 90
+#   polytunnel_curve: tilted_kent_circle
+#   bypass_diodes:
+#     - bypass_voltage: -0.5
+#       end_index: 4
+#       start_index: 0
+#     - bypass_voltage: -0.5
+#       end_index: 8
+#       start_index: 4
+#     - bypass_voltage: -0.5
+#       end_index: 12
+#       start_index: 8
+#     - bypass_voltage: -0.5
+#       end_index: 16
+#       start_index: 12
+#     - bypass_voltage: -0.5
+#       end_index: 20
+#       start_index: 16
+#     - bypass_voltage: -0.5
+#       end_index: 24
+#       start_index: 20
+#     - bypass_voltage: -0.5
+#       end_index: 28
+#       start_index: 24
+#     - bypass_voltage: -0.5
+#       end_index: 32
+#       start_index: 28
+#     - bypass_voltage: -0.5
+#       end_index: 36
+#       start_index: 32
+#     - bypass_voltage: -0.5
+#       end_index: 40
+#       start_index: 36
+#     - bypass_voltage: -0.5
+#       end_index: 44
+#       start_index: 40
+#     - bypass_voltage: -0.5
+#       end_index: 48
+#       start_index: 44
+#     - bypass_voltage: -0.5
+#       end_index: 52
+#       start_index: 48
+#     - bypass_voltage: -0.5
+#       end_index: 56
+#       start_index: 52
+#     - bypass_voltage: -0.5
+#       end_index: 60
+#       start_index: 56
+#     - bypass_voltage: -0.5
+#       end_index: 64
+#       start_index: 60
+#     - bypass_voltage: -0.5
+#       end_index: 68
+#       start_index: 64
+#     - bypass_voltage: -0.5
+#       end_index: 72
+#       start_index: 68
+#     - bypass_voltage: -0.5
+#       end_index: 76
+#       start_index: 72
+#     - bypass_voltage: -0.5
+#       end_index: 80
+#       start_index: 76
+#     - bypass_voltage: -0.5
+#       end_index: 84
+#       start_index: 80
+#     - bypass_voltage: -0.5
+#       end_index: 88
+#       start_index: 84
+#     - bypass_voltage: -0.5
+#       end_index: 92
+#       start_index: 88
+#     - bypass_voltage: -0.5
+#       end_index: 96
+#       start_index: 92
+#     - bypass_voltage: -0.5
+#       end_index: 100
+#       start_index: 96
+#     - bypass_voltage: -0.5
+#       end_index: 104
+#       start_index: 100
+#     - bypass_voltage: -0.5
+#       end_index: 108
+#       start_index: 104
+#     - bypass_voltage: -0.5
+#       end_index: 112
+#       start_index: 108
+#     - bypass_voltage: -0.5
+#       end_index: 116
+#       start_index: 112
+#     - bypass_voltage: -0.5
+#       end_index: 120
+#       start_index: 116
+#     - bypass_voltage: -0.5
+#       end_index: 124
+#       start_index: 120
+#     - bypass_voltage: -0.5
+#       end_index: 128
+#       start_index: 124
+#     - bypass_voltage: -0.5
+#       end_index: 132
+#       start_index: 128
+
+# - name: mia_sole_flex_03_280nl_bypassed_6
+#   cell_type: Miasole_FLEX_03_280NL
+#   type: thin_film
+#   cell_breakdown_voltage: -1
+#   cell_length: 0.04473  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.0  # [m] - The spacing between the cells
+#   cell_width: 0.348  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 132
+#   offset_angle: 90
+#   polytunnel_curve: tilted_kent_circle
+#   bypass_diodes:
+#     - bypass_voltage: -0.5
+#       end_index: 6
+#       start_index: 0
+#     - bypass_voltage: -0.5
+#       end_index: 12
+#       start_index: 6
+#     - bypass_voltage: -0.5
+#       end_index: 18
+#       start_index: 12
+#     - bypass_voltage: -0.5
+#       end_index: 24
+#       start_index: 18
+#     - bypass_voltage: -0.5
+#       end_index: 30
+#       start_index: 24
+#     - bypass_voltage: -0.5
+#       end_index: 36
+#       start_index: 30
+#     - bypass_voltage: -0.5
+#       end_index: 42
+#       start_index: 36
+#     - bypass_voltage: -0.5
+#       end_index: 48
+#       start_index: 42
+#     - bypass_voltage: -0.5
+#       end_index: 54
+#       start_index: 48
+#     - bypass_voltage: -0.5
+#       end_index: 60
+#       start_index: 54
+#     - bypass_voltage: -0.5
+#       end_index: 66
+#       start_index: 60
+#     - bypass_voltage: -0.5
+#       end_index: 72
+#       start_index: 66
+#     - bypass_voltage: -0.5
+#       end_index: 78
+#       start_index: 72
+#     - bypass_voltage: -0.5
+#       end_index: 84
+#       start_index: 78
+#     - bypass_voltage: -0.5
+#       end_index: 90
+#       start_index: 84
+#     - bypass_voltage: -0.5
+#       end_index: 96
+#       start_index: 90
+#     - bypass_voltage: -0.5
+#       end_index: 102
+#       start_index: 96
+#     - bypass_voltage: -0.5
+#       end_index: 108
+#       start_index: 102
+#     - bypass_voltage: -0.5
+#       end_index: 114
+#       start_index: 108
+#     - bypass_voltage: -0.5
+#       end_index: 120
+#       start_index: 114
+#     - bypass_voltage: -0.5
+#       end_index: 126
+#       start_index: 120
+#     - bypass_voltage: -0.5
+#       end_index: 132
+#       start_index: 126
+
+# - name: mia_sole_flex_03_280nl_bypassed_11
+#   cell_type: Miasole_FLEX_03_280NL
+#   type: thin_film
+#   cell_breakdown_voltage: -1
+#   cell_length: 0.04473  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.0  # [m] - The spacing between the cells
+#   cell_width: 0.348  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 132
+#   offset_angle: 90
+#   polytunnel_curve: tilted_kent_circle
+#   bypass_diodes:
+#     - bypass_voltage: -0.5
+#       end_index: 11
+#       start_index: 0
+#     - bypass_voltage: -0.5
+#       end_index: 22
+#       start_index: 11
+#     - bypass_voltage: -0.5
+#       end_index: 33
+#       start_index: 22
+#     - bypass_voltage: -0.5
+#       end_index: 44
+#       start_index: 33
+#     - bypass_voltage: -0.5
+#       end_index: 55
+#       start_index: 44
+#     - bypass_voltage: -0.5
+#       end_index: 66
+#       start_index: 55
+#     - bypass_voltage: -0.5
+#       end_index: 77
+#       start_index: 66
+#     - bypass_voltage: -0.5
+#       end_index: 88
+#       start_index: 77
+#     - bypass_voltage: -0.5
+#       end_index: 99
+#       start_index: 88
+#     - bypass_voltage: -0.5
+#       end_index: 110
+#       start_index: 99
+#     - bypass_voltage: -0.5
+#       end_index: 121
+#       start_index: 110
+#     - bypass_voltage: -0.5
+#       end_index: 132
+#       start_index: 121
+
+# - name: mia_sole_flex_03_280nl_bypassed_11
+# cell_type: Miasole_FLEX_03_280NL
+# type: thin_film
+# cell_breakdown_voltage: -1
+# cell_length: 0.04473  # [m] - The dimension parallel to the module
+# cell_spacing: 0.0  # [m] - The spacing between the cells
+# cell_width: 0.348  # [m] - The dimension perpendicular to the module
+# module_centre_offset: 0
+# n_cells: 132
+# offset_angle: 90
+# polytunnel_curve: tilted_kent_circle
+# bypass_diodes:
+#   - bypass_voltage: -0.5
+#     end_index: 12
+#     start_index: 0
+#   - bypass_voltage: -0.5
+#     end_index: 24
+#     start_index: 12
+#   - bypass_voltage: -0.5
+#     end_index: 36
+#     start_index: 24
+#   - bypass_voltage: -0.5
+#     end_index: 48
+#     start_index: 36
+#   - bypass_voltage: -0.5
+#     end_index: 60
+#     start_index: 48
+#   - bypass_voltage: -0.5
+#     end_index: 72
+#     start_index: 60
+#   - bypass_voltage: -0.5
+#     end_index: 84
+#     start_index: 72
+#   - bypass_voltage: -0.5
+#     end_index: 96
+#     start_index: 84
+#   - bypass_voltage: -0.5
+#     end_index: 108
+#     start_index: 96
+#   - bypass_voltage: -0.5
+#     end_index: 120
+#     start_index: 108
+#   - bypass_voltage: -0.5
+#     end_index: 132
+#     start_index: 120
+
+
+# - name: mia_sole_flex_03_280nl_morning_and_evening
+#   cell_type: Miasole_FLEX_03_280NL
+#   type: thin_film
+#   cell_breakdown_voltage: -1
+#   cell_length: 0.04473  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.0  # [m] - The spacing between the cells
+#   cell_width: 0.348  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 132
+#   offset_angle: 90
+#   polytunnel_curve: tilted_kent_circle
+#   bypass_diodes:
+#   - bypass_voltage: -0.5
+#     end_index: 50
+#     start_index: 0
+#   - bypass_voltage: -0.5
+#     end_index: 132
+#     start_index: 82
 
 # - name: long_3_thin_film_demo
 #   type: thin_film
@@ -909,3 +989,64 @@
 #   n_cells: 18
 #   offset_angle: 90
 #   polytunnel_curve: north_south_5m_circle
+
+# - name: thin_film_demo
+#   cell_type: Sharp_NU_SC360
+#   type: thin_film
+#   cell_breakdown_voltage: -15
+#   cell_length: 0.1  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.01  # [m] - The spacing between the cells
+#   cell_width: 0.35  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 18
+#   offset_angle: 90
+#   polytunnel_curve: north_south_5m_circle
+
+# - name: long_1_thin_film_demo
+#   cell_type: Sharp_NU_SC360
+#   type: thin_film
+#   cell_breakdown_voltage: -15
+#   cell_length: 0.1  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.3  # [m] - The spacing between the cells
+#   cell_width: 0.35  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 18
+#   offset_angle: 90
+#   polytunnel_curve: north_south_5m_circle
+
+# - name: long_2_thin_film_demo
+#   cell_type: Sharp_NU_SC360
+#   type: thin_film
+#   cell_breakdown_voltage: -15
+#   cell_length: 0.1  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.7  # [m] - The spacing between the cells
+#   cell_width: 0.35  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 18
+#   offset_angle: 90
+#   polytunnel_curve: north_south_5m_circle
+
+# - name: long_2_thin_film_demo_bypassed
+#   cell_type: Sharp_NU_SC360
+#   type: thin_film
+#   cell_breakdown_voltage: -1
+#   cell_length: 0.1  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.7  # [m] - The spacing between the cells
+#   cell_width: 0.35  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 18
+#   offset_angle: 90
+#   polytunnel_curve: north_south_5m_circle
+#   bypass_diodes:
+#     - bypass_voltage: -0.5  # V_BD
+#       start_index: 0
+#       end_index: 4
+#     - bypass_voltage: -0.5
+#       start_index: 4
+#       end_index: 8
+#     - bypass_voltage: -0.5
+#       start_index: 10
+#       end_index: 14
+#     - bypass_voltage: -0.5
+#       start_index: 14
+#       end_index: 18
