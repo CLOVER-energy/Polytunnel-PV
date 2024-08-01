@@ -7,6 +7,7 @@ echo -e "HPC array script executed"
 
 # Load the anaconda environment
 module load anaconda3/personal
+source ~/.bashrc
 source activate myenv
 
 cd $PBS_O_WORKDIR
