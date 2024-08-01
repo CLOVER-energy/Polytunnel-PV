@@ -11,6 +11,9 @@ source activate py310
 
 cd $PBS_O_WORKDIR
 
+# Install requirements
+pip install --user -r requirements.txt
+
 echo -e "Running HPC python script."
 if python run_simulation.py; then
     echo -e "Polytunnel MPP Simulation successfully run."
