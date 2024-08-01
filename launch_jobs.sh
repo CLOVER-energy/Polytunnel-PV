@@ -7,8 +7,11 @@ echo -e "HPC array script executed"
 
 # Load the anaconda environment
 module load anaconda3/personal
-source ~/.bashrc
-source activate myenv
+# Ensure conda is initialized
+source /rds/general/user/bs921/home/anaconda3/etc/profile.d/conda.sh
+
+# Activate the environment
+conda activate myenv
 
 cd $PBS_O_WORKDIR
 
