@@ -1033,7 +1033,7 @@ def main(unparsed_arguments) -> None:
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
     
-    start_day_index = 0
+    start_day_index = 2161
     mpp_values = []
     daily_data = defaultdict(list)
     
