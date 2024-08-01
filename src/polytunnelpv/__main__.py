@@ -1090,7 +1090,7 @@ def main(unparsed_arguments) -> None:
 
     # Use joblib to parallelize the for loop
     start_time = time.time()
-    results = Parallel(n_jobs=40)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 8760))
+    results = Parallel(n_jobs=40)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 2160))
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
@@ -1213,7 +1213,7 @@ def main(unparsed_arguments) -> None:
 
     # # Use joblib to parallelize the for loop
     # start_time = time.time()
-    # results = Parallel(n_jobs=-1)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 8760))
+    # results = Parallel(n_jobs=-1)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 2160))
     # #results = Parallel(n_jobs=4)(delayed(process_single_iteration)(time_of_day) for time_of_day in tqdm(range(start_day_index, start_day_index + 24), desc="Processing time_of_day"))
     # end_time = time.time()
     # print(f"Parallel processing took {end_time - start_time:.2f} seconds")
