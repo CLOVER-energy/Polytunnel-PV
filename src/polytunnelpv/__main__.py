@@ -1036,6 +1036,10 @@ def main(unparsed_arguments) -> None:
     start_day_index = 0
     mpp_values = []
     daily_data = defaultdict(list)
+    
+    output_directory = "hpc_outputs"
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
 
     def process_single_iteration(time_of_day):
         try:
@@ -1101,7 +1105,8 @@ def main(unparsed_arguments) -> None:
                 all_mpp_data.append((date_str, hour, mpp_power))
 
     # Save daily data to a single Excel file with separate sheets
-    with pd.ExcelWriter(f"hpc_outputs/mpp_daily_summary_{scenario.name}.xlsx", engine='openpyxl') as writer:
+    with pd.ExcelWriter(os.path.join(output_directory, f"mpp_daily_summary_{scenario.name}.xlsx"), engine='openpyxl') as writer:
+        
         # Ensure at least one sheet is present and visible
         workbook = writer.book
         placeholder_sheet = workbook.create_sheet(title='Sheet1')
