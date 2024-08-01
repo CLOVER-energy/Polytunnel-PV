@@ -1091,32 +1091,63 @@ def main(unparsed_arguments) -> None:
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
     # Process results and accumulate daily data
+    all_mpp_data = []
+
     for result in results:
         if result is not None:
             hour, mpp_power, date_str = result
             if mpp_power is not None:
                 daily_data[date_str].append((hour, mpp_power))
+                all_mpp_data.append((date_str, hour, mpp_power))
+
+    # Save daily data to a single Excel file with separate sheets
+    with pd.ExcelWriter(f"hpc_outputs/mpp_daily_summary_{scenario.name}.xlsx", engine='openpyxl') as writer:
+        # Ensure at least one sheet is present and visible
+        workbook = writer.book
+        placeholder_sheet = workbook.create_sheet(title='Sheet1')
+
+        for date_str, data in daily_data.items():
+            df = pd.DataFrame(data, columns=['Hour', 'MPP (W)'])
+            total_mpp = df['MPP (W)'].sum()
+            df.loc['Total'] = ['Total', total_mpp]  # Adding the total MPP at the end
+            df.to_excel(writer, sheet_name=date_str, index=False)
+
+        # Remove the placeholder sheet if it was not used
+        if 'Sheet1' in workbook.sheetnames and len(workbook.sheetnames) > 1:
+            del workbook['Sheet1']
+    # # Use joblib to parallelize the for loop
+    # start_time = time.time()
+    # results = Parallel(n_jobs=-1)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 2160))
+    # end_time = time.time()
+    # print(f"Parallel processing took {end_time - start_time:.2f} seconds")
+
+    # # Process results and accumulate daily data
+    # for result in results:
+    #     if result is not None:
+    #         hour, mpp_power, date_str = result
+    #         if mpp_power is not None:
+    #             daily_data[date_str].append((hour, mpp_power))
                 
-                # Save each day's results immediately
-                # save_daily_results(date_str, daily_data[date_str], scenario.name)
-                # daily_data.pop(date_str)
+    #             # Save each day's results immediately
+    #             # save_daily_results(date_str, daily_data[date_str], scenario.name)
+    #             # daily_data.pop(date_str)
 
 
-        # # Save daily data to a single Excel file with separate sheets
-        with pd.ExcelWriter(f"hpc_outputs/mpp_daily_summary_{scenario.name}.xlsx", engine='openpyxl') as writer:
-            # Ensure at least one sheet is present and visible
-            workbook = writer.book
-            placeholder_sheet = workbook.create_sheet(title='Sheet1')
+    #     # # Save daily data to a single Excel file with separate sheets
+    #     with pd.ExcelWriter(f"hpc_outputs/mpp_daily_summary_{scenario.name}.xlsx", engine='openpyxl') as writer:
+    #         # Ensure at least one sheet is present and visible
+    #         workbook = writer.book
+    #         placeholder_sheet = workbook.create_sheet(title='Sheet1')
 
-            for date_str, data in daily_data.items():
-                df = pd.DataFrame(data, columns=['Hour', 'MPP (W)'])
-                total_mpp = df['MPP (W)'].sum()
-                df.loc['Total'] = ['Total', total_mpp]  # Adding the total MPP at the end
-                df.to_excel(writer, sheet_name=date_str, index=False)
+    #         for date_str, data in daily_data.items():
+    #             df = pd.DataFrame(data, columns=['Hour', 'MPP (W)'])
+    #             total_mpp = df['MPP (W)'].sum()
+    #             df.loc['Total'] = ['Total', total_mpp]  # Adding the total MPP at the end
+    #             df.to_excel(writer, sheet_name=date_str, index=False)
 
-            # Remove the placeholder sheet if it was not used
-            if 'Sheet1' in workbook.sheetnames and len(workbook.sheetnames) > 1:
-                del workbook['Sheet1']
+    #         # Remove the placeholder sheet if it was not used
+    #         if 'Sheet1' in workbook.sheetnames and len(workbook.sheetnames) > 1:
+    #             del workbook['Sheet1']
     
     ################################
     
