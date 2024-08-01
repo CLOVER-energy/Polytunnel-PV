@@ -164,3 +164,4 @@ settings.json
 
 # Data fles
 input_data/*
+simulation_data/

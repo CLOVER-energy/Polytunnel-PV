@@ -43,6 +43,9 @@ class BypassDiode:
     bypass_voltage: float
     end_index: int
     start_index: int
+    
+    def calculate_i_from_v(self, voltage: float | list[float]):
+        return 0.5
 
 
 @dataclass(kw_only=True)
@@ -146,6 +149,9 @@ class BypassedCellString:
             cell_to_iv_series[pv_cell][2] for pv_cell in self.pv_cells
         )
 
+        # Determine the bypass-diode curve
+        bypass_diode_curve = self.bypass_diode.calculate_i_from_v(combined_voltage_series)
+
         # Bypass based on the diode voltage.
         combined_voltage_series = np.array(
             [
@@ -158,5 +164,9 @@ class BypassedCellString:
         combined_power_series = (
             current_series := cell_to_iv_series[self.pv_cells[0]][0]
         ) * combined_voltage_series
+
+        from matplotlib import pyplot as plt
+        
+        plt.plot()
 
         return current_series, combined_power_series, combined_voltage_series
