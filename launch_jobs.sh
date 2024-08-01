@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -J 1-10
-#PBS -lwalltime=10:00:00
+#PBS -lwalltime=07:59:00
 #PBS -lselect=1:ncpus=64:mem=50000Mb
 
 echo -e "HPC array script executed"
