@@ -1,7 +1,7 @@
 # Scenario 1: Skip None (Unbypassed)
-- name: circular_polysolar_kent
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_unbypassed
+# - name: circular_polysolar_kent
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_unbypassed
 
 # Scenario 2: Default Bypass (2)
 - name: circular_polysolar_kent_bypassed
@@ -18,35 +18,35 @@
   location: polysolar_kent
   pv_module: mia_sole_flex_03_280nl_bypassed_10
 
-# Scenario 5: Skip 20
-- name: circular_polysolar_kent_bypassed_20
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed_20
+# # Scenario 5: Skip 20
+# - name: circular_polysolar_kent_bypassed_20
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_bypassed_20
 
-# Scenario 6: Skip 66
-- name: circular_polysolar_kent_bypassed_66
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed_66
+# # Scenario 6: Skip 66
+# - name: circular_polysolar_kent_bypassed_66
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_bypassed_66
 
-# Scenario 7: Skip 30 from Edges
-- name: circular_polysolar_kent_bypassed_30_edges
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed_30_edges
+# # Scenario 7: Skip 30 from Edges
+# - name: circular_polysolar_kent_bypassed_30_edges
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_bypassed_30_edges
 
-# Scenario 8: Skip 50 from Edges
-- name: circular_polysolar_kent_bypassed_50_edges
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed_50_edges
+# # Scenario 8: Skip 50 from Edges
+# - name: circular_polysolar_kent_bypassed_50_edges
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_bypassed_50_edges
 
-# Scenario 9: Skip Little Chunks on Edges and Big Chunks in Middle (30)
-- name: circular_polysolar_kent_bypassed_30_middle
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed_30_middle
+# # Scenario 9: Skip Little Chunks on Edges and Big Chunks in Middle (30)
+# - name: circular_polysolar_kent_bypassed_30_middle
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_bypassed_30_middle
 
-# Scenario 10: Skip Little Chunks on Edges and Big Chunks in Middle (50)
-- name: circular_polysolar_kent_bypassed_50_middle
-  location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed_50_middle
+# # Scenario 10: Skip Little Chunks on Edges and Big Chunks in Middle (50)
+# - name: circular_polysolar_kent_bypassed_50_middle
+#   location: polysolar_kent
+#   pv_module: mia_sole_flex_03_280nl_bypassed_50_middle
 
 
 
