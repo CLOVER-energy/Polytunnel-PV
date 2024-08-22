@@ -52,202 +52,202 @@
   offset_angle: 90
   polytunnel_curve: tilted_kent_circle
   bypass_diodes:
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 2
     start_index: 0
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 4
     start_index: 2
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 6
     start_index: 4
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 8
     start_index: 6
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 10
     start_index: 8
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 12
     start_index: 10
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 14
     start_index: 12
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 16
     start_index: 14
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 18
     start_index: 16
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 20
     start_index: 18
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 22
     start_index: 20
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 24
     start_index: 22
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 26
     start_index: 24
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 28
     start_index: 26
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 30
     start_index: 28
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 32
     start_index: 30
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 34
     start_index: 32
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 36
     start_index: 34
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 38
     start_index: 36
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 40
     start_index: 38
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 42
     start_index: 40
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 44
     start_index: 42
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 46
     start_index: 44
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 48
     start_index: 46
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 50
     start_index: 48
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 52
     start_index: 50
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 54
     start_index: 52
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 56
     start_index: 54
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 58
     start_index: 56
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 60
     start_index: 58
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 62
     start_index: 60
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 64
     start_index: 62
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 66
     start_index: 64
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 68
     start_index: 66
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 70
     start_index: 68
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 72
     start_index: 70
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 74
     start_index: 72
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 76
     start_index: 74
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 78
     start_index: 76
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 80
     start_index: 78
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 82
     start_index: 80
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 84
     start_index: 82
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 86
     start_index: 84
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 88
     start_index: 86
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 90
     start_index: 88
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 92
     start_index: 90
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 94
     start_index: 92
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 96
     start_index: 94
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 98
     start_index: 96
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 100
     start_index: 98
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 102
     start_index: 100
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 104
     start_index: 102
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 106
     start_index: 104
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 108
     start_index: 106
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 110
     start_index: 108
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 112
     start_index: 110
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 114
     start_index: 112
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 116
     start_index: 114
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 118
     start_index: 116
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 120
     start_index: 118
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 122
     start_index: 120
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 124
     start_index: 122
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 126
     start_index: 124
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 128
     start_index: 126
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 130
     start_index: 128
-  - bypass_voltage: -0.5
+  - bypass_voltage: -0.77
     end_index: 132
     start_index: 130
 
@@ -266,6 +266,7 @@
     - bypass_voltage: -0.5
       end_index: 132
       start_index: 0
+
 
 - name: mia_sole_flex_03_280nl_bypassed_10
   cell_type: Miasole_FLEX_03_280NL

@@ -21,7 +21,7 @@ import time
 import multiprocessing as mp
 from joblib import Parallel, delayed
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import argparse
@@ -1033,11 +1033,11 @@ def main(unparsed_arguments) -> None:
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
     
-    start_day_index = 0
+    start_day_index = 4357
     mpp_values = []
     daily_data = defaultdict(list)
     
-    output_directory = "hpc_outputs"
+    output_directory = "diode_ideal"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -1064,7 +1064,7 @@ def main(unparsed_arguments) -> None:
 
             individual_power_extreme = 0
             for pv_cell in scenario.pv_module.pv_cells_and_cell_strings:
-                current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
+                _, power_series, voltage_series = pv_cell.calculate_iv_curve(
                     locations_to_weather_and_solar_map[scenario.location][time_of_day][TEMPERATURE],
                     1000 * irradiance_frame.set_index("hour").iloc[time_of_day][1:].reset_index(drop=True),
                     current_series=current_series,
@@ -1088,9 +1088,11 @@ def main(unparsed_arguments) -> None:
             print(f"Error processing time_of_day {time_of_day}: {e}")
             return None, None, None
 
+    #results = process_single_iteration(start_day_index)
+    
     # Use joblib to parallelize the for loop
     start_time = time.time()
-    results = Parallel(n_jobs=40)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 8760))
+    results = Parallel(n_jobs=8)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 2))
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
