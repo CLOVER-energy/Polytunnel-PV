@@ -63,49 +63,6 @@ from .pv_module.pv_module import (
 from .pv_system import ModuleString, PVSystem
 from .scenario import Scenario
 
-def compute_cell_power(args):
-    time_of_day, irradiance_frame, pv_system, scenario, locations_to_weather_and_solar_map = args
-    results = []
-    if np.max(irradiance_frame.set_index("hour").iloc[time_of_day][1:]) == 0:
-        return None, None
-    
-    # Extract the hour from the time_of_day index
-    hour = time_of_day % 24
-
-    # Create a mapping between cell and power output
-    cell_to_power_map = {}
-    cell_to_voltage_map = {}
-
-    individual_power_extreme = 0
-    for pv_cell in scenario.pv_module.pv_cells_and_cell_strings:
-        # Determine the cell curves.
-        current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-            locations_to_weather_and_solar_map[scenario.location][time_of_day]['TEMPERATURE'],
-            1000 * irradiance_frame.set_index("hour").iloc[time_of_day][1:].reset_index(drop=True),
-        )
-        cell_to_power_map[pv_cell] = power_series
-        cell_to_voltage_map[pv_cell] = voltage_series
-        individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
-
-    # Combine the series across each individual module
-    combined_power_series = sum(cell_to_power_map.values())
-    combined_voltage_series = sum(cell_to_voltage_map.values())
-
-    # Combine the series across the modules within the system.
-    combined_power_series = pv_system.combine_powers(combined_power_series)
-    combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
-    combined_current_series = pv_system.combine_currents(current_series)
-
-    # Determine the maximum power point
-    maximum_power_index = pd.Series(combined_power_series).idxmax()
-    mpp_current = combined_current_series[maximum_power_index]
-    mpp_power = combined_power_series[maximum_power_index]
-    results.append(mpp_power)
-
-    return hour, mpp_power
-
-
-
 rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
 # rc("figure", **{"figsize": (48 / 5, 32 / 5)})
 rcParams["pdf.fonttype"] = 42
@@ -1033,11 +990,11 @@ def main(unparsed_arguments) -> None:
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
     
-    start_day_index = 4357
+    start_day_index = 0
     mpp_values = []
     daily_data = defaultdict(list)
     
-    output_directory = "diode_ideal"
+    output_directory = "hpc_real_diode"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
@@ -1092,7 +1049,7 @@ def main(unparsed_arguments) -> None:
     
     # Use joblib to parallelize the for loop
     start_time = time.time()
-    results = Parallel(n_jobs=8)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 2))
+    results = Parallel(n_jobs=8)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 8760))
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
