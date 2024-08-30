@@ -990,7 +990,7 @@ def main(unparsed_arguments) -> None:
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
     
-    start_day_index = 0
+    start_day_index = 3624
     mpp_values = []
     daily_data = defaultdict(list)
     
@@ -1049,7 +1049,7 @@ def main(unparsed_arguments) -> None:
     
     # Use joblib to parallelize the for loop
     start_time = time.time()
-    results = Parallel(n_jobs=8)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 8760))
+    results = Parallel(n_jobs=8)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 180))
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
