@@ -21,7 +21,10 @@ import time
 import multiprocessing as mp
 from joblib import Parallel, delayed
 import matplotlib
-matplotlib.use('Agg')
+
+#Use AGG when running on HPC - uncomment below if running on HPC
+#matplotlib.use('Agg')
+
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import argparse
