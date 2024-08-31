@@ -164,4 +164,11 @@ settings.json
 
 # Data fles
 input_data/*
-simulation_data/
+simulation_data_local/
+output_data/
+real_diode/
+hpc_outputs/
+diode_real/
+diode_ideal/
+bypass_compare/
+
