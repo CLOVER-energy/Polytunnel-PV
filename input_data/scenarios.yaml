@@ -8,104 +8,61 @@
   location: polysolar_kent
   pv_module: mia_sole_flex_03_280nl_bypassed
 
-# # Scenario 3: Skip All (Bypassed 132)
-# - name: circular_polysolar_kent_bypassed_132
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_132
+# Scenario 3: Skip All (Bypassed 132)
+- name: circular_polysolar_kent_bypassed_132
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_132
 
-# # Scenario 4: Skip 10 with 2 in the middle
-# - name: circular_polysolar_kent_bypassed_10
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_10
+# Scenario 4: Skip 10 with 2 in the middle
+- name: circular_polysolar_kent_bypassed_10
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_10
 
-# # Scenario 5: Skip 20
-# - name: circular_polysolar_kent_bypassed_20
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_20
+# Scenario 5: Skip 20
+- name: circular_polysolar_kent_bypassed_20
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_20
 
-# # Scenario 6: Skip 66
-# - name: circular_polysolar_kent_bypassed_66
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_66
+# Scenario 6: Skip 66
+- name: circular_polysolar_kent_bypassed_66
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_66
 
-# # Scenario 7: Skip 30 from Edges
-# - name: circular_polysolar_kent_bypassed_30_edges
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_30_edges
+# Scenario 7: Skip 30 from Edges
+- name: circular_polysolar_kent_bypassed_30_edges
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_30_edges
 
-# # Scenario 8: Skip 50 from Edges
-# - name: circular_polysolar_kent_bypassed_50_edges
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_50_edges
+# Scenario 8: Skip 50 from Edges
+- name: circular_polysolar_kent_bypassed_50_edges
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_50_edges
 
-# # Scenario 9: Skip Little Chunks on Edges and Big Chunks in Middle (30)
-# - name: circular_polysolar_kent_bypassed_30_middle
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_30_middle
+# Scenario 9: Skip Little Chunks on Edges and Big Chunks in Middle (30)
+- name: circular_polysolar_kent_bypassed_30_middle
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_30_middle
 
-# # Scenario 10: Skip Little Chunks on Edges and Big Chunks in Middle (50)
-# - name: circular_polysolar_kent_bypassed_50_middle
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_50_middle
+# Scenario 10: Skip Little Chunks on Edges and Big Chunks in Middle (50)
+- name: circular_polysolar_kent_bypassed_50_middle
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_bypassed_50_middle
 
-
-
-# - name: circular_polysolar_kent
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_unbypassed
-# - name: circular_polysolar_kent_bypassed
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed
-# - name: circular_polysolar_kent_bypassed_4
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_4
-# - name: circular_polysolar_kent_bypassed_6
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_6
-# - name: circular_polysolar_kent_bypassed_11
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_11
-# - name: circular_polysolar_kent_bypassed_10_2
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_10_2
-# - name: circular_polysolar_kent_bypassed_20
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_20
-# - name: circular_polysolar_kent_bypassed_50
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_50
-# - name: circular_polysolar_kent_bypassed_66
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_66
-# - name: circular_polysolar_kent_bypassed_132
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_132
-
-
-# - name: circular_polysolar_kent_morning_and_evening
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_morning_and_evening
-# - name: circular_polysolar_kent_bypassed_3
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_3
-# - name: circular_polysolar_kent_bypassed_12
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_bypassed_12
-# - name: circular_polysolar_kent_morning_and_evening
-#   location: polysolar_kent
-#   pv_module: mia_sole_flex_03_280nl_morning_and_evening
-# - name: polysolar_kent
-#   location: polysolar_kent
-#   pv_module: thin_film_demo
-# - name: polysolar_kent_long_1
-#   location: polysolar_kent
-#   pv_module: long_1_thin_film_demo
-# - name: polysolar_kent_long_2
-#   location: polysolar_kent
-#   pv_module: long_2_thin_film_demo
-# - name: polysolar_kent_long_2_with_bypass
-#   location: polysolar_kent
-#   pv_module: long_2_thin_film_demo_bypassed
-# - name: polysolar_kent_long_3
-#   location: polysolar_kent
-#   pv_module: long_3_thin_film_demo
+- name: circular_polysolar_kent_morning_and_evening
+  location: polysolar_kent
+  pv_module: mia_sole_flex_03_280nl_morning_and_evening
+- name: polysolar_kent
+  location: polysolar_kent
+  pv_module: thin_film_demo
+- name: polysolar_kent_long_1
+  location: polysolar_kent
+  pv_module: long_1_thin_film_demo
+- name: polysolar_kent_long_2
+  location: polysolar_kent
+  pv_module: long_2_thin_film_demo
+- name: polysolar_kent_long_2_with_bypass
+  location: polysolar_kent
+  pv_module: long_2_thin_film_demo_bypassed
+- name: polysolar_kent_long_3
+  location: polysolar_kent
+  pv_module: long_3_thin_film_demo
