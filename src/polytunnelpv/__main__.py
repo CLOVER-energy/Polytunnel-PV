@@ -21,8 +21,9 @@ import time
 import multiprocessing as mp
 from joblib import Parallel, delayed
 import matplotlib
-#Use AGG when running on HPC - uncomment below if running on HPC
-#matplotlib.use('Agg')
+
+# Use AGG when running on HPC - uncomment below if running on HPC
+# matplotlib.use('Agg')
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 import argparse
@@ -678,22 +679,22 @@ def plot_irradiance_with_marginal_means(
 
 
 def save_daily_results(date_str, data, scenario_name):
-    with pd.ExcelWriter(output_file, engine='openpyxl', mode='a') as writer:
-        #df.to_excel(writer, sheet_name=date_str, index=False)
-        #Ensure at least one sheet is present and visible
+    with pd.ExcelWriter(output_file, engine="openpyxl", mode="a") as writer:
+        # df.to_excel(writer, sheet_name=date_str, index=False)
+        # Ensure at least one sheet is present and visible
         workbook = writer.book
-        placeholder_sheet = workbook.create_sheet(title='Sheet1')
+        placeholder_sheet = workbook.create_sheet(title="Sheet1")
 
         for date_str, data in daily_data.items():
-            df = pd.DataFrame(data, columns=['Hour', 'MPP (W)'])
-            total_mpp = df['MPP (W)'].sum()
-            df.loc['Total'] = ['Total', total_mpp]  # Adding the total MPP at the end
+            df = pd.DataFrame(data, columns=["Hour", "MPP (W)"])
+            total_mpp = df["MPP (W)"].sum()
+            df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
             df.to_excel(writer, sheet_name=date_str, index=False)
 
         # Remove the placeholder sheet if it was not used
-        if 'Sheet1' in workbook.sheetnames and len(workbook.sheetnames) > 1:
-            del workbook['Sheet1']
-    
+        if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
+            del workbook["Sheet1"]
+
 
 def main(unparsed_arguments) -> None:
     """
@@ -990,11 +991,11 @@ def main(unparsed_arguments) -> None:
 
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
-    
+
     start_day_index = 0
     mpp_values = []
     daily_data = defaultdict(list)
-    
+
     output_directory = "outputs"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -1002,7 +1003,9 @@ def main(unparsed_arguments) -> None:
     def process_single_iteration(time_of_day):
         try:
             print(f"Processing time_of_day: {time_of_day}")
-            max_irradiance = np.max(irradiance_frame.set_index("hour").iloc[time_of_day][1:])
+            max_irradiance = np.max(
+                irradiance_frame.set_index("hour").iloc[time_of_day][1:]
+            )
             if max_irradiance == 0:
                 return None, None, None
 
@@ -1016,25 +1019,42 @@ def main(unparsed_arguments) -> None:
 
             current_series = np.linspace(
                 0,
-                1.1 * max([pv_cell.short_circuit_current for pv_cell in scenario.pv_module.pv_cells]),
+                1.1
+                * max(
+                    [
+                        pv_cell.short_circuit_current
+                        for pv_cell in scenario.pv_module.pv_cells
+                    ]
+                ),
                 VOLTAGE_RESOLUTION,
             )
 
             individual_power_extreme = 0
             for pv_cell in scenario.pv_module.pv_cells_and_cell_strings:
-                current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-                    locations_to_weather_and_solar_map[scenario.location][time_of_day][TEMPERATURE],
-                    1000 * irradiance_frame.set_index("hour").iloc[time_of_day][1:].reset_index(drop=True),
-                    current_series=current_series,
+                current_series, power_series, voltage_series = (
+                    pv_cell.calculate_iv_curve(
+                        locations_to_weather_and_solar_map[scenario.location][
+                            time_of_day
+                        ][TEMPERATURE],
+                        1000
+                        * irradiance_frame.set_index("hour")
+                        .iloc[time_of_day][1:]
+                        .reset_index(drop=True),
+                        current_series=current_series,
+                    )
                 )
                 cell_to_power_map[pv_cell] = power_series
                 cell_to_voltage_map[pv_cell] = voltage_series
-                individual_power_extreme = max(individual_power_extreme, max(abs(power_series)))
+                individual_power_extreme = max(
+                    individual_power_extreme, max(abs(power_series))
+                )
 
             combined_power_series = sum(cell_to_power_map.values())
             combined_voltage_series = sum(cell_to_voltage_map.values())
             combined_power_series = pv_system.combine_powers(combined_power_series)
-            combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
+            combined_voltage_series = pv_system.combine_voltages(
+                combined_voltage_series
+            )
             combined_current_series = pv_system.combine_currents(current_series)
 
             maximum_power_index = pd.Series(combined_power_series).idxmax()
@@ -1048,7 +1068,10 @@ def main(unparsed_arguments) -> None:
 
     # Use joblib to parallelize the for loop
     start_time = time.time()
-    results = Parallel(n_jobs=32)(delayed(process_single_iteration)(time_of_day) for time_of_day in range(start_day_index, start_day_index + 8760))
+    results = Parallel(n_jobs=32)(
+        delayed(process_single_iteration)(time_of_day)
+        for time_of_day in range(start_day_index, start_day_index + 8760)
+    )
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
@@ -1063,29 +1086,31 @@ def main(unparsed_arguments) -> None:
                 all_mpp_data.append((date_str, hour, mpp_power))
 
     # Save daily data to a single Excel file with separate sheets
-    with pd.ExcelWriter(os.path.join(output_directory, f"mpp_daily_summary_{scenario.name}.xlsx"), engine='openpyxl') as writer:
-        
+    with pd.ExcelWriter(
+        os.path.join(output_directory, f"mpp_daily_summary_{scenario.name}.xlsx"),
+        engine="openpyxl",
+    ) as writer:
+
         # Ensure at least one sheet is present and visible
         workbook = writer.book
-        placeholder_sheet = workbook.create_sheet(title='Sheet1')
+        placeholder_sheet = workbook.create_sheet(title="Sheet1")
 
         for date_str, data in daily_data.items():
-            df = pd.DataFrame(data, columns=['Hour', 'MPP (W)'])
-            total_mpp = df['MPP (W)'].sum()
-            df.loc['Total'] = ['Total', total_mpp]  # Adding the total MPP at the end
+            df = pd.DataFrame(data, columns=["Hour", "MPP (W)"])
+            total_mpp = df["MPP (W)"].sum()
+            df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
             df.to_excel(writer, sheet_name=date_str, index=False)
 
         # Remove the placeholder sheet if it was not used
-        if 'Sheet1' in workbook.sheetnames and len(workbook.sheetnames) > 1:
-            del workbook['Sheet1']
-   
+        if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
+            del workbook["Sheet1"]
+
     # #TODO:
     # # - Improve the speed of the calculation so it can be run for all hours.
     # # - Some way to store whether the cells have been bypassed.
 
-
     ######################################
-    #COMMENTED out for multiprocessing
+    # COMMENTED out for multiprocessing
     ######################################
     # plt.scatter(
     #     [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
