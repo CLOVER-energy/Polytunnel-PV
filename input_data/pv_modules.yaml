@@ -32,7 +32,7 @@
 - name: mia_sole_flex_03_280nl_morning_and_evening
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -48,60 +48,61 @@
     end_index: 132
     start_index: 82
 
-- name: long_3_thin_film_demo
-  type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 1.2  # [m] - The dimension parallel to the module
-  cell_spacing: 0.01  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 18
-  offset_angle: 90
-  polytunnel_curve: north_south_5m_circle
+# - name: long_3_thin_film_demo
+#   cell_type: Miasole_FLEX_03_280NL
+#   type: thin_film
+#   cell_breakdown_voltage: -15
+#   cell_length: 1.2  # [m] - The dimension parallel to the module
+#   cell_spacing: 0.01  # [m] - The spacing between the cells
+#   cell_width: 0.35  # [m] - The dimension perpendicular to the module
+#   module_centre_offset: 0
+#   n_cells: 18
+#   offset_angle: 90
+#   polytunnel_curve: north_south_5m_circle
 
 - name: thin_film_demo
-  cell_type: Sharp_NU_SC360
+  cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.01  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
+  cell_breakdown_voltage: -4
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
   module_centre_offset: 0
   n_cells: 18
   offset_angle: 90
   polytunnel_curve: north_south_5m_circle
 
 - name: long_1_thin_film_demo
-  cell_type: Sharp_NU_SC360
+  cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.3  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
+  cell_breakdown_voltage: -4
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
   module_centre_offset: 0
   n_cells: 18
   offset_angle: 90
   polytunnel_curve: north_south_5m_circle
 
 - name: long_2_thin_film_demo
-  cell_type: Sharp_NU_SC360
+  cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -15
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.7  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
+  cell_breakdown_voltage: -4
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
   module_centre_offset: 0
   n_cells: 18
   offset_angle: 90
   polytunnel_curve: north_south_5m_circle
 
 - name: long_2_thin_film_demo_bypassed
-  cell_type: Sharp_NU_SC360
+  cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.1  # [m] - The dimension parallel to the module
-  cell_spacing: 0.7  # [m] - The spacing between the cells
-  cell_width: 0.35  # [m] - The dimension perpendicular to the module
+  cell_breakdown_voltage: -4
+  cell_length: 0.04473  # [m] - The dimension parallel to the module
+  cell_spacing: 0.0  # [m] - The spacing between the cells
+  cell_width: 0.348  # [m] - The dimension perpendicular to the module
   module_centre_offset: 0
   n_cells: 18
   offset_angle: 90
@@ -123,7 +124,7 @@
 - name: mia_sole_flex_03_280nl_unbypassed
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -135,7 +136,7 @@
 - name: mia_sole_flex_03_280nl_bypassed
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -343,26 +344,10 @@
     end_index: 132
     start_index: 130
 
-- name: mia_sole_flex_03_280nl_bypassed_132
-  cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
-  cell_breakdown_voltage: -1
-  cell_length: 0.04473  # [m] - The dimension parallel to the module
-  cell_spacing: 0.0  # [m] - The spacing between the cells
-  cell_width: 0.348  # [m] - The dimension perpendicular to the module
-  module_centre_offset: 0
-  n_cells: 132
-  offset_angle: 90
-  polytunnel_curve: tilted_kent_circle
-  bypass_diodes:
-    - bypass_voltage: -0.5
-      end_index: 132
-      start_index: 0
-
 - name: mia_sole_flex_03_280nl_bypassed_10
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -417,7 +402,7 @@
 - name: mia_sole_flex_03_280nl_bypassed_20
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -454,7 +439,7 @@
 - name: mia_sole_flex_03_280nl_bypassed_66
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -473,7 +458,7 @@
 - name: mia_sole_flex_03_280nl_bypassed_30_edges
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -504,7 +489,7 @@
 - name: mia_sole_flex_03_280nl_bypassed_50_edges
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -529,7 +514,7 @@
 - name: mia_sole_flex_03_280nl_bypassed_30_middle
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module
@@ -584,7 +569,7 @@
 - name: mia_sole_flex_03_280nl_bypassed_50_middle
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
-  cell_breakdown_voltage: -1
+  cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
   cell_width: 0.348  # [m] - The dimension perpendicular to the module

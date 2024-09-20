@@ -38,7 +38,7 @@ DIODE_IDEALITY_FACTOR: str = "_reference_diode_ideality_factor"
 
 # NUM_CELLS_IN_PARENT_MODULE:
 #   Keyword for the number of cells in the parent module.
-NUM_CELLS_IN_PARENT_MODULE: str = "num_cells_in_parent_module"
+NUM_CELLS_IN_PARENT_MODULE: str = "_num_cells_in_parent_module"
 
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.

@@ -19,6 +19,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from tqdm import tqdm
+
 from .pv_cell import PVCell
 
 __all__ = ("BypassDiode", "BypassedCellString")
@@ -135,7 +137,7 @@ class BypassedCellString:
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in self.pv_cells:
+        for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False):
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,
@@ -166,9 +168,5 @@ class BypassedCellString:
         combined_power_series = (
             current_series := cell_to_iv_series[self.pv_cells[0]][0]
         ) * combined_voltage_series
-
-        from matplotlib import pyplot as plt
-
-        plt.plot()
 
         return current_series, combined_power_series, combined_voltage_series

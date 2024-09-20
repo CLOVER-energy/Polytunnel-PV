@@ -17,36 +17,38 @@ entrypoint for executing the model.
 """
 
 __version__ = "1.0.0a1"
-import time
-import multiprocessing as mp
-from joblib import Parallel, delayed
-import matplotlib
+
 
 # Use AGG when running on HPC - uncomment below if running on HPC
 # matplotlib.use('Agg')
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
 import argparse
 import datetime
+import functools
 import math
+import matplotlib.colors as mcolors
+import multiprocessing
 import os
 import pvlib
 import re
 import seaborn as sns
 import sys
+import time
 import warnings
 import yaml
+
 from datetime import datetime, timedelta
-import matplotlib.colors as mcolors
 from collections import defaultdict
+from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib import rc, rcParams
+from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, Hashable, Match, Pattern
 
 import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
+from tqdm.std import tqdm as tqdm_pbar
 
 from .__utils__ import NAME
 from .pv_module.bypass_diode import BypassDiode, BypassedCellString
@@ -218,6 +220,10 @@ PV_MODULES_FILENAME: str = "pv_modules.yaml"
 #   The name of the scenarios file.
 SCENARIOS_FILENAME: str = "scenarios.yaml"
 
+# SKIPPED:
+#   The message to display when a task was successful.
+SKIPPED: str = "[  SKIPPED ]"
+
 # SOLAR_AZIMUTH:
 #   Keyword for solar azimuth.
 SOLAR_AZIMUTH: str = "azimuth"
@@ -278,10 +284,30 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
 
     parser = argparse.ArgumentParser()
 
+    # Iteration length:
+    #   The length of the iteration to run, in hours.
+    parser.add_argument(
+        "--iteration-length",
+        "-i",
+        default=24,
+        type=float,
+        help="The length of the iteration to run.",
+    )
+
     # Scenario:
     #   The name of the scenario to use.
     parser.add_argument(
         "--scenario", "-s", type=str, help="The name of the scenario to use."
+    )
+
+    # Start-day index:
+    #   The index of the start day to use.
+    parser.add_argument(
+        "--start-day-index",
+        "-st",
+        default=0,
+        type=float,
+        help="The start-day index to use.",
     )
 
     # Timestamps file:
@@ -391,6 +417,14 @@ def _parse_pv_modules(
         pv_module_data = yaml.safe_load(f)
 
     def _construct_pv_module(pv_module_entry) -> CurvedPVModule:
+        """
+        Constructs a PV module.
+
+        :param: pv_module_entry
+            The entry in the module file.
+
+        """
+
         try:
             constructor = CurvedPVModule.constructor_from_module_type(
                 ModuleType(pv_module_entry.pop(TYPE))
@@ -544,6 +578,163 @@ def _solar_angles_from_weather_row(
     return location.get_solarposition(  # type: ignore [no-any-return]
         row[1][LOCAL_TIME], temperature=row[1][TEMPERATURE]
     )
+
+
+def process_single_mpp_calculation(
+    time_of_day: int,
+    *,
+    irradiance_frame: pd.DataFrame,
+    locations_to_weather_and_solar_map: dict[
+        pvlib.location.Location, list[dict[str, Any]]
+    ],
+    pbar: tqdm_pbar,
+    pv_system: PVSystem,
+    scenario: Scenario,
+) -> tuple[int, float, str]:
+    try:
+        max_irradiance = np.max(
+            irradiance_frame.set_index("hour").iloc[time_of_day][1:]
+        )
+        if max_irradiance == 0:
+            return None, None, None
+
+        hour = time_of_day % 24
+        date = datetime(2023, 1, 1) + timedelta(hours=time_of_day)
+        date_str = date.strftime("%d_%b_%Y")
+
+        # Create a mapping between cell and power output
+        cell_to_power_map = {}
+        cell_to_voltage_map = {}
+
+        current_series = np.linspace(
+            0,
+            1.1
+            * max(
+                [
+                    pv_cell.short_circuit_current
+                    for pv_cell in scenario.pv_module.pv_cells
+                ]
+            ),
+            VOLTAGE_RESOLUTION,
+        )
+
+        individual_power_extreme = 0
+        for pv_cell in tqdm(
+            scenario.pv_module.pv_cells_and_cell_strings,
+            desc="IV calculation",
+            leave=False,
+        ):
+            current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
+                locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                    TEMPERATURE
+                ],
+                1000
+                * irradiance_frame.set_index("hour")
+                .iloc[time_of_day][1:]
+                .reset_index(drop=True),
+                current_series=current_series,
+            )
+            cell_to_power_map[pv_cell] = power_series
+            cell_to_voltage_map[pv_cell] = voltage_series
+            individual_power_extreme = max(
+                individual_power_extreme, max(abs(power_series))
+            )
+
+        combined_power_series = sum(cell_to_power_map.values())
+        combined_voltage_series = sum(cell_to_voltage_map.values())
+        combined_power_series = pv_system.combine_powers(combined_power_series)
+        combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
+        combined_current_series = pv_system.combine_currents(current_series)
+
+        maximum_power_index = pd.Series(combined_power_series).idxmax()
+        mpp_current = combined_current_series[maximum_power_index]
+        mpp_power = combined_power_series[maximum_power_index]
+
+        pbar.update(1)
+
+        return hour, mpp_power, date_str
+    except Exception as e:
+        print(f"Error processing time_of_day {time_of_day}: {str(e)}")
+        raise
+        # return None, None, None
+
+
+def process_single_mpp_calculation_without_pbar(
+    time_of_day: int,
+    *,
+    irradiance_frame: pd.DataFrame,
+    locations_to_weather_and_solar_map: dict[
+        pvlib.location.Location, list[dict[str, Any]]
+    ],
+    pv_system: PVSystem,
+    scenario: Scenario,
+) -> tuple[int, float, str]:
+    try:
+        max_irradiance = np.max(
+            irradiance_frame.set_index("hour").iloc[time_of_day][1:]
+        )
+        if max_irradiance == 0:
+            return None, None, None
+
+        hour = time_of_day % 24
+        date = datetime(2023, 1, 1) + timedelta(hours=time_of_day)
+        date_str = date.strftime("%d_%b_%Y")
+
+        # Create a mapping between cell and power output
+        cell_to_power_map = {}
+        cell_to_voltage_map = {}
+
+        current_series = np.linspace(
+            0,
+            1.1
+            * max(
+                [
+                    pv_cell.short_circuit_current
+                    for pv_cell in scenario.pv_module.pv_cells
+                ]
+            ),
+            VOLTAGE_RESOLUTION,
+        )
+
+        individual_power_extreme = 0
+        for pv_cell in tqdm(
+            scenario.pv_module.pv_cells_and_cell_strings,
+            desc="IV calculation",
+            leave=False,
+        ):
+            current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
+                locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                    TEMPERATURE
+                ],
+                1000
+                * irradiance_frame.set_index("hour")
+                .iloc[time_of_day][1:]
+                .reset_index(drop=True),
+                current_series=current_series,
+            )
+            cell_to_power_map[pv_cell] = power_series
+            cell_to_voltage_map[pv_cell] = voltage_series
+            individual_power_extreme = max(
+                individual_power_extreme, max(abs(power_series))
+            )
+
+        combined_power_series = sum(cell_to_power_map.values())
+        combined_voltage_series = sum(cell_to_voltage_map.values())
+        combined_power_series = pv_system.combine_powers(combined_power_series)
+        combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
+        combined_current_series = pv_system.combine_currents(current_series)
+
+        maximum_power_index = pd.Series(combined_power_series).idxmax()
+        mpp_current = combined_current_series[maximum_power_index]
+        mpp_power = combined_power_series[maximum_power_index]
+
+        print(f"Hour {time_of_day} processed successfully.")
+
+        return hour, mpp_power, date_str
+    except Exception as e:
+        print(f"Error processing time_of_day {time_of_day}: {str(e)}")
+        raise
+        # return None, None, None
 
 
 def plot_irradiance_with_marginal_means(
@@ -835,6 +1026,7 @@ def main(unparsed_arguments) -> None:
         + " ",
         end="",
     )
+    skipped: bool = False
     for scenario in scenarios:
         cellwise_irradiances = []
         if not os.path.isfile(
@@ -908,12 +1100,16 @@ def main(unparsed_arguments) -> None:
 
             cellwise_irradiance_frames.append((scenario, combined_frame))
 
-    else:
-        print("Skipping calculation of irradiance and using irradiance from file")
+        else:
+            skipped = True
+            break
+
+    if skipped:
+        # print("Skipping calculation of irradiance and using irradiance from file")
 
         cellwise_irradiance_frames = []
 
-        for scenario in scenarios:
+        for scenario in tqdm(scenarios, desc="Loading irradiance data", leave=True):
             with open(
                 os.path.join(
                     "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
@@ -924,11 +1120,14 @@ def main(unparsed_arguments) -> None:
 
             cellwise_irradiance_frames.append((scenario, combined_frame.copy()))
 
+        print(DONE)
+    else:
+        print(DONE)
+
     # Defragment the frame
     cellwise_irradiance_frames = [
         (entry[0], entry[1].copy()) for entry in cellwise_irradiance_frames
     ]
-    print(DONE)
 
     # Extract the information for just the scenario that should be plotted.
     try:
@@ -951,36 +1150,6 @@ def main(unparsed_arguments) -> None:
     except IndexError:
         raise Exception("Internal error occurred.") from None
 
-    current_density_series = np.linspace(
-        0,
-        1.1
-        * np.max(
-            [
-                pv_cell.short_circuit_current_density
-                for pv_cell in scenario.pv_module.pv_cells
-            ]
-        ),
-        VOLTAGE_RESOLUTION,
-    )
-    current_series = np.linspace(
-        0,
-        1.1
-        * np.max(
-            [pv_cell.short_circuit_current for pv_cell in scenario.pv_module.pv_cells]
-        ),
-        VOLTAGE_RESOLUTION,
-    )
-    voltage_series = np.linspace(
-        np.min(
-            [
-                pv_cell.breakdown_voltage
-                for pv_cell in scenario.pv_module.pv_cells_and_cell_strings
-            ]
-        ),
-        100,
-        VOLTAGE_RESOLUTION,
-    )
-
     sns.set_palette(
         sns.cubehelix_palette(
             start=-0.2,
@@ -992,86 +1161,46 @@ def main(unparsed_arguments) -> None:
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
 
-    start_day_index = 0
-    mpp_values = []
     daily_data = defaultdict(list)
 
     output_directory = "outputs"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    def process_single_iteration(time_of_day):
-        try:
-            print(f"Processing time_of_day: {time_of_day}")
-            max_irradiance = np.max(
-                irradiance_frame.set_index("hour").iloc[time_of_day][1:]
-            )
-            if max_irradiance == 0:
-                return None, None, None
-
-            hour = time_of_day % 24
-            date = datetime(2023, 1, 1) + timedelta(hours=time_of_day)
-            date_str = date.strftime("%d_%b_%Y")
-
-            # Create a mapping between cell and power output
-            cell_to_power_map = {}
-            cell_to_voltage_map = {}
-
-            current_series = np.linspace(
-                0,
-                1.1
-                * max(
-                    [
-                        pv_cell.short_circuit_current
-                        for pv_cell in scenario.pv_module.pv_cells
-                    ]
-                ),
-                VOLTAGE_RESOLUTION,
-            )
-
-            individual_power_extreme = 0
-            for pv_cell in scenario.pv_module.pv_cells_and_cell_strings:
-                current_series, power_series, voltage_series = (
-                    pv_cell.calculate_iv_curve(
-                        locations_to_weather_and_solar_map[scenario.location][
-                            time_of_day
-                        ][TEMPERATURE],
-                        1000
-                        * irradiance_frame.set_index("hour")
-                        .iloc[time_of_day][1:]
-                        .reset_index(drop=True),
-                        current_series=current_series,
-                    )
-                )
-                cell_to_power_map[pv_cell] = power_series
-                cell_to_voltage_map[pv_cell] = voltage_series
-                individual_power_extreme = max(
-                    individual_power_extreme, max(abs(power_series))
-                )
-
-            combined_power_series = sum(cell_to_power_map.values())
-            combined_voltage_series = sum(cell_to_voltage_map.values())
-            combined_power_series = pv_system.combine_powers(combined_power_series)
-            combined_voltage_series = pv_system.combine_voltages(
-                combined_voltage_series
-            )
-            combined_current_series = pv_system.combine_currents(current_series)
-
-            maximum_power_index = pd.Series(combined_power_series).idxmax()
-            mpp_current = combined_current_series[maximum_power_index]
-            mpp_power = combined_power_series[maximum_power_index]
-
-            return hour, mpp_power, date_str
-        except Exception as e:
-            print(f"Error processing time_of_day {time_of_day}: {e}")
-            return None, None, None
-
     # Use joblib to parallelize the for loop
     start_time = time.time()
-    results = Parallel(n_jobs=32)(
-        delayed(process_single_iteration)(time_of_day)
-        for time_of_day in range(start_day_index, start_day_index + 8760)
-    )
+    with tqdm(
+        desc="MPP computation", total=parsed_args.iteration_length, unit="hour"
+    ) as pbar:
+        # with ThreadPool(8) as mpool:
+        #     results_map = mpool.map(
+        #         functools.partial(
+        #             process_single_mpp_calculation,
+        #             irradiance_frame=irradiance_frame,
+        #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+        #             pbar=pbar,
+        #             pv_system=pv_system,
+        #             scenario=scenario,
+        #         ),
+        #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
+        #     )
+
+        results = Parallel(n_jobs=8)(
+            delayed(
+                functools.partial(
+                    process_single_mpp_calculation_without_pbar,
+                    irradiance_frame=irradiance_frame,
+                    locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                    pv_system=pv_system,
+                    scenario=scenario,
+                )
+            )(time_of_day)
+            for time_of_day in range(
+                parsed_args.start_day_index,
+                parsed_args.start_day_index + parsed_args.iteration_length,
+            )
+        )
+
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
@@ -1109,127 +1238,132 @@ def main(unparsed_arguments) -> None:
     # # - Improve the speed of the calculation so it can be run for all hours.
     # # - Some way to store whether the cells have been bypassed.
 
-    ######################################
-    # COMMENTED out for multiprocessing
-    ######################################
-    # plt.scatter(
-    #     [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
-    #     [
-    #         1000
-    #         * irradiance_frame.set_index("hour")
-    #         .iloc[time_of_day]
-    #         .values[pv_cell.cell_id]
-    #         for pv_cell in scenario.pv_module.pv_cells
-    #     ],
-    #     color="orange",
-    #     marker="D",
-    #     s=100,
-    #     alpha=0.9,
-    # )
-    # plt.xlabel("Cell ID")
-    # plt.ylabel("Irradiance / W/m$^2$")
-    # plt.savefig(
-    #     f"irradiance_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
-    #     transparent=True,
-    #     format="png",
-    #     dpi=300,
-    #     bbox_inches="tight",
-    # )
-    # plt.show()
+    ######################################################
+    # Plot the irradiance on each cell across the module #
+    ######################################################
 
-    # plt.scatter(
-    #     [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
-    #     [
-    #         pv_cell.average_cell_temperature(
-    #             locations_to_weather_and_solar_map[scenario.location][time_of_day][
-    #                 TEMPERATURE
-    #             ]
-    #             + 273.15,
-    #             1000
-    #             * irradiance_frame.set_index("hour")
-    #             .iloc[time_of_day]
-    #             .iloc[pv_cell.cell_id],
-    #             0,
-    #         )
-    #         - 273.15
-    #         for pv_cell in scenario.pv_module.pv_cells
-    #     ],
-    #     color="red",
-    #     marker="D",
-    #     s=100,
-    #     alpha=0.9,
-    #     edgecolor=None,
-    # )
-    # plt.xlabel("Cell ID")
-    # plt.ylabel("Temperature / Degrees Celsius")
-    # plt.savefig(
-    #     f"temperature_graph_{scenario.name}_{time_of_day}.{(format:='png')}",
-    #     transparent=True,
-    #     format="png",
-    #     dpi=300,
-    #     bbox_inches="tight",
-    # )
+    plt.figure(figsize=(48 / 5, 32 / 5))
+    plt.scatter(
+        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+        [
+            1000
+            * irradiance_frame.set_index("hour")
+            .iloc[(plotting_time_of_day := 4812)]
+            .values[pv_cell.cell_id + 1]
+            for pv_cell in scenario.pv_module.pv_cells
+        ],
+        color="orange",
+        marker="D",
+        s=150,
+        alpha=0.55,
+    )
+    plt.xlabel("Cell ID")
+    plt.ylabel("Irradiance / W/m$^2$")
+    plt.savefig(
+        f"irradiance_graph_{scenario.name}_{plotting_time_of_day}.{(fig_format:='pdf')}",
+        # transparent=True,
+        format=fig_format,
+        # dpi=300,
+        bbox_inches="tight",
+    )
 
-    # plt.show()
+    plt.figure(figsize=(48 / 5, 32 / 5))
+    plt.scatter(
+        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+        [
+            pv_cell.average_cell_temperature(
+                locations_to_weather_and_solar_map[scenario.location][
+                    plotting_time_of_day
+                ][TEMPERATURE]
+                + 273.15,
+                1000
+                * irradiance_frame.set_index("hour")
+                .iloc[plotting_time_of_day]
+                .iloc[pv_cell.cell_id + 1],
+                0,
+            )
+            - 273.15
+            for pv_cell in scenario.pv_module.pv_cells
+        ],
+        color="red",
+        marker="D",
+        s=150,
+        alpha=0.55,
+        edgecolor=None,
+    )
+    plt.xlabel("Cell ID")
+    plt.ylabel("Temperature / Degrees Celsius")
+    plt.savefig(
+        f"temperature_graph_{scenario.name}_{plotting_time_of_day}.{fig_format}",
+        transparent=True,
+        format="png",
+        dpi=300,
+        bbox_inches="tight",
+    )
 
-    # import matplotlib.patches as mpatches
+    plt.show()
 
-    # def _post_process_split_axes(ax1, ax2):
-    #     """
-    #     Function to post-process the joining of axes.
-    #     Adapted from:
-    #         https://matplotlib.org/stable/gallery/subplots_axes_and_figures/broken_axis.html
-    #     """
-    #     # hide the spines between ax and ax2
-    #     ax1.spines.bottom.set_visible(False)
-    #     ax1.spines.top.set_visible(False)
-    #     ax2.spines.top.set_visible(False)
-    #     ax1.tick_params(
-    #         labeltop=False, labelbottom=False
-    #     )  # don't put tick labels at the top
-    #     ax2.xaxis.tick_bottom()
-    #     # Now, let's turn towards the cut-out slanted lines.
-    #     # We create line objects in axes coordinates, in which (0,0), (0,1),
-    #     # (1,0), and (1,1) are the four corners of the axes.
-    #     # The slanted lines themselves are markers at those locations, such that the
-    #     # lines keep their angle and position, independent of the axes size or scale
-    #     # Finally, we need to disable clipping.
-    #     d = 0.5  # proportion of vertical to horizontal extent of the slanted line
-    #     kwargs = dict(
-    #         marker=[(-1, -d), (1, d)],
-    #         markersize=12,
-    #         linestyle="none",
-    #         color="k",
-    #         mec="k",
-    #         mew=1,
-    #         clip_on=False,
-    #     )
-    #     ax1.plot([0], [0], transform=ax1.transAxes, **kwargs)
-    #     ax2.plot([0], [1], transform=ax2.transAxes, **kwargs)
+    import pdb
 
-    # # Joo Plot
-    # gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
-    # fig, axes = plt.subplots(5, 2, figsize=(48 / 5, 32 / 5), gridspec_kw=gridspec)
-    # fig.subplots_adjust(hspace=0, wspace=0.25)
+    pdb.set_trace()
 
-    # axes[2, 0].set_visible(False)
-    # axes[2, 1].set_visible(False)
-    # y_label_coord: int = int(-850)
+    import matplotlib.patches as mpatches
 
-    # axes[0, 0].get_shared_x_axes().join(axes[0, 0], axes[1, 0])
-    # axes[3, 0].get_shared_x_axes().join(axes[3, 0], axes[4, 0])
-    # axes[3, 1].get_shared_x_axes().join(axes[3, 1], axes[4, 1])
-    # axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
+    def _post_process_split_axes(ax1, ax2):
+        """
+        Function to post-process the joining of axes.
+        Adapted from:
+            https://matplotlib.org/stable/gallery/subplots_axes_and_figures/broken_axis.html
+        """
+        # hide the spines between ax and ax2
+        ax1.spines.bottom.set_visible(False)
+        ax1.spines.top.set_visible(False)
+        ax2.spines.top.set_visible(False)
+        ax1.tick_params(
+            labeltop=False, labelbottom=False
+        )  # don't put tick labels at the top
+        ax2.xaxis.tick_bottom()
+        # Now, let's turn towards the cut-out slanted lines.
+        # We create line objects in axes coordinates, in which (0,0), (0,1),
+        # (1,0), and (1,1) are the four corners of the axes.
+        # The slanted lines themselves are markers at those locations, such that the
+        # lines keep their angle and position, independent of the axes size or scale
+        # Finally, we need to disable clipping.
+        d = 0.5  # proportion of vertical to horizontal extent of the slanted line
+        kwargs = dict(
+            marker=[(-1, -d), (1, d)],
+            markersize=12,
+            linestyle="none",
+            color="k",
+            mec="k",
+            mew=1,
+            clip_on=False,
+        )
+        ax1.plot([0], [0], transform=ax1.transAxes, **kwargs)
+        ax2.plot([0], [1], transform=ax2.transAxes, **kwargs)
 
-    # curve_info = pvlib.pvsystem.singlediode(
-    #     photocurrent=IL,
-    #     saturation_current=I0,
-    #     resistance_series=Rs,
-    #     resistance_shunt=Rsh,
-    #     nNsVth=nNsVth,
-    #     ivcurve_pnts=100,
-    #     method="lambertw",
-    # )
+    gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
+    fig, axes = plt.subplots(5, 2, figsize=(48 / 5, 32 / 5), gridspec_kw=gridspec)
+    fig.subplots_adjust(hspace=0, wspace=0.25)
+
+    axes[2, 0].set_visible(False)
+    axes[2, 1].set_visible(False)
+    y_label_coord: int = int(-850)
+
+    axes[0, 0].get_shared_x_axes().join(axes[0, 0], axes[1, 0])
+    axes[3, 0].get_shared_x_axes().join(axes[3, 0], axes[4, 0])
+    axes[3, 1].get_shared_x_axes().join(axes[3, 1], axes[4, 1])
+    axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
+
+    curve_info = pvlib.pvsystem.singlediode(
+        photocurrent=IL,
+        saturation_current=I0,
+        resistance_series=Rs,
+        resistance_shunt=Rsh,
+        nNsVth=nNsVth,
+        ivcurve_pnts=100,
+        method="lambertw",
+    )
     # plt.plot(curve_info["v"], curve_info["i"])
     # plt.show()
 
@@ -1265,7 +1399,7 @@ def main(unparsed_arguments) -> None:
     #     breakdown_voltage=-15,
     # )
 
-    # start_index: int = start_day_index
+    # start_index: int = parsed_args.start_day_index
 
     # # Determine the scenario index
     # try:
@@ -1309,7 +1443,7 @@ def main(unparsed_arguments) -> None:
     # plot_irradiance_with_marginal_means(
     #     cellwise_irradiance_frames[scenario_index][1],
     #     start_index=(start_index := 24 * 31 * 6 + 48),
-    #     figname=f"{scenario.name}_{start_day_index}_small_panel",
+    #     figname=f"{scenario.name}_{parsed_args.start_day_index}_small_panel",
     #     heatmap_vmax=(
     #         heatmap_vmax := cellwise_irradiance_frames[scenario_index][1]
     #         .set_index("hour")
