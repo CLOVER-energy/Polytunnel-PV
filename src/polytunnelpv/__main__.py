@@ -669,16 +669,26 @@ def process_single_mpp_calculation_without_pbar(
     pv_system: PVSystem,
     scenario: Scenario,
 ) -> tuple[int, float, str]:
+    """
+    Process the MPP calculation for a single hour of the simulation.
+
+    :return:
+        - A `tuple` containing:
+            - The hour of the day,
+            - The MPP power achieved,
+            - The date-time information.
+
+    """
     try:
+        hour = time_of_day % 24
+        date = datetime(2023, 1, 1) + timedelta(hours=time_of_day)
+        date_str = date.strftime("%d_%b_%Y")
+
         max_irradiance = np.max(
             irradiance_frame.set_index("hour").iloc[time_of_day][1:]
         )
         if max_irradiance == 0:
-            return None, None, None
-
-        hour = time_of_day % 24
-        date = datetime(2023, 1, 1) + timedelta(hours=time_of_day)
-        date_str = date.strftime("%d_%b_%Y")
+            return hour, 0, date_str
 
         # Create a mapping between cell and power output
         cell_to_power_map = {}
