@@ -16,12 +16,15 @@ This module provides functionality for the modeling of bypass diodes within PV m
 """
 
 from dataclasses import dataclass, field
+
 import numpy as np
-from matplotlib import pyplot as plt
-from .pv_cell import PVCell, REFERENCE_DARK_CURRENT_DENSITY, DIODE_IDEALITY_FACTOR, ZERO_CELSIUS_OFFSET
+
+from tqdm import tqdm
+
+from .pv_cell import PVCell, ZERO_CELSIUS_OFFSET
 
 __all__ = ("BypassDiode", "BypassedCellString")
-   
+  
 @dataclass(kw_only=True)
 class BypassDiode:
     """
@@ -43,6 +46,9 @@ class BypassDiode:
         voltage = np.array(voltage)  # Ensure voltage is an array for vector operations
         current = self.saturation_current * (np.exp(-voltage / (self.ideality_factor * self.thermal_voltage)) - 1)
         return current
+
+    # def calculate_i_from_v(self, voltage: float | list[float]):
+    #     return 0.5
 
 def calculate_total_current(voltage_series, total_resistance):
     """
@@ -164,7 +170,7 @@ class BypassedCellString:
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in self.pv_cells:
+        for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False):
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,
@@ -178,7 +184,7 @@ class BypassedCellString:
         # for pv_cell in self.pv_cells:
         #     current, power, voltage = cell_to_iv_series[pv_cell]
         #     plt.plot(voltage, current, label=f'Cell {pv_cell.cell_id}')
-        
+
         # plt.title('IV Curves of Individual PV Cells')
         # plt.xlabel('Voltage (V)')
         # plt.ylabel('Current (A)')
@@ -186,16 +192,16 @@ class BypassedCellString:
         # plt.grid(True)
         # ylim = plt.ylim()
         # plt.show()
-        
+
         # Add up the voltage for each cell
         combined_voltage_series = sum(
             cell_to_iv_series[pv_cell][2] for pv_cell in self.pv_cells
         )
 
         # Determine the bypass-diode curve
-        bypass_diode_curve = self.bypass_diode.calculate_i_from_v(combined_voltage_series)
-        # Plot combined IV curve along with bypass diode curve
-        # plt.figure()
+        bypass_diode_curve = self.bypass_diode.calculate_i_from_v(
+            combined_voltage_series
+        )
 
         # plt.plot(combined_voltage_series, cell_to_iv_series[self.pv_cells[0]][0], label='Cells', color='blue')
 
@@ -206,7 +212,7 @@ class BypassedCellString:
 
         # Re-compute the combined power series.
         combined_power_series = total_current * combined_voltage_series
-        
+
         #Plot combined IV curve (dashed)
         #plt.plot(combined_voltage_series, total_current, '--', label='Combined IV Curve')
 

@@ -87,4 +87,4 @@ class Scenario:
     def __eq__(self, other) -> bool:
         """Says two scenarios are equal if their names are equal."""
 
-        return self.name == other.name
+        return bool(self.name == other.name)
