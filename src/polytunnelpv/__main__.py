@@ -801,9 +801,9 @@ def process_single_mpp_calculation_without_pbar(
         mpp_current = combined_current_series[maximum_power_index]
         mpp_power = combined_power_series[maximum_power_index]
 
-        # import pdb
+        import pdb
 
-        # pdb.set_trace()
+        pdb.set_trace()
 
         _print_success()
 
@@ -1237,8 +1237,28 @@ def main(unparsed_arguments) -> None:
     # Parallelised MPP computation #
     ################################
 
+    process_single_mpp_calculation_without_pbar(
+         12,
+        irradiance_frame=irradiance_frame,
+        locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+        pv_system=pv_system,
+        scenario=modelling_scenario
+    )
+
+
+    import pdb
+
+    pdb.set_trace()
+
+
     # Use joblib to parallelize the for loop
     start_time = time.time()
+    print(
+        (this_string := "Parallel MPP computation")
+        + "." * (88 - (len(this_string) + len(DONE)))
+        + " ",
+        end="",
+    )
     with tqdm(
         desc="MPP computation", total=parsed_args.iteration_length, unit="hour"
     ) as pbar:
@@ -1272,14 +1292,11 @@ def main(unparsed_arguments) -> None:
         )
 
     end_time = time.time()
+    print(DONE)
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
-    import pdb
-
-    pdb.set_trace()
-
     # Process results and accumulate daily data
-    initial_time = datetime.strptime(weather_data[location][TIME], "%Y-%m-%d %H:%M")
+    initial_time = datetime.strptime(weather_data[location.name][TIME][0], "%Y-%m-%d %H:%M")
     all_mpp_data = []
 
     daily_data = defaultdict(list)
@@ -1333,7 +1350,7 @@ def main(unparsed_arguments) -> None:
             1000
             * irradiance_frame.set_index("hour")
             .iloc[(plotting_time_of_day := 4812)]
-            .values[pv_cell.cell_id + 1]
+            .values[pv_cell.cell_id]
             for pv_cell in modelling_scenario.pv_module.pv_cells
         ],
         color="orange",
@@ -1343,6 +1360,7 @@ def main(unparsed_arguments) -> None:
     )
     plt.xlabel("Cell ID")
     plt.ylabel("Irradiance / W/m$^2$")
+    # plt.title((initial_time + timedelta(hours=plotting_time_of_day)).strftime("%H:%M on %d/%m/%Y"))
     plt.savefig(
         f"irradiance_graph_{modelling_scenario.name}_{plotting_time_of_day}.{(fig_format:='pdf')}",
         # transparent=True,
@@ -1363,7 +1381,7 @@ def main(unparsed_arguments) -> None:
                 1000
                 * irradiance_frame.set_index("hour")
                 .iloc[plotting_time_of_day]
-                .iloc[pv_cell.cell_id + 1],
+                .iloc[pv_cell.cell_id],
                 0,
             )
             - 273.15
