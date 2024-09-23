@@ -679,6 +679,7 @@ class PVCell:
         self,
         ambient_celsius_temperature: float,
         irradiance_array: np.ndarray,
+        wind_speed: float,
         *,
         current_density_series: np.ndarray | None = None,
         current_series: np.ndarray | None = None,
@@ -687,27 +688,34 @@ class PVCell:
         """
         Calculate the IV curve for the cell.
 
-        Inputs:
-            - ambient_celsius_temperature:
-                The ambient temperature, in degrees Celsius.
-            - irradiance_array:
-                The irradiance, in W/m^2, striking all the cells in the module.
-            - current_density_series:
-                If provided, the current-density series---the series of opints over which to
-                calculate the current an power output from the cell.
-            - current_series:
-                The series of current points over which to calculate the current and power
-                output from the cell.
-            - voltage_series:
-                The series of voltage points over which to calculate the current and power
-                output from the cell.
+        :param: ambient_celsius_temperature
+            The ambient temperature, in degrees Celsius.
 
-        Returns:
-            - current_series:
-                The current values.
-            - power_series:
-                The power values.
-            - voltage_series:
+        :param: irradiance_array
+            The irradiance, in W/m^2, striking all the cells in the module.
+
+        :param: wind_speed
+            The wind speed, in m/s, over the cell.
+
+        :param: current_density_series
+            If provided, the current-density series---the series of opints over which to
+            calculate the current an power output from the cell.
+
+        :param: current_series
+            The series of current points over which to calculate the current and power
+            output from the cell.
+
+        :param: voltage_series
+            The series of voltage points over which to calculate the current and power
+            output from the cell.
+
+        :returns: current_series
+            The current values.
+
+        :returns: power_series
+            The power values.
+
+        :returns: voltage_series
                 The voltage series.
 
         """
@@ -716,8 +724,7 @@ class PVCell:
             self.average_cell_temperature(
                 ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
                 (solar_irradiance := irradiance_array.iloc[self.cell_id]),
-                # TODO: Implement wind speed here using renewables.ninja data.
-                0,
+                wind_speed,
             )
             - ZERO_CELSIUS_OFFSET
         )
