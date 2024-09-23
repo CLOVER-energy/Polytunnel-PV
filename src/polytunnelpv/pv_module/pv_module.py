@@ -512,7 +512,7 @@ class CurvedPVModule:
                 width=cell_width,
                 breakdown_voltage=cell_breakdown_voltage,
                 _cell_id=cell_index,
-                **cell_electrical_parameters,
+                **cell_electrical_parameters,  # type: ignore [arg-type]
             )
 
         # Determine whether the cells are mono- or bi-facial.

@@ -163,4 +163,12 @@ cython_debug/
 settings.json
 
 # Data fles
+auto_generated/*
 input_data/*
+simulation_data/
+
+# Output plots
+*.eps
+*.pdf
+*.png
+*.svg

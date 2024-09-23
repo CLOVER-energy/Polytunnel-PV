@@ -38,7 +38,7 @@ DIODE_IDEALITY_FACTOR: str = "_reference_diode_ideality_factor"
 
 # NUM_CELLS_IN_PARENT_MODULE:
 #   Keyword for the number of cells in the parent module.
-NUM_CELLS_IN_PARENT_MODULE: str = "num_cells_in_parent_module"
+NUM_CELLS_IN_PARENT_MODULE: str = "_num_cells_in_parent_module"
 
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.
@@ -264,7 +264,7 @@ class PVCell:
     _azimuth_in_radians: float | None = None
     _cell_id: float | int | None = None
     _reference_diode_ideality_factor: float | int | None = None
-    num_cells_in_parent_module: int | None = None
+    _num_cells_in_parent_module: int | None = None
     _tilt_in_radians: float | None = None
     __open_circuit_voltage: float | None = None
     __mpp_thermal_coefficient: float | None = None
@@ -333,6 +333,15 @@ class PVCell:
         return f"PVCell(azimuth={self.azimuth:.2f}, tilt={self.tilt:.2f})"
 
     @property
+    def num_cells_in_parent_module(self) -> float:
+        """Return the number of cells in the parent module."""
+
+        if self._num_cells_in_parent_module is None:
+            return 1
+
+        return self._num_cells_in_parent_module
+
+    @property
     def alpha_sc(self) -> float:
         """The short-circuit curent density tempearture coefficient."""
 
@@ -347,6 +356,9 @@ class PVCell:
     @property
     def gamma_ref(self) -> float:
         """The reference diode ideality factor."""
+
+        if self._reference_diode_ideality_factor is None:
+            return 1
 
         return self._reference_diode_ideality_factor
 
@@ -632,7 +644,9 @@ class PVCell:
 
         return self.reference_series_resistance
 
-    def rescale_voltage(self, voltage_to_rescale: float | np.ndarray) -> float:
+    def rescale_voltage(
+        self, voltage_to_rescale: float | list[float] | np.ndarray
+    ) -> float | np.ndarray:
         """Rescale voltage values based on the cell being in series."""
 
         def _rescale_voltage(voltage: float) -> float:
@@ -851,9 +865,11 @@ def calculate_cell_iv_curve(
                     return voltage
                 return module_breakdown_voltage
 
-    if voltage_series is None:
+    if voltage_series is None and (
+        current_density_series is not None or current_series is not None
+    ):
         # Use the current density if provided, otherwise the current
-        voltage_series = pv_cell.rescale_voltage(
+        voltage_series = pv_cell.rescale_voltage(  # type: ignore [assignment]
             [
                 bishop_voltage_wrapper_function(
                     current,
@@ -863,26 +879,42 @@ def calculate_cell_iv_curve(
                     breakdown_exp=3,
                 )
                 for current in (
-                    current_series
+                    current_series  # type: ignore [union-attr]
                     if current_series is not None
                     else current_density_series
                 )
             ]
         )
+    elif voltage_series is not None:
+        current_series = np.asarray(
+            [
+                bishop88_current_wrapper_function(
+                    voltage,
+                    *_calculated_pv_cell_params,
+                    breakdown_voltage=pv_cell.breakdown_voltage,
+                    breakdown_factor=2e-3,
+                    breakdown_exp=3,
+                )
+                for voltage in voltage_series
+            ]
+        )
     else:
-        current_series = [
-            bishop88_current_wrapper_function(
-                voltage,
-                *_calculated_pv_cell_params,
-                breakdown_voltage=pv_cell.breakdown_voltage,
-                breakdown_factor=2e-3,
-                breakdown_exp=3,
-            )
-            for voltage in voltage_series
-        ]
+        raise Exception(
+            "Must specify either a current-density, current, or voltage series."
+        )
 
     if current_density_series is not None:
         current_series = current_density_series * pv_cell.area
+
+    if current_series is None:
+        raise Exception(
+            "An internal error occurred when computing the current series. Debug."
+        )
+
+    if voltage_series is None:
+        raise Exception(
+            "An internal error occurred when computing the voltage series. Debug."
+        )
 
     power_series = current_series * voltage_series
 

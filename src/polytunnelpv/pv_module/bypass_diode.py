@@ -19,6 +19,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from tqdm import tqdm
+
 from .pv_cell import PVCell
 
 __all__ = ("BypassDiode", "BypassedCellString")
@@ -43,6 +45,9 @@ class BypassDiode:
     bypass_voltage: float
     end_index: int
     start_index: int
+
+    def calculate_i_from_v(self, voltage: float | list[float]):
+        return 0.5
 
 
 @dataclass(kw_only=True)
@@ -132,7 +137,7 @@ class BypassedCellString:
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in self.pv_cells:
+        for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False):
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,
@@ -144,6 +149,11 @@ class BypassedCellString:
         # Add up the voltage for each cell
         combined_voltage_series = sum(
             cell_to_iv_series[pv_cell][2] for pv_cell in self.pv_cells
+        )
+
+        # Determine the bypass-diode curve
+        bypass_diode_curve = self.bypass_diode.calculate_i_from_v(
+            combined_voltage_series
         )
 
         # Bypass based on the diode voltage.
