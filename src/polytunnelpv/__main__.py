@@ -16,13 +16,12 @@ entrypoint for executing the model.
 
 """
 
-__version__ = "1.0.0a1"
+__version__ = "1.0.0a2"
 
 
 # Use AGG when running on HPC - uncomment below if running on HPC
 # matplotlib.use('Agg')
 import argparse
-import datetime
 import functools
 import math
 import matplotlib.colors as mcolors
@@ -139,6 +138,10 @@ MODULE_STRINGS: str = "module_strings"
 #   The number of modules in the string.
 N_MODULES: str = "n_modules"
 
+# OUTPUT_DIRECTORY:
+#   The name of the outputs directory to use.
+OUTPUT_DIRECTORY: str = "outputs"
+
 # POLYTUNNEL_CURVE@
 #   Keyword used for parsing the information about the curve on which a solar panel
 # sits.
@@ -237,6 +240,10 @@ SOLAR_ZENITH: str = "apparent_zenith"
 #   Column header for temperature column.
 TEMPERATURE: str = "temperature"
 
+# TIME:
+#   Column header for time.
+TIME: str = "time"
+
 # TYPE:
 #   Keyword used to determine the module type of the PV.
 TYPE: str = "type"
@@ -256,6 +263,14 @@ WEATHER_DATA_DIRECTORY: str = "weather_data"
 # WEATHER_DATA_REGEX:
 #   Regex used for parsing location names from weather data.
 WEATHER_DATA_REGEX: Pattern[str] = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
+
+# WIND_DATA_REGEX:
+#   Regex used for parsing location names from weather data.
+WIND_DATA_REGEX: Pattern[str] = re.compile(r"ninja_wind_(?P<location_name>.*)\.csv")
+
+# WIND_SPEED:
+#   Column header for wind-speed column.
+WIND_SPEED: str = "wind_speed"
 
 # WEATHER_FILE_WITH_SOLAR:
 #   The name of the weather file with the solar data.
@@ -541,11 +556,18 @@ def _parse_scenarios(
     ]
 
 
-def _parse_solar() -> dict[str, pd.DataFrame]:
-    """Parse the downloaded solar data that's in the weather data directory."""
+def _parse_weather() -> dict[str, pd.DataFrame]:
+    """
+    Parse the downloaded solar data that's in the weather data directory.
+
+    :returns: A `dict` mapping the location name, as a `str`, to a
+        :class:`pandas.DataFrame` instance containing the solar and wind data.
+
+    """
 
     location_name_to_data_map: dict[str, pd.DataFrame] = {}
 
+    # Parse the solar data
     for filename in os.listdir(WEATHER_DATA_DIRECTORY):
         # Skip the file if it's not in the expected format.
         try:
@@ -557,6 +579,20 @@ def _parse_solar() -> dict[str, pd.DataFrame]:
             os.path.join(WEATHER_DATA_DIRECTORY, filename), "r", encoding=FILE_ENCODING
         ) as f:
             location_name_to_data_map[location_name] = pd.read_csv(f, comment="#")
+
+    for filename in os.listdir(WEATHER_DATA_DIRECTORY):
+        # Skip the file if it's not in the expected format.
+        try:
+            location_name = WIND_DATA_REGEX.match(filename).group("location_name")  # type: ignore [union-attr]
+        except AttributeError:
+            continue
+
+        with open(
+            os.path.join(WEATHER_DATA_DIRECTORY, filename), "r", encoding=FILE_ENCODING
+        ) as f:
+            wind_data = pd.read_csv(f, comment="#")
+
+        location_name_to_data_map[location_name][WIND_SPEED] = wind_data[WIND_SPEED]
 
     return location_name_to_data_map
 
@@ -577,7 +613,7 @@ def _solar_angles_from_weather_row(
     """
 
     return location.get_solarposition(  # type: ignore [no-any-return]
-        row[1][LOCAL_TIME], temperature=row[1][TEMPERATURE]
+        row[1][TIME], temperature=row[1][TEMPERATURE]
     )
 
 
@@ -626,13 +662,16 @@ def process_single_mpp_calculation(
             leave=False,
         ):
             current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-                locations_to_weather_and_solar_map[scenario.location][time_of_day][
-                    TEMPERATURE
-                ],
+                (
+                    weather_map := locations_to_weather_and_solar_map[
+                        scenario.location
+                    ][time_of_day]
+                )[TEMPERATURE],
                 1000
                 * irradiance_frame.set_index("hour")
                 .iloc[time_of_day][1:]
                 .reset_index(drop=True),
+                weather_map[WIND_SPEED],
                 current_series=current_series,
             )
             cell_to_power_map[pv_cell] = power_series
@@ -669,7 +708,7 @@ def process_single_mpp_calculation_without_pbar(
     ],
     pv_system: PVSystem,
     scenario: Scenario,
-) -> tuple[int, float, str]:
+) -> tuple[int, float]:
     """
     Process the MPP calculation for a single hour of the simulation.
 
@@ -692,20 +731,24 @@ def process_single_mpp_calculation_without_pbar(
     :return:
         - A `tuple` containing:
             - The hour of the day,
-            - The MPP power achieved,
-            - The date-time information.
+            - The MPP power achieved.
 
     """
+
+    def _print_success() -> None:
+        """Print a message when a computation was successful."""
+
+        print(f"Hour {time_of_day} processed successfully.")
+
+
     try:
         hour = time_of_day % 24
-        date = datetime(2023, 1, 1) + timedelta(hours=time_of_day)
-        date_str = date.strftime("%d_%b_%Y")
-
         max_irradiance = np.max(
             irradiance_frame.set_index("hour").iloc[time_of_day][1:]
         )
         if max_irradiance == 0:
-            return hour, 0, date_str
+            _print_success()
+            return hour, 0
 
         # Create a mapping between cell and power output
         cell_to_power_map = {}
@@ -730,13 +773,16 @@ def process_single_mpp_calculation_without_pbar(
             leave=False,
         ):
             current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-                locations_to_weather_and_solar_map[scenario.location][time_of_day][
-                    TEMPERATURE
-                ],
+                (
+                    weather_map := locations_to_weather_and_solar_map[
+                        scenario.location
+                    ][time_of_day]
+                )[TEMPERATURE],
                 1000
                 * irradiance_frame.set_index("hour")
-                .iloc[time_of_day][1:]
+                .iloc[time_of_day]
                 .reset_index(drop=True),
+                weather_map[WIND_SPEED],
                 current_series=current_series,
             )
             cell_to_power_map[pv_cell] = power_series
@@ -755,9 +801,13 @@ def process_single_mpp_calculation_without_pbar(
         mpp_current = combined_current_series[maximum_power_index]
         mpp_power = combined_power_series[maximum_power_index]
 
-        print(f"Hour {time_of_day} processed successfully.")
+        # import pdb
 
-        return hour, mpp_power, date_str
+        # pdb.set_trace()
+
+        _print_success()
+
+        return hour, mpp_power
     except Exception as e:
         print(f"Error processing time_of_day {time_of_day}: {str(e)}")
         raise
@@ -846,7 +896,9 @@ def plot_irradiance_with_marginal_means(
 
     joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
     joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
-    joint_plot_grid.ax_joint.set_title(initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y") )
+    joint_plot_grid.ax_joint.set_title(
+        initial_date + timedelta(hours=start_index)
+    ).strftime("%d/%m/%Y")
     joint_plot_grid.ax_joint.legend().remove()
 
     # Remove ticks from axes
@@ -971,7 +1023,7 @@ def main(unparsed_arguments) -> None:
     # Parse the weather data.
     # NOTE: When integrated this as a Python package, this line should be suppressable
     # by weather data being passed in.
-    weather_data = _parse_solar()
+    weather_data = _parse_weather()
     print(DONE)
 
     # Map locations to weather data.
@@ -1055,113 +1107,10 @@ def main(unparsed_arguments) -> None:
         + " ",
         end="",
     )
-    skipped: bool = False
-    for scenario in scenarios:
-        cellwise_irradiances = []
-        if not os.path.isfile(
-            (
-                cellwise_filename := os.path.join(
-                    "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
-                )
-            )
-        ):
-            try:
-                cellwise_irradiances.append(
-                    (
-                        scenario,
-                        [
-                            {
-                                entry[LOCAL_TIME]: get_irradiance(
-                                    pv_cell,
-                                    entry[IRRADIANCE_DIFFUSE],
-                                    entry[IRRADIANCE_GLOBAL_HORIZONTAL],
-                                    entry[SOLAR_AZIMUTH],
-                                    entry[SOLAR_ZENITH],
-                                    direct_normal_irradiance=entry[
-                                        IRRADIANCE_DIRECT_NORMAL
-                                    ],
-                                )
-                                for entry in locations_to_weather_and_solar_map[
-                                    scenario.location
-                                ]
-                            }
-                            for pv_cell in scenario.pv_module.pv_cells
-                        ],
-                    )
-                )
-            except KeyError as key_error:
-                raise KeyError(
-                    "Unable to find weather data for location specified by the scenario. Check "
-                    "you have downloaded it and saved it correctly." + str(key_error)
-                ) from None
-
-            # Transform to a pandas DataFrame for plotting.
-            cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
-            for scenario, irradiances_list in cellwise_irradiances:
-                hourly_frames: list[pd.DataFrame] = []
-                for cell_id, hourly_irradiances in enumerate(irradiances_list):
-                    hourly_frame = pd.DataFrame.from_dict(
-                        hourly_irradiances, orient="index"
-                    )
-                    hourly_frame.columns = pd.Index([cell_id])
-                    hourly_frames.append(hourly_frame)
-
-                combined_frame = pd.concat(hourly_frames, axis=1)
-                combined_frame.sort_index(axis=1, inplace=True, ascending=False)
-                combined_frame["hour"] = [
-                    int(entry.split(" ")[1].split(":")[0])
-                    for entry in hourly_frame.index.to_series()
-                ]
-
-                # Use the cell angle from the axis as the column header
-                combined_frame.columns = [
-                    f"{'-' if pv_cell.cell_id / len(scenario.pv_module.pv_cells) < 0.5 else ''}{str(round(pv_cell.tilt, 3))}"
-                    for pv_cell in scenario.pv_module.pv_cells
-                ] + ["hour"]
-
-                with open(
-                    os.path.join(
-                        "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
-                    ),
-                    "w",
-                ) as f:
-                    combined_frame.to_csv(f, index=None)
-
-            cellwise_irradiance_frames.append((scenario, combined_frame))
-
-        else:
-            skipped = True
-            break
-
-    if skipped:
-        # print("Skipping calculation of irradiance and using irradiance from file")
-
-        cellwise_irradiance_frames = []
-
-        for scenario in tqdm(scenarios, desc="Loading irradiance data", leave=True):
-            with open(
-                os.path.join(
-                    "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
-                ),
-                "r",
-            ) as f:
-                combined_frame = pd.read_csv(f, index_col=None)
-
-            combined_frame.columns = pd.Index([(date_and_time:="date_and_time")] + list(combined_frame.columns)[1:])
-            cellwise_irradiance_frames.append((scenario, combined_frame.copy()))
-
-        print(DONE)
-    else:
-        print(DONE)
-
-    # Defragment the frame
-    cellwise_irradiance_frames = [
-        (entry[0], entry[1].copy()) for entry in cellwise_irradiance_frames
-    ]
-
-    # Extract the information for just the scenario that should be plotted.
+    # Load cell-wise irradiance data if already computed for the scenario being modelled
+    # Otherwise, compute the irradiance data
     try:
-        scenario = {scenario.name: scenario for scenario in scenarios}[
+        modelling_scenario = {scenario.name: scenario for scenario in scenarios}[
             parsed_args.scenario
         ]
     except KeyError:
@@ -1173,9 +1122,101 @@ def main(unparsed_arguments) -> None:
             f"Scenario {parsed_args.scenario.name} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
         ) from None
 
+    cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
+
+    if not os.path.isfile(
+        (
+            cellwise_filename := os.path.join(
+                "auto_generated", f"{modelling_scenario.name}_cellwise_irradiance.csv"
+            )
+        )
+    ) or parsed_args.regenerate:
+        irradiances_list = [
+            {
+                entry[TIME]: get_irradiance(
+                    pv_cell,
+                    entry[IRRADIANCE_DIFFUSE],
+                    entry[IRRADIANCE_GLOBAL_HORIZONTAL],
+                    entry[SOLAR_AZIMUTH],
+                    entry[SOLAR_ZENITH],
+                    direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
+                )
+                for entry in tqdm(
+                    locations_to_weather_and_solar_map[modelling_scenario.location][
+                        :8760
+                    ],
+                    desc="Performing hourly calculation",
+                    leave=False,
+                )
+            }
+            for pv_cell in tqdm(
+                modelling_scenario.pv_module.pv_cells,
+                desc="Cell-wise irradiance",
+                leave=False,
+            )
+        ]
+
+        hourly_frames: list[pd.DataFrame] = []
+        for cell_id, hourly_irradiances in enumerate(irradiances_list):
+            hourly_frame = pd.DataFrame.from_dict(hourly_irradiances, orient="index")
+            hourly_frame.columns = pd.Index([cell_id])
+            hourly_frames.append(hourly_frame)
+
+        combined_frame = pd.concat(hourly_frames, axis=1)
+        combined_frame.sort_index(axis=1, inplace=True, ascending=False)
+
+        combined_frame["hour"] = [
+            int(entry.split(" ")[1].split(":")[0])
+            for entry in hourly_frame.index.to_series()
+        ]
+
+        # Use the cell angle from the axis as the column header
+        combined_frame.columns = [
+            f"{'-' if pv_cell.cell_id / len(modelling_scenario.pv_module.pv_cells) < 0.5 else ''}{str(round(pv_cell.tilt, 3))}"
+            for pv_cell in modelling_scenario.pv_module.pv_cells
+        ] + ["hour"]
+
+        with open(
+            cellwise_filename,
+            "w",
+        ) as cellwise_file:
+            combined_frame.to_csv(cellwise_file, index=None)
+
+        cellwise_irradiance_frames.append((modelling_scenario, combined_frame))
+
+        print(DONE)
+
+    else:
+        for scenario in tqdm(
+            [scenario for scenario in scenarios if scenario == modelling_scenario],
+            desc="Loading irradiance data",
+            leave=True,
+        ):
+            with open(
+                os.path.join(
+                    "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
+                ),
+                "r",
+            ) as f:
+                combined_frame = pd.read_csv(f, index_col=None)
+
+            # combined_frame.columns = pd.Index(
+            #     [(date_and_time := "date_and_time")] + list(combined_frame.columns)[1:]
+            # )
+            cellwise_irradiance_frames.append((scenario, combined_frame.copy()))
+
+        print(DONE)
+
+    # Defragment the frame
+    cellwise_irradiance_frames = [
+        (entry[0], entry[1].copy()) for entry in cellwise_irradiance_frames
+    ]
+
     try:
         irradiance_frame = [
-            entry[1] for entry in cellwise_irradiance_frames if entry[0] == scenario
+            entry[1]
+            for entry in cellwise_irradiance_frames
+            if entry[0] == modelling_scenario
         ][0]
     except IndexError:
         raise Exception("Internal error occurred.") from None
@@ -1184,18 +1225,17 @@ def main(unparsed_arguments) -> None:
         sns.cubehelix_palette(
             start=-0.2,
             rot=-0.2,
-            n_colors=len(scenario.pv_module.pv_cells_and_cell_strings),
+            n_colors=len(modelling_scenario.pv_module.pv_cells_and_cell_strings),
         )
     )
 
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
+    os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 
-    daily_data = defaultdict(list)
-
-    output_directory = "outputs"
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    ################################
+    # Parallelised MPP computation #
+    ################################
 
     # Use joblib to parallelize the for loop
     start_time = time.time()
@@ -1210,7 +1250,7 @@ def main(unparsed_arguments) -> None:
         #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
         #             pbar=pbar,
         #             pv_system=pv_system,
-        #             scenario=scenario,
+        #             scenario=modelling_scenario,
         #         ),
         #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
         #     )
@@ -1222,7 +1262,7 @@ def main(unparsed_arguments) -> None:
                     irradiance_frame=irradiance_frame,
                     locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
                     pv_system=pv_system,
-                    scenario=scenario,
+                    scenario=modelling_scenario,
                 )
             )(time_of_day)
             for time_of_day in range(
@@ -1234,19 +1274,33 @@ def main(unparsed_arguments) -> None:
     end_time = time.time()
     print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
+    import pdb
+
+    pdb.set_trace()
+
     # Process results and accumulate daily data
+    initial_time = datetime.strptime(weather_data[location][TIME], "%Y-%m-%d %H:%M")
     all_mpp_data = []
 
+    daily_data = defaultdict(list)
     for result in results:
         if result is not None:
-            hour, mpp_power, date_str = result
+            hour, mpp_power = result
             if mpp_power is not None:
-                daily_data[date_str].append((hour, mpp_power))
+                daily_data[
+                    (
+                        date_str := (initial_time + timedelta(hours=hour)).strftime(
+                            "%d/%m/%Y"
+                        )
+                    )
+                ].append((hour, mpp_power))
                 all_mpp_data.append((date_str, hour, mpp_power))
 
     # Save daily data to a single Excel file with separate sheets
     with pd.ExcelWriter(
-        os.path.join(output_directory, f"mpp_daily_summary_{scenario.name}.xlsx"),
+        os.path.join(
+            OUTPUT_DIRECTORY, f"mpp_daily_summary_{modelling_scenario.name}.xlsx"
+        ),
         engine="openpyxl",
     ) as writer:
 
@@ -1274,13 +1328,13 @@ def main(unparsed_arguments) -> None:
 
     plt.figure(figsize=(48 / 5, 32 / 5))
     plt.scatter(
-        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+        [pv_cell.cell_id for pv_cell in modelling_scenario.pv_module.pv_cells],
         [
             1000
             * irradiance_frame.set_index("hour")
             .iloc[(plotting_time_of_day := 4812)]
             .values[pv_cell.cell_id + 1]
-            for pv_cell in scenario.pv_module.pv_cells
+            for pv_cell in modelling_scenario.pv_module.pv_cells
         ],
         color="orange",
         marker="D",
@@ -1290,7 +1344,7 @@ def main(unparsed_arguments) -> None:
     plt.xlabel("Cell ID")
     plt.ylabel("Irradiance / W/m$^2$")
     plt.savefig(
-        f"irradiance_graph_{scenario.name}_{plotting_time_of_day}.{(fig_format:='pdf')}",
+        f"irradiance_graph_{modelling_scenario.name}_{plotting_time_of_day}.{(fig_format:='pdf')}",
         # transparent=True,
         format=fig_format,
         # dpi=300,
@@ -1299,10 +1353,10 @@ def main(unparsed_arguments) -> None:
 
     plt.figure(figsize=(48 / 5, 32 / 5))
     plt.scatter(
-        [pv_cell.cell_id for pv_cell in scenario.pv_module.pv_cells],
+        [pv_cell.cell_id for pv_cell in modelling_scenario.pv_module.pv_cells],
         [
             pv_cell.average_cell_temperature(
-                locations_to_weather_and_solar_map[scenario.location][
+                locations_to_weather_and_solar_map[modelling_scenario.location][
                     plotting_time_of_day
                 ][TEMPERATURE]
                 + 273.15,
@@ -1313,7 +1367,7 @@ def main(unparsed_arguments) -> None:
                 0,
             )
             - 273.15
-            for pv_cell in scenario.pv_module.pv_cells
+            for pv_cell in modelling_scenario.pv_module.pv_cells
         ],
         color="red",
         marker="D",
@@ -1324,7 +1378,7 @@ def main(unparsed_arguments) -> None:
     plt.xlabel("Cell ID")
     plt.ylabel("Temperature / Degrees Celsius")
     plt.savefig(
-        f"temperature_graph_{scenario.name}_{plotting_time_of_day}.{fig_format}",
+        f"temperature_graph_{modelling_scenario.name}_{plotting_time_of_day}.{fig_format}",
         transparent=True,
         format="png",
         dpi=300,
@@ -1441,7 +1495,7 @@ def main(unparsed_arguments) -> None:
 
     frame_slice = (
         cellwise_irradiance_frames[scenario_index][1]
-        .iloc[(start_index:=parsed_args.start_day_index) : start_index + 24]
+        .iloc[(start_index := parsed_args.start_day_index) : start_index + 24]
         .set_index("hour")
     )
     frame_slice.pop(date_and_time)
@@ -1468,15 +1522,12 @@ def main(unparsed_arguments) -> None:
     plt.show()
 
     frame_to_plot = cellwise_irradiance_frames[scenario_index][1]
-    date_and_time_series = frame_to_plot.pop(date_and_time)
-    initial_time = datetime.strptime(date_and_time_series.iloc[0], "%Y-%m-%d %H:%M")
     plot_irradiance_with_marginal_means(
         frame_to_plot,
         start_index=(start_index := 24 * 31 * 6 + 48),
         figname=f"{scenario.name}_{parsed_args.start_day_index}_small_panel",
         heatmap_vmax=(
-            heatmap_vmax := frame_to_plot
-            .set_index("hour")
+            heatmap_vmax := frame_to_plot.set_index("hour")
             .iloc[start_index : start_index + 24]
             .max()
             .max()
@@ -1485,8 +1536,7 @@ def main(unparsed_arguments) -> None:
         irradiance_bar_vmax=(
             irradiance_bar_vmax := (
                 max(
-                    frame_to_plot
-                    .set_index("hour")
+                    frame_to_plot.set_index("hour")
                     .iloc[start_index : start_index + 24]
                     .mean(axis=1)
                     .max(),
@@ -1509,8 +1559,7 @@ def main(unparsed_arguments) -> None:
             irradiance_scatter_vmax := 1.25
             * (
                 max(
-                    frame_to_plot
-                    .set_index("hour")
+                    frame_to_plot.set_index("hour")
                     .iloc[start_index : start_index + 24]
                     .mean(axis=0)
                     .max(),
