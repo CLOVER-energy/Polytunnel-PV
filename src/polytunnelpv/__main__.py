@@ -963,7 +963,9 @@ def plot_irradiance_with_marginal_means(
     """
 
     sns.set_style("ticks")
-    frame_slice = data_to_plot.iloc[start_index : start_index + 24].set_index("hour")
+    frame_slice = (
+        data_to_plot.fillna(0).iloc[start_index : start_index + 24].set_index("hour")
+    )
 
     with tqdm(desc="Plotting", leave=False, total=3, unit="steps") as pbar:
 
@@ -1118,7 +1120,9 @@ def plot_temperature_with_marginal_means(
     """
 
     sns.set_style("ticks")
-    frame_slice = data_to_plot.iloc[start_index : start_index + 24].set_index("hour")
+    frame_slice = (
+        data_to_plot.fillna(0).iloc[start_index : start_index + 24].set_index("hour")
+    )
 
     cell_to_temperature_profile_map: dict[float | int, list[float]] = {
         pv_cell.cell_id: [

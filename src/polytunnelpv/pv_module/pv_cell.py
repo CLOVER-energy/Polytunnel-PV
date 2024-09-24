@@ -104,10 +104,10 @@ def _radiation_to_sky_coefficient(
 
     :param: **collector_emissivity:**
         The emissivity of the collector.
-    
+
     :param: **collector_temperature:**
         The temperature of the collector, measured in Kelvin.
-    
+
     :param: **sky_temperature:**
         The sky temperature, measured in Kelvin.
 
@@ -540,11 +540,11 @@ class PVCell:
 
         :param: **ambient_temperature:**
             The ambient temperature, measured in degrees Kelvin.
-        
+
         :param: **solar_irradiance:**
             The solar irradiance incident on the collector, measured in Watts per meter
             squared.
-        
+
         :param: **wind_speed:**
             The wind speed in meters per second.
 
@@ -774,18 +774,18 @@ def calculate_cell_iv_curve(
 
     :param: **irradiance:**
         The irradiance, in W/m^2, striking the cell.
-    
+
     :param: **pv_cell:**
         The PV cell being considered.
-    
+
     :param: **current_density_series:**
         If provided, the current-density series---the series of opints over which to
         calculate the current an power output from the cell.
-    
+
     :param: **current_series:**
         The series of current points over which to calculate the current and power
         output from the cell.
-    
+
     :param: **voltage_series:**
         The series of voltage points over which to calculate the current and power
         output from the cell.
@@ -957,19 +957,19 @@ def get_irradiance(
 
     :param: **pv_cell:
         The cell to calculate these values for.
-    
+
     :param: **diffuse_horizontal_irradiance:
         The diffuse horizontal irradiance in W/m^2.
-    
+
     :param: **global_horizontal_irradiance:
         The global horizontal irradiance.
-    
+
     :param: **solar_azimuth:
         The current azimuth angle of the sun.
-    
+
     :param: **solar_zenith:
         The current zenith angle of the sun, _i.e._, it's declanation.
-    
+
     :param: **direct_normal_irradiance:
         If provided, the direct normal irradiance in W/m^2. If not, this is calculated
         using the solar zenith angle.
