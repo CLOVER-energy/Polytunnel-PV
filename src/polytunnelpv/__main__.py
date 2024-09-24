@@ -22,6 +22,7 @@ __version__ = "1.0.0a2"
 # Use AGG when running on HPC - uncomment below if running on HPC
 # matplotlib.use('Agg')
 import argparse
+import enum
 import functools
 import math
 import matplotlib.colors as mcolors
@@ -38,11 +39,12 @@ import yaml
 
 from datetime import datetime, timedelta
 from collections import defaultdict
+from collections.abc import Iterator
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib import rc, rcParams
 from multiprocessing.dummy import Pool as ThreadPool
-from typing import Any, Hashable, Match, Pattern
+from typing import Any, Generator, Hashable, Match, Pattern
 
 import numpy as np
 import pandas as pd
@@ -56,6 +58,7 @@ from .pv_module.pv_cell import (
     get_irradiance,
     PVCell,
     relabel_cell_electrical_parameters,
+    ZERO_CELSIUS_OFFSET,
 )
 from .pv_module.pv_module import (
     Curve,
@@ -97,6 +100,10 @@ FAILED: str = "[  FAILED  ]"
 # FILE_ENCODING:
 #   The encoding to use when opening and closing files.
 FILE_ENCODING: str = "UTF-8"
+
+# HOUR:
+#   Column header to use when saving hour information.
+HOUR: str = "Hour"
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -288,13 +295,72 @@ class ArgumentError(Exception):
         super().__init__(f"Incorrect CLI arguments: {msg}")
 
 
+class Dashes(Iterator):
+    """
+    Contains the dash information for plotting.
+
+    .. attribute:: dashes
+        The dashes to include.
+
+    """
+
+    def __init__(self) -> None:
+        """
+        Instantiate the dashes.
+
+        """
+
+        self.dash_length: int = 0
+        self.space: int = 1
+        super().__init__()
+
+    def __next__(self) -> Generator[tuple[int, int], None, None]:
+        """
+        Iterate through and yield the dash information.
+
+        :yields: The dash information as a `tuple`.
+
+        """
+
+        # Move on the dash length
+        self.dash_length += 1
+
+        # Move on the space length if needed
+        if self.dash_length - self.space > 3:
+            self.dash_length = 1
+            self.space += 1
+
+        return (self.dash_length, self.space)
+
+
+class OperatingMode(enum.Enum):
+    """
+    Used to determine what operation to carry out.
+
+    - HOURLY_MPP:
+        Carry out a computation for the hourly MPP across the module.
+
+    - IRRADIANCE_HEATMAPS:
+        Generate irradiance heatmaps.
+
+    - IV_CURVES:
+        Generate IV curves for the module.
+
+
+    """
+
+    HOURLY_MPP: str = "hourly_mpp"
+    IRRADIANCE_HEATMAPS: str = "irradiance_heatmaps"
+    IRRADIANCE_LINEPLOTS: str = "irradiance_lineplots"
+    IV_CURVES: str = "iv_curves"
+
+
 def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     """
     Parse the command-line arguments.
 
-    Inputs:
-        - unparsed_args:
-            The unparsed command-line arguments.
+    :param: **unparsed_args:**
+        The unparsed command-line arguments.
 
     """
 
@@ -334,6 +400,14 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
         type=str,
         help="The name of the timestamps file to use for simualtions.",
         default=None,
+    )
+
+    # Operating mode:
+    #   The operation to carry out.
+    parser.add_argument(
+        "--operating-mode",
+        choices=[entry.value for entry in OperatingMode],
+        help="Specify the operating mode.",
     )
 
     # Weather-data arguments.
@@ -414,13 +488,13 @@ def _parse_pv_modules(
     """
     Parse the curved PV module information from the files.
 
-    Inputs:
-        - polytunnels:
-            A mapping between polytunnel names and instances.
-        - user_defined_pv_cells:
+    :param: **polytunnels:**
+        A mapping between polytunnel names and instances.
+
+    :param: **user_defined_pv_cells:**
             A mapping between PV cell name and pv cell information.
 
-    Outputs:
+    :returns:
         The parsed PV modules as a list.
 
     """
@@ -531,14 +605,14 @@ def _parse_scenarios(
     """
     Parse the scenario information.
 
-    Inputs:
-        - locations:
-            The `list` of locations to use.
-        - pv_modules:
+    :param: **locations:**
+        The `list` of locations to use.
+
+    :praam: **pv_modules:**
             The `list` of PVModules that can be installed at each location.
 
-    Outputs:
-        - scenarios:
+    :returns:
+        - **scenarios:**
             The `list` of scenarios to run.
 
     """
@@ -597,17 +671,31 @@ def _parse_weather() -> dict[str, pd.DataFrame]:
     return location_name_to_data_map
 
 
+def _sanitise_time(hours: int, formatter: str, initial_time: datetime) -> str:
+    """
+    Sanitise the time.
+
+    :param: hours
+        The hours to include.
+
+    :param: formatter
+        The string formatter to use.
+
+    """
+
+    return (initial_time + timedelta(hours=hours)).strftime(formatter)
+
+
 def _solar_angles_from_weather_row(
     row: tuple[Hashable, pd.Series], location: pvlib.location.Location
 ) -> pd.DataFrame:
     """
     Use a row from the weather data to comopute the solar angles.
 
-    Inputs:
-        - row:
-            The row in the weather-data frame.
+    :param: **row:**
+        The row in the weather-data frame.
 
-    Outputs:
+    :returns:
         The solar angle-frame at this time.
 
     """
@@ -640,8 +728,9 @@ def process_single_mpp_calculation(
         date_str = date.strftime("%d_%b_%Y")
 
         # Create a mapping between cell and power output
-        cell_to_power_map = {}
-        cell_to_voltage_map = {}
+        cell_to_power_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+        cell_to_voltage_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+        cell_to_bypass_map: dict[BypassedCellString | PVCell, list[bool]] = {}
 
         current_series = np.linspace(
             0,
@@ -661,21 +750,24 @@ def process_single_mpp_calculation(
             desc="IV calculation",
             leave=False,
         ):
-            current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-                (
-                    weather_map := locations_to_weather_and_solar_map[
-                        scenario.location
-                    ][time_of_day]
-                )[TEMPERATURE],
-                1000
-                * irradiance_frame.set_index("hour")
-                .iloc[time_of_day][1:]
-                .reset_index(drop=True),
-                weather_map[WIND_SPEED],
-                current_series=current_series,
+            current_series, power_series, voltage_series, pv_cells_bypassed = (
+                pv_cell.calculate_iv_curve(
+                    (
+                        weather_map := locations_to_weather_and_solar_map[
+                            scenario.location
+                        ][time_of_day]
+                    )[TEMPERATURE],
+                    1000
+                    * irradiance_frame.set_index("hour")
+                    .iloc[time_of_day][1:]
+                    .reset_index(drop=True),
+                    weather_map[WIND_SPEED],
+                    current_series=current_series,
+                )
             )
             cell_to_power_map[pv_cell] = power_series
             cell_to_voltage_map[pv_cell] = voltage_series
+            cell_to_bypass_map[pv_cell] = pv_cells_bypassed
             individual_power_extreme = max(
                 individual_power_extreme, max(abs(power_series))
             )
@@ -708,7 +800,7 @@ def process_single_mpp_calculation_without_pbar(
     ],
     pv_system: PVSystem,
     scenario: Scenario,
-) -> tuple[int, float]:
+) -> tuple[int, float, dict[PVCell, bool]]:
     """
     Process the MPP calculation for a single hour of the simulation.
 
@@ -728,10 +820,13 @@ def process_single_mpp_calculation_without_pbar(
     :param: scenario
         The current :class:`Scenario` being modelled.
 
-    :return:
-        - A `tuple` containing:
-            - The hour of the day,
-            - The MPP power achieved.
+    :returns: The hour of the day,
+
+    :returns: The MPP power achieved,
+
+    :returns: Which bypassed cell strings were bypassing,
+
+    :returns: and the MPP power achieved by each cell/string.
 
     """
 
@@ -739,7 +834,6 @@ def process_single_mpp_calculation_without_pbar(
         """Print a message when a computation was successful."""
 
         print(f"Hour {time_of_day} processed successfully.")
-
 
     try:
         hour = time_of_day % 24
@@ -751,8 +845,9 @@ def process_single_mpp_calculation_without_pbar(
             return hour, 0
 
         # Create a mapping between cell and power output
-        cell_to_power_map = {}
-        cell_to_voltage_map = {}
+        cell_to_power_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+        cell_to_voltage_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+        cell_to_bypass_map: dict[BypassedCellString | PVCell, list[bool]] = {}
 
         current_series = np.linspace(
             0,
@@ -772,21 +867,24 @@ def process_single_mpp_calculation_without_pbar(
             desc="IV calculation",
             leave=False,
         ):
-            current_series, power_series, voltage_series = pv_cell.calculate_iv_curve(
-                (
-                    weather_map := locations_to_weather_and_solar_map[
-                        scenario.location
-                    ][time_of_day]
-                )[TEMPERATURE],
-                1000
-                * irradiance_frame.set_index("hour")
-                .iloc[time_of_day]
-                .reset_index(drop=True),
-                weather_map[WIND_SPEED],
-                current_series=current_series,
+            current_series, power_series, voltage_series, pv_cells_bypassed = (
+                pv_cell.calculate_iv_curve(
+                    (
+                        weather_map := locations_to_weather_and_solar_map[
+                            scenario.location
+                        ][time_of_day]
+                    )[TEMPERATURE],
+                    1000
+                    * irradiance_frame.set_index("hour")
+                    .iloc[time_of_day]
+                    .reset_index(drop=True),
+                    weather_map[WIND_SPEED],
+                    current_series=current_series,
+                )
             )
             cell_to_power_map[pv_cell] = power_series
             cell_to_voltage_map[pv_cell] = voltage_series
+            cell_to_bypass_map[pv_cell] = pv_cells_bypassed
             individual_power_extreme = max(
                 individual_power_extreme, max(abs(power_series))
             )
@@ -801,13 +899,21 @@ def process_single_mpp_calculation_without_pbar(
         mpp_current = combined_current_series[maximum_power_index]
         mpp_power = combined_power_series[maximum_power_index]
 
-        import pdb
+        # Determine which cell strings were bypassing
+        bypassing_cell_strings: dict[PVCell, bool] = {
+            pv_cell: bypass_map[maximum_power_index]
+            for pv_cell, bypass_map in cell_to_bypass_map.items()
+        }
 
-        pdb.set_trace()
+        # Determine the MPP power produced by each cell/string of cells
+        cellwise_mpp: dict[PVCell, float] = {
+            pv_cell: power_series[maximum_power_index]
+            for pv_cell, power_series in cell_to_power_map.items()
+        }
 
         _print_success()
 
-        return hour, mpp_power
+        return hour, mpp_power, bypassing_cell_strings, cellwise_mpp
     except Exception as e:
         print(f"Error processing time_of_day {time_of_day}: {str(e)}")
         raise
@@ -819,7 +925,7 @@ def plot_irradiance_with_marginal_means(
     start_index: int = 0,
     *,
     figname: str = "output_figure",
-    fig_format: str = "eps",
+    fig_format: str = "pdf",
     heatmap_vmax: float | None = None,
     initial_date: datetime = datetime(2015, 1, 1),
     irradiance_bar_vmax: float | None = None,
@@ -830,124 +936,316 @@ def plot_irradiance_with_marginal_means(
     """
     Plot the irradiance heatmap with marginal means.
 
-    Inputs:
-        - data_to_plot:
-            The data to plot.
-        - start_index:
-            The index to start plotting from.
-        - figname:
-            The name to use when saving the figure.
-        - fig_format:
-            The file extension format to use when saving the high-resolution output
-            figures.
-        - heatmap_vmax:
-            The maximum plotting value to use for the irradiance heatmap.
-        - irradiance_bar_vmax:
-            The maximum plotting value to use for the irradiance bars.
-        - irradiance_scatter_vmax:
-            The maximum plotting value to use for the irradiance scatter.
-        - irradiance_scatter_vmin:
-            The minimum plotting value to use for the irradiance scatter.
+    :param: **data_to_plot:**
+        The data to plot.
+
+    :param: **start_index:**
+        The index to start plotting from.
+
+    :param: **figname:**
+        The name to use when saving the figure.
+
+    :param: **fig_format:**
+        The file extension format to use when saving the high-resolution output figures.
+
+    :param: **heatmap_vmax:**
+        The maximum plotting value to use for the irradiance heatmap.
+
+    :param: **irradiance_bar_vmax:**
+        The maximum plotting value to use for the irradiance bars.
+
+    :param: **irradiance_scatter_vmax:**
+        The maximum plotting value to use for the irradiance scatter.
+
+    :param: **irradiance_scatter_vmin:**
+        The minimum plotting value to use for the irradiance scatter.
 
     """
 
     sns.set_style("ticks")
     frame_slice = data_to_plot.iloc[start_index : start_index + 24].set_index("hour")
 
-    # Create a dummy plot and surrounding axes.
-    joint_plot_grid = sns.jointplot(
-        data=frame_slice,
-        kind="hist",
-        bins=(len(frame_slice.columns), 24),
-        marginal_ticks=True,
-    )
-    joint_plot_grid.ax_marg_y.cla()
-    joint_plot_grid.ax_marg_x.cla()
+    with tqdm(desc="Plotting", leave=False, total=3, unit="steps") as pbar:
 
-    # Generate the central heatmap.
-    sns.heatmap(
-        frame_slice,
-        ax=joint_plot_grid.ax_joint,
-        cmap=sns.blend_palette(
-            ["#144E56", "teal", "#94B49F", "orange", "#E04606"], as_cmap=True
-        ),
-        vmin=0,
-        vmax=heatmap_vmax,
-        cbar=True,
-        cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
-    )
+        # Create a dummy plot and surrounding axes.
+        joint_plot_grid = sns.jointplot(
+            data=frame_slice,
+            kind="hist",
+            bins=(len(frame_slice.columns), 24),
+            marginal_ticks=True,
+        )
+        joint_plot_grid.ax_marg_y.cla()
+        joint_plot_grid.ax_marg_x.cla()
+        pbar.update(1)
 
-    # Plot the irradiance bars on the RHS of the plot.
-    joint_plot_grid.ax_marg_y.barh(
-        np.arange(0.5, 24.5), frame_slice.mean(axis=1).to_numpy(), color="#E04606"
-    )
-    joint_plot_grid.ax_marg_y.set_xlim(0, irradiance_bar_vmax)
+        # Generate the central heatmap.
+        sns.heatmap(
+            frame_slice,
+            ax=joint_plot_grid.ax_joint,
+            cmap=sns.blend_palette(
+                ["#144E56", "teal", "#94B49F", "orange", "#E04606"], as_cmap=True
+            ),
+            vmin=0,
+            vmax=heatmap_vmax,
+            cbar=True,
+            cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+        )
+        pbar.update(1)
 
-    # Plot the scatter at the top of the plot.
-    joint_plot_grid.ax_marg_x.scatter(
-        np.arange(0.5, len(frame_slice.columns) + 0.5),
-        (cellwise_means := frame_slice.mean(axis=0).to_numpy()),
-        color="#144E56",
-        marker="D",
-        s=60,
-        alpha=0.7,
-    )
-    joint_plot_grid.ax_marg_x.set_ylim(irradiance_scatter_vmin, irradiance_scatter_vmax)
+        # Plot the irradiance bars on the RHS of the plot.
+        joint_plot_grid.ax_marg_y.barh(
+            np.arange(0.5, 24.5), frame_slice.mean(axis=1).to_numpy(), color="#E04606"
+        )
+        joint_plot_grid.ax_marg_y.set_xlim(0, irradiance_bar_vmax)
 
-    joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
-    joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
-    joint_plot_grid.ax_joint.set_title(
-        initial_date + timedelta(hours=start_index)
-    ).strftime("%d/%m/%Y")
-    joint_plot_grid.ax_joint.legend().remove()
+        # Plot the scatter at the top of the plot.
+        joint_plot_grid.ax_marg_x.scatter(
+            np.arange(0.5, len(frame_slice.columns) + 0.5),
+            (cellwise_means := frame_slice.mean(axis=0).to_numpy()),
+            color="#144E56",
+            marker="D",
+            s=60,
+            alpha=0.7,
+        )
+        joint_plot_grid.ax_marg_x.set_ylim(
+            irradiance_scatter_vmin, irradiance_scatter_vmax
+        )
 
-    # Remove ticks from axes
-    joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
-    joint_plot_grid.ax_marg_x.set_xlabel("Average irradiance / kWm$^{-2}$")
-    joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
-    # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
-    # remove ticks showing the heights of the histograms
-    # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
-    # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
+        joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
+        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_title(
+            (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
+            fontweight="bold",
+        )
+        joint_plot_grid.ax_joint.legend().remove()
 
-    joint_plot_grid.ax_marg_x.grid("on")
-    # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
+        # Remove ticks from axes
+        joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
+        joint_plot_grid.ax_marg_x.set_xlabel("Average irradiance / kWm$^{-2}$")
+        joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
+        # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
+        # remove ticks showing the heights of the histograms
+        # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
+        # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
 
-    joint_plot_grid.figure.tight_layout()
+        joint_plot_grid.ax_marg_x.grid("on")
+        # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
 
-    # Adjust the plot such that the colourbar appears to the RHS.
-    # Solution from JohanC (https://stackoverflow.com/users/12046409/johanc)
-    # Obtained with permission from stackoverflow:
-    # https://stackoverflow.com/questions/60845764/how-to-add-a-colorbar-to-the-side-of-a-kde-jointplot
-    #
-    plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
-    pos_joint_ax = joint_plot_grid.ax_joint.get_position()
-    pos_marg_x_ax = joint_plot_grid.ax_marg_x.get_position()
-    joint_plot_grid.ax_joint.set_position(
-        [pos_joint_ax.x0, pos_joint_ax.y0, pos_marg_x_ax.width, pos_joint_ax.height]
-    )
-    joint_plot_grid.figure.axes[-1].set_position(
-        [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
-    )
+        joint_plot_grid.figure.tight_layout()
 
-    # Save the figure in high- and low-resolution formats.
-    plt.savefig(
-        f"{figname}.{fig_format}",
-        transparent=True,
-        format=fig_format,
-        dpi=300,
-        bbox_inches="tight",
-    )
-    plt.savefig(
-        f"{figname}.png",
-        transparent=True,
-        format="png",
-        dpi=300,
-        bbox_inches="tight",
-    )
+        # Adjust the plot such that the colourbar appears to the RHS.
+        # Solution from JohanC (https://stackoverflow.com/users/12046409/johanc)
+        # Obtained with permission from stackoverflow:
+        # https://stackoverflow.com/questions/60845764/how-to-add-a-colorbar-to-the-side-of-a-kde-jointplot
+        #
+        plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
+        pos_joint_ax = joint_plot_grid.ax_joint.get_position()
+        pos_marg_x_ax = joint_plot_grid.ax_marg_x.get_position()
+        joint_plot_grid.ax_joint.set_position(
+            [pos_joint_ax.x0, pos_joint_ax.y0, pos_marg_x_ax.width, pos_joint_ax.height]
+        )
+        joint_plot_grid.figure.axes[-1].set_position(
+            [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
+        )
 
-    if show_figure:
-        plt.show()
+        # Save the figure in high- and low-resolution formats.
+        plt.savefig(
+            f"{figname}.{fig_format}",
+            format=fig_format,
+            bbox_inches="tight",
+            pad_inches=0,
+        )
+
+        if show_figure:
+            plt.show()
+
+        pbar.update(1)
+
+
+def plot_temperature_with_marginal_means(
+    data_to_plot: pd.DataFrame,
+    start_index: int = 0,
+    *,
+    figname: str = "output_figure",
+    fig_format: str = "pdf",
+    heatmap_vmax: float | None = None,
+    initial_date: datetime = datetime(2015, 1, 1),
+    locations_to_weather_and_solar_map: dict[
+        pvlib.location.Location, list[dict[str, Any]]
+    ],
+    scenario: Scenario,
+    show_figure: bool = True,
+    temperature_bar_vmax: float | None = None,
+    temperature_scatter_vmax: float | None = None,
+    temperature_scatter_vmin: float | None = 0,
+) -> None:
+    """
+    Plot the temperature heatmap with marginal means.
+
+    :param: **data_to_plot:**
+        The data to plot.
+
+    :param: **start_index:**
+        The index to start plotting from.
+
+    :param: **figname:**
+        The name to use when saving the figure.
+
+    :param: **fig_format:**
+        The file extension format to use when saving the high-resolution output figures.
+
+    :param: **heatmap_vmax:**
+        The maximum plotting value to use for the irradiance heatmap.
+
+    :param: **initial_date:**
+        The initial date for the run.
+
+    :param: **locations_to_weather_and_solar_map:**
+        A map between the location name and the weather and solar data.
+
+    :param: **scenario:**
+        The :class:`Scenario` governing the run.
+
+    :param: **temperature_bar_vmax:**
+        The maximum plotting value to use for the irradiance bars.
+
+    :param: **temperature_scatter_vmax:**
+        The maximum plotting value to use for the irradiance scatter.
+
+    :param: **temperature_scatter_vmin:**
+        The minimum plotting value to use for the irradiance scatter.
+
+    """
+
+    sns.set_style("ticks")
+    frame_slice = data_to_plot.iloc[start_index : start_index + 24].set_index("hour")
+
+    cell_to_temperature_profile_map: dict[float | int, list[float]] = {
+        pv_cell.cell_id: [
+            pv_cell.average_cell_temperature(
+                locations_to_weather_and_solar_map[scenario.location][time_of_day][
+                    TEMPERATURE
+                ]
+                + ZERO_CELSIUS_OFFSET,
+                1000 * frame_slice.iloc[time_of_day].iloc[pv_cell.cell_id],
+                0,
+            )
+            - ZERO_CELSIUS_OFFSET
+            for time_of_day in tqdm(
+                range(24), desc="Daily computation", leave=False, unit="hour"
+            )
+        ]
+        for pv_cell in tqdm(
+            scenario.pv_module.pv_cells,
+            desc="Cell-wise computation",
+            leave=False,
+            unit="cell",
+        )
+    }
+    temperature_frame = pd.DataFrame(cell_to_temperature_profile_map)
+    temperature_frame.columns = frame_slice.columns
+
+    if temperature_scatter_vmax is None:
+        temperature_scatter_vmax = 1.25 * (
+            max(
+                temperature_frame.mean(axis=0).max(),
+                0,
+            )
+        )
+
+    with tqdm(desc="Plotting", leave=False, total=3, unit="steps") as pbar:
+
+        # Create a dummy plot and surrounding axes.
+        joint_plot_grid = sns.jointplot(
+            data=temperature_frame,
+            kind="hist",
+            bins=(len(temperature_frame.columns), 24),
+            marginal_ticks=True,
+        )
+        joint_plot_grid.ax_marg_y.cla()
+        joint_plot_grid.ax_marg_x.cla()
+        pbar.update(1)
+
+        # Generate the central heatmap.
+        sns.heatmap(
+            temperature_frame,
+            ax=joint_plot_grid.ax_joint,
+            cmap="coolwarm",
+            vmin=0,
+            vmax=heatmap_vmax,
+            cbar=True,
+            cbar_kws={"label": "Temperature / $^\circ$C"},
+        )
+        pbar.update(1)
+
+        # Plot the irradiance bars on the RHS of the plot.
+        joint_plot_grid.ax_marg_y.barh(
+            np.arange(0.5, 24.5), temperature_frame.mean(axis=1).to_numpy(), color="red"
+        )
+        joint_plot_grid.ax_marg_y.set_xlim(0, temperature_bar_vmax)
+
+        # Plot the scatter at the top of the plot.
+        joint_plot_grid.ax_marg_x.scatter(
+            np.arange(0.5, len(temperature_frame.columns) + 0.5),
+            (cellwise_means := temperature_frame.mean(axis=0).to_numpy()),
+            color="red",
+            marker="D",
+            s=60,
+            alpha=0.7,
+        )
+        joint_plot_grid.ax_marg_x.set_ylim(
+            temperature_scatter_vmin, temperature_scatter_vmax
+        )
+
+        joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
+        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_title(
+            (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
+            fontweight="bold",
+        )
+        joint_plot_grid.ax_joint.legend().remove()
+
+        # Remove ticks from axes
+        joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
+        joint_plot_grid.ax_marg_x.set_xlabel("Average temperature / $^\circ$C")
+        joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
+        # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
+        # remove ticks showing the heights of the histograms
+        # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
+        # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
+
+        joint_plot_grid.ax_marg_x.grid("on")
+        # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
+
+        joint_plot_grid.figure.tight_layout()
+
+        # Adjust the plot such that the colourbar appears to the RHS.
+        # Solution from JohanC (https://stackoverflow.com/users/12046409/johanc)
+        # Obtained with permission from stackoverflow:
+        # https://stackoverflow.com/questions/60845764/how-to-add-a-colorbar-to-the-side-of-a-kde-jointplot
+        #
+        plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
+        pos_joint_ax = joint_plot_grid.ax_joint.get_position()
+        pos_marg_x_ax = joint_plot_grid.ax_marg_x.get_position()
+        joint_plot_grid.ax_joint.set_position(
+            [pos_joint_ax.x0, pos_joint_ax.y0, pos_marg_x_ax.width, pos_joint_ax.height]
+        )
+        joint_plot_grid.figure.axes[-1].set_position(
+            [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
+        )
+
+        # Save the figure in high- and low-resolution formats.
+        plt.savefig(
+            f"{figname}.{fig_format}",
+            format=fig_format,
+            bbox_inches="tight",
+            pad_inches=0,
+        )
+
+        if show_figure:
+            plt.show()
+
+        pbar.update(1)
 
 
 def save_daily_results(date_str, data, scenario_name):
@@ -971,6 +1269,9 @@ def save_daily_results(date_str, data, scenario_name):
 def main(unparsed_arguments) -> None:
     """
     Main method for Polytunnel-PV.
+
+    :param: unparsed_arguments
+        Un-parsed command-line arguments.
 
     """
 
@@ -1124,13 +1425,17 @@ def main(unparsed_arguments) -> None:
 
     cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
 
-    if not os.path.isfile(
-        (
-            cellwise_filename := os.path.join(
-                "auto_generated", f"{modelling_scenario.name}_cellwise_irradiance.csv"
+    if (
+        not os.path.isfile(
+            (
+                cellwise_filename := os.path.join(
+                    "auto_generated",
+                    f"{modelling_scenario.name}_cellwise_irradiance.csv",
+                )
             )
         )
-    ) or parsed_args.regenerate:
+        or parsed_args.regenerate
+    ):
         irradiances_list = [
             {
                 entry[TIME]: get_irradiance(
@@ -1230,88 +1535,326 @@ def main(unparsed_arguments) -> None:
     )
 
     # Fix nan errors:
+    initial_time = datetime.strptime(
+        weather_data[location.name][TIME][0], "%Y-%m-%d %H:%M"
+    )
     irradiance_frame = irradiance_frame.fillna(0)
     os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 
-    ################################
-    # Parallelised MPP computation #
-    ################################
+    # Determine what type of operation to carry out.
+    try:
+        operating_mode = OperatingMode(parsed_args.operating_mode)
+    except ValueError:
+        raise ValueError(
+            f"Invalid operating mode specified: {parsed_args.operating_mode}"
+        ) from None
 
-    process_single_mpp_calculation_without_pbar(
-         12,
-        irradiance_frame=irradiance_frame,
-        locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-        pv_system=pv_system,
-        scenario=modelling_scenario
-    )
+    match operating_mode.value:
 
+        ################################
+        # Parallelised MPP computation #
+        ################################
+        case OperatingMode.HOURLY_MPP.value:
 
-    import pdb
+            # _, mpp_power, bypassed_cell_strings = process_single_mpp_calculation_without_pbar(
+            #     8,
+            #     irradiance_frame=irradiance_frame,
+            #     locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+            #     pv_system=pv_system,
+            #     scenario=modelling_scenario,
+            # )
 
-    pdb.set_trace()
-
-
-    # Use joblib to parallelize the for loop
-    start_time = time.time()
-    print(
-        (this_string := "Parallel MPP computation")
-        + "." * (88 - (len(this_string) + len(DONE)))
-        + " ",
-        end="",
-    )
-    with tqdm(
-        desc="MPP computation", total=parsed_args.iteration_length, unit="hour"
-    ) as pbar:
-        # with ThreadPool(8) as mpool:
-        #     results_map = mpool.map(
-        #         functools.partial(
-        #             process_single_mpp_calculation,
-        #             irradiance_frame=irradiance_frame,
-        #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-        #             pbar=pbar,
-        #             pv_system=pv_system,
-        #             scenario=modelling_scenario,
-        #         ),
-        #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
-        #     )
-
-        results = Parallel(n_jobs=8)(
-            delayed(
-                functools.partial(
-                    process_single_mpp_calculation_without_pbar,
-                    irradiance_frame=irradiance_frame,
-                    locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-                    pv_system=pv_system,
-                    scenario=modelling_scenario,
-                )
-            )(time_of_day)
-            for time_of_day in range(
-                parsed_args.start_day_index,
-                parsed_args.start_day_index + parsed_args.iteration_length,
+            # Use joblib to parallelize the for loop
+            start_time = time.time()
+            print(
+                (this_string := "Parallel MPP computation")
+                + "." * (88 - (len(this_string) + len(DONE)))
+                + " ",
+                end="",
             )
-        )
+            with tqdm(
+                desc="MPP computation", total=parsed_args.iteration_length, unit="hour"
+            ) as pbar:
+                # with ThreadPool(8) as mpool:
+                #     results_map = mpool.map(
+                #         functools.partial(
+                #             process_single_mpp_calculation,
+                #             irradiance_frame=irradiance_frame,
+                #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                #             pbar=pbar,
+                #             pv_system=pv_system,
+                #             scenario=modelling_scenario,
+                #         ),
+                #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
+                #     )
 
-    end_time = time.time()
-    print(DONE)
-    print(f"Parallel processing took {end_time - start_time:.2f} seconds")
+                results = Parallel(n_jobs=8)(
+                    delayed(
+                        functools.partial(
+                            process_single_mpp_calculation_without_pbar,
+                            irradiance_frame=irradiance_frame,
+                            locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                            pv_system=pv_system,
+                            scenario=modelling_scenario,
+                        )
+                    )(time_of_day)
+                    for time_of_day in range(
+                        parsed_args.start_day_index,
+                        parsed_args.start_day_index + parsed_args.iteration_length,
+                    )
+                )
 
-    # Process results and accumulate daily data
-    initial_time = datetime.strptime(weather_data[location.name][TIME][0], "%Y-%m-%d %H:%M")
-    all_mpp_data = []
+            end_time = time.time()
+            print(DONE)
+            print(f"Parallel processing took {end_time - start_time:.2f} seconds")
 
-    daily_data = defaultdict(list)
-    for result in results:
-        if result is not None:
-            hour, mpp_power = result
-            if mpp_power is not None:
-                daily_data[
+            # Process results and accumulate daily data
+            all_mpp_data = []
+
+            daily_data = defaultdict(list)
+            for result in results:
+                if result is not None:
+                    hour, mpp_power, bypassed_cell_strings = result
+                    if mpp_power is not None:
+                        daily_data[
+                            (
+                                date_str := (
+                                    initial_time + timedelta(hours=hour)
+                                ).strftime("%d/%m/%Y")
+                            )
+                        ].append((hour, mpp_power))
+                        all_mpp_data.append(
+                            (date_str, hour, mpp_power, bypassed_cell_strings)
+                        )
+
+            import pdb
+
+            pdb.set_trace()
+
+        case OperatingMode.IRRADIANCE_LINEPLOTS.value:
+
+            ################################
+            # Irradiance lineplot plotting #
+            ################################
+
+            # Line plot of the irradiance throughout the day.
+            sns.set_palette(
+                sns.color_palette(
+                    [
+                        "#8F1838",
+                        "#C11F33",
+                        "#EA1D2D",
+                        "#F36E24",
+                        "#F99D25",
+                        "#FDB714",
+                        "#00ACD7",
+                        "#007DBB",
+                        "#00558A",
+                        "#1A3668",
+                        "#48773C",
+                        "#40AE49",
+                    ]
+                )
+            )
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            dashes = Dashes()
+
+            for time_of_day in tqdm(
+                range(
+                    (start_hour := parsed_args.start_day_index),
                     (
-                        date_str := (initial_time + timedelta(hours=hour)).strftime(
-                            "%d/%m/%Y"
+                        end_hour := parsed_args.start_day_index
+                        + parsed_args.iteration_length
+                    ),
+                ),
+                desc="Plotting irradiance series",
+            ):
+                sns.lineplot(
+                    x=[
+                        pv_cell.cell_id
+                        for pv_cell in modelling_scenario.pv_module.pv_cells
+                    ],
+                    y=[
+                        1000
+                        * irradiance_frame.set_index("hour")
+                        .iloc[time_of_day]
+                        .values[pv_cell.cell_id]
+                        for pv_cell in modelling_scenario.pv_module.pv_cells
+                    ],
+                    # color="orange",
+                    # marker="h",
+                    # s=100,
+                    # alpha=0.35,
+                    dashes=next(dashes),
+                    label=_sanitise_time(time_of_day, "%H:%M", initial_time),
+                )
+
+            plt.xlabel("Cell ID")
+            plt.ylabel("Irradiance / W/m$^2$")
+            # plt.legend().remove()
+            plt.legend()
+
+            # norm = plt.Normalize(
+            #     int(_sanitise_time(start_hour, "%H", initial_time)),
+            #     int(_sanitise_time(end_hour - 1, "%H", initial_time)) + 1,
+            # )
+            # scalar_mappable = plt.cm.ScalarMappable(
+            #     cmap=mcolors.LinearSegmentedColormap.from_list(
+            #         "Custom", sns.color_palette().as_hex(), parsed_args.iteration_length
+            #     ),
+            #     norm=norm,
+            # )
+
+            # colorbar = (axis := plt.gca()).figure.colorbar(
+            #     scalar_mappable,
+            #     ax=axis,
+            #     label="Hour of the day",
+            #     pad=(_pad := 0.025),
+            # )
+            # plt.title((initial_time + timedelta(hours=plotting_time_of_day)).strftime("%H:%M on %d/%m/%Y"))
+            plt.savefig(
+                f"irradiance_graph_{modelling_scenario.name}_{start_hour}_{end_hour}."
+                f"{(fig_format:='pdf')}",
+                format=fig_format,
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            dashes = Dashes()
+
+            for time_of_day in tqdm(
+                range(start_hour, end_hour),
+                desc="Plotting temperature series",
+            ):
+                plt.plot(
+                    [
+                        pv_cell.cell_id
+                        for pv_cell in modelling_scenario.pv_module.pv_cells
+                    ],
+                    [
+                        pv_cell.average_cell_temperature(
+                            locations_to_weather_and_solar_map[
+                                modelling_scenario.location
+                            ][time_of_day][TEMPERATURE]
+                            + ZERO_CELSIUS_OFFSET,
+                            1000
+                            * irradiance_frame.set_index("hour")
+                            .iloc[time_of_day]
+                            .iloc[pv_cell.cell_id],
+                            0,
+                        )
+                        - ZERO_CELSIUS_OFFSET
+                        for pv_cell in modelling_scenario.pv_module.pv_cells
+                    ],
+                    # color="orange",
+                    # marker="h",
+                    # s=100,
+                    # alpha=0.35,
+                    dashes=next(dashes),
+                    label=_sanitise_time(time_of_day, "%H:%M", initial_time),
+                )
+
+            plt.xlabel("Cell ID")
+            plt.ylabel("Temperature / Degrees Celsius")
+            plt.legend()
+            # plt.legend().remove()
+
+            # norm = plt.Normalize(
+            #     int(_sanitise_time(start_hour, "%H", initial_time)),
+            #     int(_sanitise_time(end_hour - 1, "%H", initial_time)) + 1,
+            # )
+            # scalar_mappable = plt.cm.ScalarMappable(
+            #     cmap=mcolors.LinearSegmentedColormap.from_list(
+            #         "Custom", sns.color_palette().as_hex(), parsed_args.iteration_length
+            #     ),
+            #     norm=norm,
+            # )
+
+            # (axis := plt.gca()).figure.colorbar(
+            #     scalar_mappable,
+            #     ax=axis,
+            #     label="Hour of the day",
+            #     pad=(_pad := 0.025),
+            # )
+            # plt.title((initial_time + timedelta(hours=plotting_time_of_day)).strftime("%H:%M on %d/%m/%Y"))
+            plt.savefig(
+                f"temperature_graph_{modelling_scenario.name}_{start_hour}_{end_hour}."
+                f"{(fig_format:='pdf')}",
+                format=fig_format,
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+        case OperatingMode.IRRADIANCE_HEATMAPS.value:
+
+            ###############################
+            # Irradiance heatmap plotting #
+            ###############################
+
+            try:
+                scenario_index: int = [
+                    index
+                    for index, scenario in enumerate(scenarios)
+                    if scenario.name == parsed_args.scenario
+                ][0]
+            except IndexError:
+                raise IndexError(
+                    "Unable to find current scenario weather information."
+                ) from None
+
+            frame_to_plot = cellwise_irradiance_frames[0][1]
+            plot_irradiance_with_marginal_means(
+                frame_to_plot,
+                start_index=(start_hour := parsed_args.start_day_index),
+                figname=f"{scenario.name}_{parsed_args.start_day_index}_irradiance",
+                heatmap_vmax=(
+                    frame_to_plot.set_index("hour")
+                    .iloc[start_hour : start_hour + 24]
+                    .max()
+                    .max()
+                ),
+                initial_date=initial_time,
+                irradiance_bar_vmax=(
+                    max(
+                        frame_to_plot.set_index("hour")
+                        .iloc[start_hour : start_hour + 24]
+                        .mean(axis=1)
+                        .max(),
+                        0,
+                    )
+                ),
+                irradiance_scatter_vmin=0,
+                irradiance_scatter_vmax=(
+                    1.25
+                    * (
+                        max(
+                            frame_to_plot.set_index("hour")
+                            .iloc[start_hour : start_hour + 24]
+                            .mean(axis=0)
+                            .max(),
+                            0,
                         )
                     )
-                ].append((hour, mpp_power))
-                all_mpp_data.append((date_str, hour, mpp_power))
+                ),
+                show_figure=True,
+            )
+
+            plot_temperature_with_marginal_means(
+                frame_to_plot,
+                start_index=(start_hour := parsed_args.start_day_index),
+                figname=f"{scenario.name}_{parsed_args.start_day_index}_temperature",
+                initial_date=initial_time,
+                locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                scenario=scenario,
+                show_figure=True,
+            )
+
+            import pdb
+
+            pdb.set_trace()
 
     # Save daily data to a single Excel file with separate sheets
     with pd.ExcelWriter(
@@ -1326,8 +1869,8 @@ def main(unparsed_arguments) -> None:
         placeholder_sheet = workbook.create_sheet(title="Sheet1")
 
         for date_str, data in daily_data.items():
-            df = pd.DataFrame(data, columns=["Hour", "MPP (W)"])
-            total_mpp = df["MPP (W)"].sum()
+            df = pd.DataFrame(data, columns=[HOUR, "Power / W"])
+            total_mpp = df["Power / W"].sum()
             df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
             df.to_excel(writer, sheet_name=date_str, index=False)
 
@@ -1338,76 +1881,6 @@ def main(unparsed_arguments) -> None:
     # #TODO:
     # # - Improve the speed of the calculation so it can be run for all hours.
     # # - Some way to store whether the cells have been bypassed.
-
-    ######################################################
-    # Plot the irradiance on each cell across the module #
-    ######################################################
-
-    plt.figure(figsize=(48 / 5, 32 / 5))
-    plt.scatter(
-        [pv_cell.cell_id for pv_cell in modelling_scenario.pv_module.pv_cells],
-        [
-            1000
-            * irradiance_frame.set_index("hour")
-            .iloc[(plotting_time_of_day := 4812)]
-            .values[pv_cell.cell_id]
-            for pv_cell in modelling_scenario.pv_module.pv_cells
-        ],
-        color="orange",
-        marker="D",
-        s=150,
-        alpha=0.55,
-    )
-    plt.xlabel("Cell ID")
-    plt.ylabel("Irradiance / W/m$^2$")
-    # plt.title((initial_time + timedelta(hours=plotting_time_of_day)).strftime("%H:%M on %d/%m/%Y"))
-    plt.savefig(
-        f"irradiance_graph_{modelling_scenario.name}_{plotting_time_of_day}.{(fig_format:='pdf')}",
-        # transparent=True,
-        format=fig_format,
-        # dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.figure(figsize=(48 / 5, 32 / 5))
-    plt.scatter(
-        [pv_cell.cell_id for pv_cell in modelling_scenario.pv_module.pv_cells],
-        [
-            pv_cell.average_cell_temperature(
-                locations_to_weather_and_solar_map[modelling_scenario.location][
-                    plotting_time_of_day
-                ][TEMPERATURE]
-                + 273.15,
-                1000
-                * irradiance_frame.set_index("hour")
-                .iloc[plotting_time_of_day]
-                .iloc[pv_cell.cell_id],
-                0,
-            )
-            - 273.15
-            for pv_cell in modelling_scenario.pv_module.pv_cells
-        ],
-        color="red",
-        marker="D",
-        s=150,
-        alpha=0.55,
-        edgecolor=None,
-    )
-    plt.xlabel("Cell ID")
-    plt.ylabel("Temperature / Degrees Celsius")
-    plt.savefig(
-        f"temperature_graph_{modelling_scenario.name}_{plotting_time_of_day}.{fig_format}",
-        transparent=True,
-        format="png",
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.show()
-
-    import pdb
-
-    pdb.set_trace()
 
     def _post_process_split_axes(ax1, ax2):
         """
@@ -1500,23 +1973,12 @@ def main(unparsed_arguments) -> None:
     )
 
     # Determine the scenario index
-    try:
-        scenario_index: int = [
-            index
-            for index, scenario in enumerate(scenarios)
-            if scenario.name == parsed_args.scenario
-        ][0]
-    except IndexError:
-        raise IndexError(
-            "Unable to find current scenario weather information."
-        ) from None
 
     frame_slice = (
         cellwise_irradiance_frames[scenario_index][1]
         .iloc[(start_index := parsed_args.start_day_index) : start_index + 24]
         .set_index("hour")
     )
-    frame_slice.pop(date_and_time)
     sns.heatmap(
         frame_slice,
         cmap=sns.blend_palette(
@@ -1538,64 +2000,6 @@ def main(unparsed_arguments) -> None:
     plt.xlabel("Cell index within panel")
     plt.ylabel("Hour of the day")
     plt.show()
-
-    frame_to_plot = cellwise_irradiance_frames[scenario_index][1]
-    plot_irradiance_with_marginal_means(
-        frame_to_plot,
-        start_index=(start_index := 24 * 31 * 6 + 48),
-        figname=f"{scenario.name}_{parsed_args.start_day_index}_small_panel",
-        heatmap_vmax=(
-            heatmap_vmax := frame_to_plot.set_index("hour")
-            .iloc[start_index : start_index + 24]
-            .max()
-            .max()
-        ),
-        initial_date=initial_time,
-        irradiance_bar_vmax=(
-            irradiance_bar_vmax := (
-                max(
-                    frame_to_plot.set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=1)
-                    .max(),
-                    0,
-                    # cellwise_irradiance_frames[1][1]
-                    # .set_index("hour")
-                    # .iloc[start_index : start_index + 24]
-                    # .mean(axis=1)
-                    # .max(),
-                    # cellwise_irradiance_frames[2][1]
-                    # .set_index("hour")
-                    # .iloc[start_index : start_index + 24]
-                    # .mean(axis=1)
-                    # .max(),
-                )
-            )
-        ),
-        irradiance_scatter_vmin=0,
-        irradiance_scatter_vmax=(
-            irradiance_scatter_vmax := 1.25
-            * (
-                max(
-                    frame_to_plot.set_index("hour")
-                    .iloc[start_index : start_index + 24]
-                    .mean(axis=0)
-                    .max(),
-                    0,
-                    # cellwise_irradiance_frames[1][1]
-                    # .set_index("hour")
-                    # .iloc[start_index : start_index + 24]
-                    # .sum(axis=0)
-                    # .max(),
-                    # cellwise_irradiance_frames[2][1]
-                    # .set_index("hour")
-                    # .iloc[start_index : start_index + 24]
-                    # .sum(axis=0)
-                    # .max(),
-                )
-            )
-        ),
-    )
 
     # # Calcualte the MPP of the PV system for each of the horus to be modelled.
     # if parsed_args.timestamps_file is None:

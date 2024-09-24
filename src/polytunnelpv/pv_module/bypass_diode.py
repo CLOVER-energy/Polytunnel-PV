@@ -15,13 +15,14 @@ This module provides functionality for the modelling of bypass diodes within PV 
 
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from tqdm import tqdm
 
-from .pv_cell import PVCell
+from ..__utils__ import BOLTZMAN_CONSTANT, ELECTRON_CHARGE
+from .pv_cell import PVCell, ZERO_CELSIUS_OFFSET
 
 __all__ = ("BypassDiode", "BypassedCellString")
 
@@ -45,9 +46,24 @@ class BypassDiode:
     bypass_voltage: float
     end_index: int
     start_index: int
+    saturation_current: float = 1e-12
+    ideality_factor: float = 1.1
+    thermal_voltage: float = field(init=False)
 
-    def calculate_i_from_v(self, voltage: float | list[float]):
-        return 0.5
+    def calculate_i_from_v(self, voltage: float | list[float]) -> np.array:
+        """
+        Calculate the current based on the voltage using the Shockley diode equation.
+
+        :param: voltage
+            Either a single value or a list of values for which to calculate.
+
+        """
+
+        voltage = np.array(voltage)  # Ensure voltage is an array for vector operations
+        current = self.saturation_current * (
+            np.exp(-voltage / (self.ideality_factor * self.thermal_voltage)) - 1
+        )
+        return current
 
 
 @dataclass(kw_only=True)
@@ -98,6 +114,35 @@ class BypassedCellString:
 
         return hash(self.cell_id)
 
+    def set_bypass_diode_temperature(
+        self, ambient_celsius_temperature: float, irradiance_array: float
+    ) -> None:
+        """
+        Initialize the bypass diode parameters.
+
+        :param: ambient_celsius_temperature
+            The ambient temperature in degC.
+
+        :param: irradiance_array
+            The irradiance falling on the system.
+
+        """
+
+        # Calculate the average cell temperature for the set of cells being bypassed.
+        temperatures = [
+            pv_cell.average_cell_temperature(
+                ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
+                irradiance_array[pv_cell.cell_id],
+                0,  # Assuming wind speed of 0 for simplicity
+            )
+            for pv_cell in self.pv_cells
+        ]
+        average_temperature = np.mean(temperatures)
+
+        # Calculate thermal voltage (kT/q) in Volts
+        thermal_voltage = BOLTZMAN_CONSTANT * average_temperature / ELECTRON_CHARGE
+        self.bypass_diode.thermal_voltage = thermal_voltage
+
     def calculate_iv_curve(
         self,
         ambient_celsius_temperature: float,
@@ -107,7 +152,7 @@ class BypassedCellString:
         current_density_series: np.ndarray | None = None,
         current_series: np.ndarray | None = None,
         voltage_series: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[bool]]:
         """
         Calculate the IV curve for the bypassed string of cells.
 
@@ -139,9 +184,15 @@ class BypassedCellString:
             The power values.
 
         :returns: voltage_series
-                The voltage series.
+            The voltage series.
+
+        :returns: pv_cells_bypassed
+            Whether the PV cells have been bypassed.
 
         """
+
+        # Set the bypass-diode tepmerature.
+        self.set_bypass_diode_temperature(ambient_celsius_temperature, irradiance_array)
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
@@ -165,17 +216,20 @@ class BypassedCellString:
             combined_voltage_series
         )
 
-        # Bypass based on the diode voltage.
-        combined_voltage_series = np.array(
-            [
-                max(entry, self.bypass_diode.bypass_voltage)
-                for entry in combined_voltage_series
-            ]
-        )
+        # Calculate the total current
+        total_current = bypass_diode_curve + (cell_to_iv_series[pv_cell][0])
 
         # Re-compute the combined power series.
-        combined_power_series = (
-            current_series := cell_to_iv_series[self.pv_cells[0]][0]
-        ) * combined_voltage_series
+        combined_power_series = total_current * combined_voltage_series
 
-        return current_series, combined_power_series, combined_voltage_series
+        # Determine whether the cells have been bypassed
+        pv_cells_bypassed: list[bool] = list(
+            bypass_diode_curve > cell_to_iv_series[pv_cell][0]
+        )
+
+        return (
+            current_series,
+            combined_power_series,
+            combined_voltage_series,
+            pv_cells_bypassed,
+        )

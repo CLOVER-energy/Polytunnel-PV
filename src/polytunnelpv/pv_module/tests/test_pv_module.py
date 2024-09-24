@@ -43,11 +43,11 @@ class _BaseCircularCurveTest(unittest.TestCase):
         """
         Used to enable `almostEqual` operation on `tuple` elements.
 
-        Inputs:
-            - first_set:
-                The first set of angles to compare.
-            - second_set:
-                The second set of angles to compare.
+        :param: **first_set:**
+            The first set of angles to compare.
+
+        :param: **second_set:**
+            The second set of angles to compare.
 
         """
 
@@ -58,9 +58,8 @@ class _BaseCircularCurveTest(unittest.TestCase):
         """
         Calculate the angle based on the displacement for this particular curve.
 
-        Inputs:
-            - displacement:
-                The displacement, in meters.
+        :param: **displacement:**
+            The displacement, in meters.
 
         """
 
