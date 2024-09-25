@@ -113,9 +113,8 @@ class Curve(ABC):
         """
         Hook used to store the type of the curve.
 
-        Inputs:
-            - curve_type:
-                The type of the curve.
+        :param: **curve_type:**
+            The type of the curve.
 
         """
 
@@ -132,11 +131,10 @@ class Curve(ABC):
         Abstract method that must be implemented in subclasses.
         Calculate the azimuth and zenith angles at a point along the curve.
 
-        Inputs:
-            - displacement:
-                The distance from the central axis.
+        :param: **displacement:**
+            The distance from the central axis.
 
-        Returns:
+        :returns:
             - A tuple, (azimuth, tilt), with angles in degrees.
 
         """
@@ -227,11 +225,10 @@ class Curve(ABC):
         """
         Rotate the normal vector based on the orientation of the curve/Polytunnel.
 
-        Inputs:
-            - un_rotated_normal:
-                The surface normal vector in the un-rotated frame.
+        :param: **un_rotated_normal:**
+            The surface normal vector in the un-rotated frame.
 
-        Outputs:
+        :returns:
             - A `tuple` containing information about the new rotated normal vector:
                 - The azimuth angle, in degrees,
                 - THe tilt angle, in degrees.
@@ -306,11 +303,10 @@ class CircularCurve(Curve, curve_type=CurveType.CIRCULAR):
         """
         Calculate the azimuth and zenith angles at a point along the curve.
 
-        Inputs:
-            - displacement:
-                The distance from the central axis.
+        :param: **displacement:**
+            The distance from the central axis.
 
-        Returns:
+        :returns:
             - A tuple, (azimuth, tilt), with angles in degrees.
 
         """
@@ -461,33 +457,41 @@ class CurvedPVModule:
         angle of 90 (degrees) means that the cells are aligned perpendicular to the axis
         of the polytunnel.
 
-        Inputs:
-            - cell_breakdown_voltage:
-                The breakdown voltage of the PV cells, in Volts.
-            - cell_electrical_parameters:
-                Electrical parameters used to describe the IV curve of the cell.
-            - cell_length:
-                The length of the cells, _i.e._, the dimension parallel to the module
-                length, given in meters.
-            - cell_spacing:
-                The space betweeh the cells, given in meters.
-            - cell_width:
-                The width of the cells, _i.e._, the dimension perpendicular to the
-                module length, given in meters.
-            - n_cells:
-                The number of cells in the module.
-            - bypass_diodes:
-                The `list` of all bypass diodes present on the module.
-            - offest_angle:
-                The angle between the length of the module and the axis of the
-                polytunnel.
-            - polytunnel_curve:
-                The curve defining the polytunnel.
-            - module_centre_offset:
-                The offset of the centre of the module from the centre of the curve, in
-                meters.
+        :param: **cell_breakdown_voltage:**
+            The breakdown voltage of the PV cells, in Volts.
 
-        Returns:
+        :param: **cell_electrical_parameters:**
+            Electrical parameters used to describe the IV curve of the cell.
+
+        :param: **cell_length:**
+            The length of the cells, _i.e._, the dimension parallel to the module
+            length, given in meters.
+
+        :param: **cell_spacing:**
+            The space betweeh the cells, given in meters.
+
+        :param: **cell_width:**
+            The width of the cells, _i.e._, the dimension perpendicular to the
+            module length, given in meters.
+
+        :param: **n_cells:**
+            The number of cells in the module.
+
+        :param: **bypass_diodes:**
+            The `list` of all bypass diodes present on the module.
+
+        :param: **offest_angle:**
+            The angle between the length of the module and the axis of the
+            polytunnel.
+
+        :param: **polytunnel_curve:**
+            The curve defining the polytunnel.
+
+        :param: **module_centre_offset:**
+            The offset of the centre of the module from the centre of the curve, in
+            meters.
+
+        :returns:
             The instantiated `CurvedPVModule` instance.
 
         """
@@ -590,9 +594,10 @@ class CurvedPVModule:
         """
         Return the proper constructor based on the module type.
 
-        Inputs:
-            - module_type:
-                The type of the PV module to use in the constructor.
+        :param: **module_type:
+            The type of the PV module to use in the constructor.
+
+        :returns: The appropriate constructor.
 
         """
 

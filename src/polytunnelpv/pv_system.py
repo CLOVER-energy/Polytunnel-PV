@@ -74,11 +74,10 @@ class PVSystem:
 
         Current sources will add across each string.
 
-        Inputs:
-            - module_current:
-                The module current characterstic values.
+        :param: **module_current:**
+            The module current characterstic values.
 
-        Returns:
+        :returns:
             The combined current for the system.
 
         """
@@ -91,11 +90,10 @@ class PVSystem:
         """
         Combine voltages across the strings.
 
-        Inputs:
-            - module_voltage:
-                The module voltage charactersic values.
+        :param: **module_voltage:**
+            The module voltage charactersic values.
 
-        Returns:
+        :returns:
             The combined voltage for the system.
 
         """
@@ -120,11 +118,10 @@ class PVSystem:
         simply be the total power in the system provided that the configuration is
         valid.
 
-        Inputs:
-            - module_power:
-                The module power characteristic values.
+        :param: **module_power:**
+            The module power characteristic values.
 
-        Returns:
+        :returns:
             The combined power for the system.
 
         """

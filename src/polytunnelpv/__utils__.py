@@ -14,7 +14,9 @@ __utils__.py - The utility module for Polytunnel-PV.
 
 __all__ = (
     "BOLTZMAN_CONSTANT",
+    "ELECTRON_CHARGE",
     "NAME",
+    "VOLTAGE_RESOLUTION",
 )
 
 # BOLTZMAN_CONSTANT:
@@ -28,3 +30,7 @@ ELECTRON_CHARGE: float = 1.60217662e-19
 # NAME:
 #   Keyword for parsing the name.
 NAME: str = "name"
+
+# VOLTAGE_RESOLUTION:
+#   The number of points to use for IV plotting.
+VOLTAGE_RESOLUTION: int = 1000

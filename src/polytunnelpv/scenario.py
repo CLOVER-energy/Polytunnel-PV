@@ -67,13 +67,14 @@ class Scenario:
         """
         Instantiate based on data from the scenarios file.
 
-        Inputs:
-            - entry:
-                The data from the file to use.
-            - locations:
-                The `dict` of locations to use, keyed by name.
-            - pv_modules:
-                The `dict` of curved PV modules to use, keyed by.
+        :param: **entry:**
+            The data from the file to use.
+
+        :param: **locations:**
+            The `dict` of locations to use, keyed by name.
+
+        :param: **pv_modules:**
+            The `dict` of curved PV modules to use, keyed by.
 
         """
 
