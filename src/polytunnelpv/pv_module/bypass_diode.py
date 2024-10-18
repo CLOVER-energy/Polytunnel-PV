@@ -18,6 +18,7 @@ This module provides functionality for the modelling of bypass diodes within PV 
 from dataclasses import dataclass, field
 
 import numpy as np
+import pandas as pd
 
 from tqdm import tqdm
 
@@ -70,6 +71,8 @@ class BypassDiode:
         :param: voltage
             Either a single value or a list of values for which to calculate.
 
+        :returns: The current.
+
         """
 
         voltage = np.array(voltage)  # Ensure voltage is an array for vector operations
@@ -77,6 +80,24 @@ class BypassDiode:
             np.exp(-voltage / (self.ideality_factor * self.thermal_voltage)) - 1
         )
         return current
+
+    def calculate_v_from_i(self, current: float | list[float]) -> np.array:
+        """
+        Calculate the voltage based on the current using the Shockley diode equation.
+
+        :param: current
+            Either a single value or a list of values for which to calculate.
+
+        :returns: The voltage.
+
+        """
+
+        current = np.array(current)
+        voltage = -(self.ideality_factor * self.thermal_voltage) * np.log(
+            1 + current / self.saturation_current
+        )
+
+        return voltage
 
 
 @dataclass(kw_only=True)
@@ -208,16 +229,17 @@ class BypassedCellString:
         self.set_bypass_diode_temperature(ambient_celsius_temperature, irradiance_array)
 
         # Calculate the curves for each cell
-        cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False):
-            cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
+        cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {
+            pv_cell: pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,
                 wind_speed,
                 current_density_series=current_density_series,
                 current_series=current_series,
-                voltage_series=voltage_series,
+                # voltage_series=voltage_series,
             )
+            for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False)
+        }
 
         # Add up the voltage for each cell
         combined_voltage_series = sum(
@@ -226,24 +248,43 @@ class BypassedCellString:
 
         # Determine the bypass-diode curve
         bypass_diode_curve = self.bypass_diode.calculate_i_from_v(
-            combined_voltage_series
+            bypass_voltage_series := np.linspace(-1, 0, VOLTAGE_RESOLUTION)
         )
 
-        # Calculate the total current
-        total_current = bypass_diode_curve + (cell_to_iv_series[pv_cell][0])
+        # Construct an interpreter
+        cell_string_interp = lambda v: np.interp(
+            v,
+            combined_voltage_series,
+            current_series,
+            period=np.max(combined_voltage_series) - np.min(combined_voltage_series),
+        )
+        total_current = [
+            cell_string_interp(voltage) + bypass_diode_curve[index]
+            for index, voltage in enumerate(bypass_voltage_series)
+        ] + list(current_series[combined_voltage_series > 0])
+        voltage_values = list(bypass_voltage_series) + list(
+            combined_voltage_series[combined_voltage_series > 0]
+        )
+
+        sorted_voltage_series, sorted_total_current = zip(
+            *sorted(zip(voltage_values, total_current))
+        )
 
         # Re-compute the combined power series.
-        combined_power_series = total_current * combined_voltage_series
+        sorted_voltage_series = np.array(sorted_voltage_series)
+        sorted_total_current = np.array(sorted_total_current)
+        sorted_total_power = sorted_voltage_series * sorted_total_current
 
         # Determine whether the cells have been bypassed
         pv_cells_bypassed: list[bool] = list(
-            bypass_diode_curve > cell_to_iv_series[pv_cell][0]
-        )
+            current > cell_string_interp(voltage)
+            for current, voltage in zip(bypass_diode_curve, bypass_voltage_series)
+        ) + [False] * len(combined_voltage_series[combined_voltage_series > 0])
 
         return (
-            current_series,
-            combined_power_series,
-            combined_voltage_series,
+            sorted_total_current,
+            sorted_total_power,
+            sorted_voltage_series,
             pv_cells_bypassed,
         )
 
@@ -320,8 +361,8 @@ class BypassedCellString:
         bypass_diode_curve = self.bypass_diode.calculate_i_from_v(
             (
                 bypass_diode_voltage := np.linspace(
-                    -10 * self.bypass_diode.thermal_voltage,
-                    self.pv_cells[0].open_circuit_voltage,
+                    self.bypass_diode.calculate_v_from_i(np.max(current_series)),
+                    np.max(combined_voltage_series),
                     VOLTAGE_RESOLUTION,
                 )
             )

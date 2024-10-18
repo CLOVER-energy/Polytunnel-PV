@@ -45,7 +45,7 @@ from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib import rc, rcParams
 from multiprocessing.dummy import Pool as ThreadPool
-from typing import Any, Generator, Hashable, Match, Pattern
+from typing import Any, Callable, Generator, Hashable, Match, Pattern
 
 import numpy as np
 import pandas as pd
@@ -89,6 +89,10 @@ CELL_ELECTRICAL_PARAMETERS: str = "cell_electrical_parameters"
 # CELL_TYPE:
 #   Keyword for the name of the cell-type to use.
 CELL_TYPE: str = "cell_type"
+
+# CURRENT_SAMPLING_RATE:
+#    Rate used to sample current data for ease of calculation.
+CURRENT_SAMPLING_RATE: int = 20
 
 # DONE:
 #   The message to display when a task was successful.
@@ -357,6 +361,7 @@ class OperatingMode(enum.Enum):
 
     HOURLY_MPP: str = "hourly_mpp"
     HOURLY_MPP_HPC: str = "hourly_mpp_hpc"
+    HOURLY_MPP_MACHINE_LEARNING_TRAING: str = "hourly_mpp_machine_learning"
     IRRADIANCE_HEATMAPS: str = "irradiance_heatmaps"
     IRRADIANCE_LINEPLOTS: str = "irradiance_lineplots"
     IV_CURVES: str = "iv_curves"
@@ -869,6 +874,7 @@ def process_single_mpp_calculation_without_pbar(
             )
 
         # Create a mapping between cell and power output
+        cell_to_current_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
         cell_to_power_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
         cell_to_voltage_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
         cell_to_bypass_map: dict[BypassedCellString | PVCell, list[bool]] = {}
@@ -906,6 +912,7 @@ def process_single_mpp_calculation_without_pbar(
                     current_series=current_series,
                 )
             )
+            cell_to_current_map[pv_cell] = current_series
             cell_to_power_map[pv_cell] = power_series
             cell_to_voltage_map[pv_cell] = voltage_series
             cell_to_bypass_map[pv_cell] = pv_cells_bypassed
@@ -913,26 +920,78 @@ def process_single_mpp_calculation_without_pbar(
                 individual_power_extreme, max(abs(power_series))
             )
 
-        combined_power_series = sum(cell_to_power_map.values())
-        combined_voltage_series = sum(cell_to_voltage_map.values())
-        combined_power_series = pv_system.combine_powers(combined_power_series)
-        combined_voltage_series = pv_system.combine_voltages(combined_voltage_series)
-        combined_current_series = pv_system.combine_currents(current_series)
+        # Compute the total power produced
+        cell_voltage_interpreters = {
+            pv_cell: lambda i, pv_cell=pv_cell: np.interp(
+                i,
+                list(reversed(cell_to_current_map[pv_cell])),
+                list(reversed(cell_to_voltage_map[pv_cell])),
+                period=np.max(cell_to_current_map[pv_cell])
+                - np.min(cell_to_current_map[pv_cell]),
+            )
+            for pv_cell in scenario.pv_module.pv_cells_and_cell_strings
+        }
 
-        maximum_power_index = pd.Series(combined_power_series).idxmax()
-        mpp_current = combined_current_series[maximum_power_index]
-        mpp_power = combined_power_series[maximum_power_index]
+        cellwise_voltage = {
+            pv_cell: [
+                interpreter(current)
+                for current in tqdm(
+                    current_series[::CURRENT_SAMPLING_RATE],
+                    desc="Interpolation calculation",
+                    leave=False,
+                )
+            ]
+            for pv_cell, interpreter in tqdm(
+                cell_voltage_interpreters.items(),
+                desc="Cell-wise calculation",
+                leave=False,
+            )
+        }
+        module_voltage = [sum(sublist) for sublist in zip(*cellwise_voltage.values())]
+
+        module_power = module_voltage * current_series[::CURRENT_SAMPLING_RATE]
+        mpp_index: int = list(module_power).index(np.max(module_power))
+
+        # Determine the power through the module at MPP
+        mpp_power: float = module_power[mpp_index]
+
+        # Determine the MPP power produced by each cell
+        cellwise_mpp: dict[PVCell, float] = {
+            pv_cell: voltage_interpreter(
+                (mpp_current := current_series[::CURRENT_SAMPLING_RATE][mpp_index])
+            )
+            * mpp_current
+            for pv_cell, voltage_interpreter in cell_voltage_interpreters.items()
+        }
+
+        def _find_nearest_index(input_list: list, target_value: float):
+            """
+            Determine the index of the nearest element to the target entry.
+
+            :param: input_list
+                The list which the entry should be looked up in.
+
+            :param: target_value
+                The value which to lookup.
+
+            :returns: The index of the closest element.
+
+            """
+
+            return min(
+                range(len(input_list)),
+                key=lambda index: abs(input_list[index] - target_value),
+            )
 
         # Determine which cell strings were bypassing
         bypassing_cell_strings: dict[PVCell, bool] = {
-            pv_cell: bypass_map[maximum_power_index]
+            pv_cell: bypass_map[
+                _find_nearest_index(
+                    cell_to_voltage_map[pv_cell],
+                    cell_voltage_interpreters[pv_cell](mpp_current),
+                )
+            ]
             for pv_cell, bypass_map in cell_to_bypass_map.items()
-        }
-
-        # Determine the MPP power produced by each cell/string of cells
-        cellwise_mpp: dict[PVCell, float] = {
-            pv_cell: power_series[maximum_power_index]
-            for pv_cell, power_series in cell_to_power_map.items()
         }
 
         _print_success()
@@ -1771,6 +1830,34 @@ def main(unparsed_arguments) -> None:
 
             pdb.set_trace()
 
+        case OperatingMode.HOURLY_MPP_MACHINE_LEARNING_TRAING.value:
+
+            #################################
+            # BSc. Machine Learning Project #
+            #################################
+
+            # Open the data from the training data-set file if it already exists,
+            # otherwise, construct new data.
+            if os.path.isfile((filename := "training_data_hours.csv")):
+                training_data_hours = pd.read_csv(filename)
+            else:
+                # Compute a series of random hours throughout the year
+                # Save them to the file
+                pass
+
+            # Split the weather data into training and test data.
+
+            # Week 3 only: Select the machine-learning algorithm from either an argument
+            # that we take in on the command-line, in Python, or from some file, or we
+            # go through a list of different algorithms.
+
+            # Run the code, in a parallel loop, to develop a machine-learning object
+            # which is trained on the training data.
+
+            # Use the test data to assess how well it worked.
+
+            # Save all the objects and the results.
+
         case OperatingMode.IRRADIANCE_LINEPLOTS.value:
 
             ################################
@@ -2004,10 +2091,6 @@ def main(unparsed_arguments) -> None:
 
             time_of_day = parsed_args.start_day_index
 
-            import pdb
-
-            pdb.set_trace()
-
             current_series = np.linspace(
                 0,
                 1.1
@@ -2020,12 +2103,21 @@ def main(unparsed_arguments) -> None:
                 VOLTAGE_RESOLUTION,
             )
 
+            # Maps for plotting curves
             cell_to_current_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
             cell_to_voltage_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
             cell_to_bypass_current_map: dict[
                 BypassedCellString | PVCell, np.ndarray
             ] = {}
             cell_to_bypass_voltage_map: dict[
+                BypassedCellString | PVCell, np.ndarray
+            ] = {}
+
+            # Maps for computing the MPP
+            mpp_cell_to_current_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+            mpp_cell_to_voltage_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+            mpp_cell_to_power_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
+            mpp_cell_to_bypass_operating: dict[
                 BypassedCellString | PVCell, np.ndarray
             ] = {}
 
@@ -2036,10 +2128,10 @@ def main(unparsed_arguments) -> None:
             ):
                 (
                     current_series,
+                    power_series,
                     voltage_series,
-                    bypass_diode_current,
-                    bypass_diode_voltage,
-                ) = pv_cell.calculate_iv_curve_for_plotting(
+                    bypass_diode_operating,
+                ) = pv_cell.calculate_iv_curve(
                     (
                         weather_map := locations_to_weather_and_solar_map[
                             modelling_scenario.location
@@ -2052,10 +2144,204 @@ def main(unparsed_arguments) -> None:
                     weather_map[WIND_SPEED],
                     current_series=current_series,
                 )
-                cell_to_current_map[pv_cell] = current_series
-                cell_to_voltage_map[pv_cell] = voltage_series
-                cell_to_bypass_current_map[pv_cell] = bypass_diode_current
-                cell_to_bypass_voltage_map[pv_cell] = bypass_diode_voltage
+
+                mpp_cell_to_current_map[pv_cell] = current_series
+                mpp_cell_to_voltage_map[pv_cell] = voltage_series
+                mpp_cell_to_power_map[pv_cell] = power_series
+                mpp_cell_to_bypass_operating[pv_cell] = bypass_diode_operating
+
+            time_string = (initial_time + timedelta(hours=time_of_day)).strftime(
+                "%d_%m_%y_at_%H_%M"
+            )
+
+            # Plot the IV curves across the module, along with the power that each
+            # bypassed group produces
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            left_axis = plt.gca()
+            right_axis = left_axis.twinx()
+
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                left_axis.plot(
+                    mpp_cell_to_voltage_map[pv_cell],
+                    mpp_cell_to_current_map[pv_cell],
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                )
+                right_axis.plot(
+                    mpp_cell_to_voltage_map[pv_cell],
+                    mpp_cell_to_power_map[pv_cell],
+                    "--",
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                )
+
+            left_axis.set_ylim(bottom=-2.5, top=10)
+            right_axis.set_ylim(bottom=-10, top=40)
+            left_axis.legend(title="Initial index of cell in string", ncol=4)
+            plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
+            left_axis.set_ylabel("Module current / A")
+            right_axis.set_ylabel("Cell-wise, or cell-string-wise, power / W")
+
+            plt.savefig(
+                f"iv_curves_with_power_{time_string}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+            # Plot the IV curves across the module as current and power only.
+            plt.figure(figsize=(48 / 5, 32 / 5))
+
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                plt.plot(
+                    mpp_cell_to_voltage_map[pv_cell],
+                    mpp_cell_to_current_map[pv_cell],
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                )
+
+            plt.ylim(bottom=0, top=10)
+            plt.legend(title="Initial index of cell in string", ncol=4)
+            plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
+            plt.ylabel("Module current / A")
+
+            plt.savefig(
+                f"iv_curves_{time_string}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+            # Compute the total power produced
+            cell_voltage_interpreters = {
+                pv_cell: lambda i: np.interp(
+                    i,
+                    list(reversed(mpp_cell_to_current_map[pv_cell])),
+                    list(reversed(mpp_cell_to_voltage_map[pv_cell])),
+                    period=np.max(mpp_cell_to_current_map[pv_cell])
+                    - np.min(mpp_cell_to_current_map[pv_cell]),
+                )
+                for pv_cell in modelling_scenario.pv_module.pv_cells_and_cell_strings
+            }
+
+            cellwise_voltage = {
+                pv_cell: [
+                    cell_voltage_interpreters[pv_cell](current)
+                    for current in tqdm(
+                        current_series[::CURRENT_SAMPLING_RATE],
+                        desc="Interpolating current",
+                        leave=False,
+                    )
+                ]
+                for pv_cell in tqdm(
+                    modelling_scenario.pv_module.pv_cells_and_cell_strings,
+                    desc="String-wise calculation",
+                    leave=False,
+                )
+            }
+            module_voltage = [
+                sum(sublist) for sublist in zip(*cellwise_voltage.values())
+            ]
+
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                plt.plot(
+                    mpp_cell_to_voltage_map[pv_cell],
+                    mpp_cell_to_current_map[pv_cell],
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                )
+
+            plt.plot(
+                module_voltage,
+                current_series[::CURRENT_SAMPLING_RATE],
+                "--",
+                color="orange",
+            )
+
+            plt.ylim(bottom=0, top=10)
+            plt.legend(title="Initial index of cell in string", ncol=4)
+            plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
+            plt.ylabel("Module current / A")
+
+            plt.savefig(
+                f"iv_curves_with_module_{time_string}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+            module_power = module_voltage * current_series[::CURRENT_SAMPLING_RATE]
+            mpp_index: int = list(module_power).index(np.max(module_power))
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            left_axis = plt.gca()
+            right_axis = left_axis.twinx()
+
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                left_axis.plot(
+                    mpp_cell_to_current_map[pv_cell],
+                    mpp_cell_to_power_map[pv_cell],
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                )
+
+            right_axis.plot(
+                current_series[::CURRENT_SAMPLING_RATE],
+                module_power,
+                "--",
+                color="orange",
+                label="Module power",
+            )
+            right_axis.scatter(
+                current_series[::CURRENT_SAMPLING_RATE][mpp_index],
+                module_power[mpp_index],
+                marker="H",
+                color="orange",
+                s=200,
+                label="Maximum power point (MPP)",
+            )
+
+            left_axis.set_ylim(bottom=-25, top=25)
+            right_axis.set_ylim(
+                bottom=-(power_limit := 1.1 * np.max(module_power)), top=power_limit
+            )
+            plt.xlim(np.min(current_series), np.max(current_series))
+
+            l_handles, l_labels = left_axis.get_legend_handles_labels()
+            r_handles, r_labels = right_axis.get_legend_handles_labels()
+
+            left_axis.legend(
+                l_handles + [None] + r_handles,
+                l_labels + ["Power"] + r_labels,
+                #  title="Initial index of cell in string",
+                ncol=4,
+            )
+            plt.xlabel("Module current / A")
+            left_axis.set_ylabel("Cell-wise, or cell-string-wise, power / W")
+            right_axis.set_ylabel("Module power / W")
+
+            plt.savefig(
+                f"ip_curves_{time_string}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+            import pdb
+
+            pdb.set_trace()
 
         case OperatingMode.VALIDATION.value:
 
