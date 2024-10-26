@@ -423,6 +423,15 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
         help="Specify the operating mode.",
     )
 
+    # When doing machine learning, the ratio of training to test data
+    # Job. 1
+    parser.add_argument(
+        "--proportion-for-training",
+        type=float,
+        help="Specify the proportion of data that are used for training.",
+        default=3/4,
+    )
+
     # Weather-data arguments.
     weather_arguments = parser.add_argument_group("weather-data arguments")
     # Regenerate:
@@ -1410,6 +1419,9 @@ def main(unparsed_arguments) -> None:
         {module.name: module for module in pv_modules},
     )
 
+    # Parse the new argument of training data proportion.
+    train = parsed_args.proportion_for_training
+
     # Parse the weather data.
     # NOTE: When integrated this as a Python package, this line should be suppressable
     # by weather data being passed in.
@@ -1836,27 +1848,68 @@ def main(unparsed_arguments) -> None:
             # BSc. Machine Learning Project #
             #################################
 
-            # Open the data from the training data-set file if it already exists,
-            # otherwise, construct new data.
-            if os.path.isfile((filename := "training_data_hours.csv")):
-                training_data_hours = pd.read_csv(filename)
-            else:
-                # Compute a series of random hours throughout the year
-                # Save them to the file
-                pass
+            # firstly, the function to remove no-sunlight hours
 
-            # Split the weather data into training and test data.
+            def remove_all_zero_rows_by_index(dataframe):
+
+                # firstly filter out the rows with no data or non-numerical values
+                float_dataframe = dataframe.select_dtypes(include=['float64'])
+    
+                # Create a mask to filter out rows where all the specified columns (except those ignored) are zero
+                mask = (float_dataframe != 0).any(axis=1)
+                filtered_dataframe = dataframe[mask]
+                filtered_dataframe = filtered_dataframe.dropna(how='all')
+    
+                return filtered_dataframe
+
+            # Job 2. Open the data from the training data-set file if it already exists,
+            # otherwise, construct new data.
+            
+            if os.path.isfile((filename := "training_data_hours.csv")):
+                data_train = pd.read_csv(filename)
+            else:
+                data = irradiance_frame
+                start = parsed_args.start_day_index
+                length = parsed_args.iteration_length
+
+                # Find the hours we want based on the input
+                sliced_data = data[start : start+length]
+
+                # Remove rows where all values are zero in both datasets
+                data_non_zero = remove_all_zero_rows_by_index(sliced_data)
+                # num_rows = data_non_zero.shape[0]
+                # print(num_rows)
+
+                # Split and get both datasets
+                data_train = data_non_zero.sample(frac=0.8, random_state=40)
+                data_test = data_non_zero.drop(data_train.index)
+
+                # Save them to the file
+                current_folder = os.path.dirname(os.path.abspath(__file__))
+                target_folder = os.path.join(current_folder, '..\..\machine_learning')
+                print(target_folder)
+
+                os.makedirs(target_folder, exist_ok=True)
+
+                data_test.to_csv(os.path.join(target_folder, 'training_data_hours.csv'), index=False, encoding='utf-8')
+                print(data_test)
+
+            # Job 3. Open the output file if it already exists, otherwise, run simulations
+
+                # Job 5. Run the code, in a parallel loop, to develop a machine-learning object
+                # which is trained on the training data.
+
+                # Save all the objects and the results.
+
+            # Job 4. Split the weather data into training and test data ready to ML.
+
+            # Job 6. Create a machine-learning object based on the data and train
 
             # Week 3 only: Select the machine-learning algorithm from either an argument
             # that we take in on the command-line, in Python, or from some file, or we
             # go through a list of different algorithms.
 
-            # Run the code, in a parallel loop, to develop a machine-learning object
-            # which is trained on the training data.
-
-            # Use the test data to assess how well it worked.
-
-            # Save all the objects and the results.
+            # Job 7. Use the test data to assess how well it worked.
 
         case OperatingMode.IRRADIANCE_LINEPLOTS.value:
 
@@ -2443,26 +2496,37 @@ def main(unparsed_arguments) -> None:
             )
 
     # Save daily data to a single Excel file with separate sheets
-    with pd.ExcelWriter(
-        os.path.join(
-            OUTPUT_DIRECTORY, f"mpp_daily_summary_{modelling_scenario.name}.xlsx"
-        ),
-        engine="openpyxl",
-    ) as writer:
 
-        # Ensure at least one sheet is present and visible
-        workbook = writer.book
-        placeholder_sheet = workbook.create_sheet(title="Sheet1")
+    # There is no daily data yet, so I comment these lines.
 
-        for date_str, data in daily_data.items():
-            df = pd.DataFrame(data, columns=[HOUR, "Power / W"])
-            total_mpp = df["Power / W"].sum()
-            df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
-            df.to_excel(writer, sheet_name=date_str, index=False)
 
-        # Remove the placeholder sheet if it was not used
-        if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
-            del workbook["Sheet1"]
+
+
+
+    # with pd.ExcelWriter(
+    #     os.path.join(
+    #         OUTPUT_DIRECTORY, f"mpp_daily_summary_{modelling_scenario.name}.xlsx"
+    #     ),
+    #     engine="openpyxl",
+    # ) as writer:
+
+    #     # Ensure at least one sheet is present and visible
+    #     workbook = writer.book
+    #     placeholder_sheet = workbook.create_sheet(title="Sheet1")
+
+    #     for date_str, data in daily_data.items():
+    #         df = pd.DataFrame(data, columns=[HOUR, "Power / W"])
+    #         total_mpp = df["Power / W"].sum()
+    #         df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
+    #         df.to_excel(writer, sheet_name=date_str, index=False)
+
+    #     # Remove the placeholder sheet if it was not used
+    #     if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
+    #         del workbook["Sheet1"]
+
+
+
+
 
     # #TODO:
     # # - Improve the speed of the calculation so it can be run for all hours.
@@ -2501,91 +2565,93 @@ def main(unparsed_arguments) -> None:
         ax1.plot([0], [0], transform=ax1.transAxes, **kwargs)
         ax2.plot([0], [1], transform=ax2.transAxes, **kwargs)
 
-    gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
-    fig, axes = plt.subplots(5, 2, figsize=(48 / 5, 32 / 5), gridspec_kw=gridspec)
-    fig.subplots_adjust(hspace=0, wspace=0.25)
+    # The same as above
 
-    axes[2, 0].set_visible(False)
-    axes[2, 1].set_visible(False)
-    y_label_coord: int = int(-850)
+    # gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
+    # fig, axes = plt.subplots(5, 2, figsize=(48 / 5, 32 / 5), gridspec_kw=gridspec)
+    # fig.subplots_adjust(hspace=0, wspace=0.25)
 
-    axes[0, 0].get_shared_x_axes().join(axes[0, 0], axes[1, 0])
-    axes[3, 0].get_shared_x_axes().join(axes[3, 0], axes[4, 0])
-    axes[3, 1].get_shared_x_axes().join(axes[3, 1], axes[4, 1])
-    axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
+    # axes[2, 0].set_visible(False)
+    # axes[2, 1].set_visible(False)
+    # y_label_coord: int = int(-850)
 
-    curve_info = pvlib.pvsystem.singlediode(
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        ivcurve_pnts=100,
-        method="lambertw",
-    )
-    plt.plot(curve_info["v"], curve_info["i"])
-    plt.show()
+    # axes[0, 0].get_shared_x_axes().join(axes[0, 0], axes[1, 0])
+    # axes[3, 0].get_shared_x_axes().join(axes[3, 0], axes[4, 0])
+    # axes[3, 1].get_shared_x_axes().join(axes[3, 1], axes[4, 1])
+    # axes[0, 1].get_shared_x_axes().join(axes[0, 1], axes[1, 1])
 
-    pvlib.singlediode.bishop88_i_from_v(
-        -14.95,
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        breakdown_voltage=-15,
-        breakdown_factor=2e-3,
-        breakdown_exp=3,
-    )
+    # curve_info = pvlib.pvsystem.singlediode(
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     ivcurve_pnts=100,
+    #     method="lambertw",
+    # )
+    # plt.plot(curve_info["v"], curve_info["i"])
+    # plt.show()
 
-    v_oc = pvlib.singlediode.bishop88_v_from_i(
-        0.0,
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        method="lambertw",
-    )
-    voltage_array = np.linspace(-15 * 0.999, v_oc, 1000)
-    ivcurve_i, ivcurve_v, _ = pvlib.singlediode.bishop88(
-        voltage_array,
-        photocurrent=IL,
-        saturation_current=I0,
-        resistance_series=Rs,
-        resistance_shunt=Rsh,
-        nNsVth=nNsVth,
-        breakdown_voltage=-15,
-    )
+    # pvlib.singlediode.bishop88_i_from_v(
+    #     -14.95,
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     breakdown_voltage=-15,
+    #     breakdown_factor=2e-3,
+    #     breakdown_exp=3,
+    # )
+
+    # v_oc = pvlib.singlediode.bishop88_v_from_i(
+    #     0.0,
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     method="lambertw",
+    # )
+    # voltage_array = np.linspace(-15 * 0.999, v_oc, 1000)
+    # ivcurve_i, ivcurve_v, _ = pvlib.singlediode.bishop88(
+    #     voltage_array,
+    #     photocurrent=IL,
+    #     saturation_current=I0,
+    #     resistance_series=Rs,
+    #     resistance_shunt=Rsh,
+    #     nNsVth=nNsVth,
+    #     breakdown_voltage=-15,
+    # )
 
     # Determine the scenario index
 
-    frame_slice = (
-        cellwise_irradiance_frames[scenario_index][1]
-        .iloc[(start_index := parsed_args.start_day_index) : start_index + 24]
-        .set_index("hour")
-    )
-    sns.heatmap(
-        frame_slice,
-        cmap=sns.blend_palette(
-            [
-                "#144E56",
-                "#28769C",
-                "teal",
-                "#94B49F",
-                "grey",
-                "silver",
-                "orange",
-                "#E04606",
-            ],
-            as_cmap=True,
-        ),
-        vmin=0,
-        cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
-    )
-    plt.xlabel("Cell index within panel")
-    plt.ylabel("Hour of the day")
-    plt.show()
+    # frame_slice = (
+    #     cellwise_irradiance_frames[scenario_index][1]
+    #     .iloc[(start_index := parsed_args.start_day_index) : start_index + 24]
+    #     .set_index("hour")
+    # )
+    # sns.heatmap(
+    #     frame_slice,
+    #     cmap=sns.blend_palette(
+    #         [
+    #             "#144E56",
+    #             "#28769C",
+    #             "teal",
+    #             "#94B49F",
+    #             "grey",
+    #             "silver",
+    #             "orange",
+    #             "#E04606",
+    #         ],
+    #         as_cmap=True,
+    #     ),
+    #     vmin=0,
+    #     cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+    # )
+    # plt.xlabel("Cell index within panel")
+    # plt.ylabel("Hour of the day")
+    # plt.show()
 
     # import pdb
 
