@@ -427,6 +427,7 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     # Job. 1
     parser.add_argument(
         "--proportion-for-training",
+        "-pft",
         type=float,
         help="Specify the proportion of data that are used for training.",
         default=3/4,
@@ -1272,7 +1273,7 @@ def plot_temperature_with_marginal_means(
             vmin=0,
             vmax=heatmap_vmax,
             cbar=True,
-            cbar_kws={"label": "Temperature / $^\circ$C"},
+            cbar_kws={"label": "Temperature / $^\\circ$C"},
         )
         pbar.update(1)
 
@@ -1305,7 +1306,7 @@ def plot_temperature_with_marginal_means(
 
         # Remove ticks from axes
         joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
-        joint_plot_grid.ax_marg_x.set_xlabel("Average temperature / $^\circ$C")
+        joint_plot_grid.ax_marg_x.set_xlabel("Average temperature / $^\\circ$C")
         joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
         # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
         # remove ticks showing the heights of the histograms
@@ -1521,7 +1522,7 @@ def main(unparsed_arguments) -> None:
                 "Scenario must be specified on the command-line."
             ) from None
         raise KeyError(
-            f"Scenario {parsed_args.scenario.name} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
+            f"Scenario {parsed_args.scenario} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
         ) from None
 
     cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
@@ -1759,19 +1760,18 @@ def main(unparsed_arguments) -> None:
                     return 0
                 return 1
 
-            all_mpp_data = [
-                [
-                    entry[0],
-                    entry[1],
-                    entry[2],
-                    {
-                        key.cell_id: _process_bypassing(str(value))
-                        for key, value in entry[3].items()
-                    },
-                    {key.cell_id: value for key, value in entry[4].items()},
-                ]
-                for entry in all_mpp_data
-            ]
+            # all_mpp_data = [
+            #     [
+            #         entry[0],  <- Time of day
+            #         entry[1],  <- Power - the thing we want to predict
+            #         {
+            #             key.cell_id: bool(value)
+            #             for key, value in entry[2].items()
+            #         },
+            #         {key.cell_id: value for key, value in entry[3].items()},  <- Power from each cell
+            #     ]
+            #     for entry in results
+            # ]
 
             # Save the output data
             with open(
@@ -1886,7 +1886,7 @@ def main(unparsed_arguments) -> None:
 
                 # Save them to the file
                 current_folder = os.path.dirname(os.path.abspath(__file__))
-                target_folder = os.path.join(current_folder, '..\..\machine_learning')
+                target_folder = os.path.join(current_folder, 'machine_learning')
                 print(target_folder)
 
                 os.makedirs(target_folder, exist_ok=True)
@@ -1895,13 +1895,101 @@ def main(unparsed_arguments) -> None:
                 print(data_test)
 
             # Job 3. Open the output file if it already exists, otherwise, run simulations
+            if os.path.isfile((ml_filename:=f"ml_runs_{start}_{start+length}.json")):
+                results = None  # FIXME
+
+            else:
+                results = Parallel(n_jobs=8)(
+                    delayed(
+                        functools.partial(
+                            process_single_mpp_calculation_without_pbar,
+                            irradiance_frame=irradiance_frame,
+                            locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                            pv_system=pv_system,
+                            scenario=modelling_scenario,
+                        )
+                    )(time_of_day)
+                    for time_of_day in range(
+                        start,
+                        start + length,
+                    )
+                )
+                
+                def _process_bypassing(entry_to_process: bool | None) -> None:
+                    """
+                    Process the bypass-diode.
+
+                    :param: entry_to_process
+                        The entry to process.
+
+                    :returns: The processed entry.
+
+                    """
+
+                    if entry_to_process == "0":
+                        return None
+                    if entry_to_process == "False":
+                        return 0
+                    return 1
+
+                import pdb
+
+                pdb.set_trace()
+
+                all_mpp_data = [
+                    [
+                        entry[0],  <- Time of day
+                        entry[1],  <- Power - the thing we want to predict
+                        {
+                            key.cell_id: bool(value)
+                            for key, value in entry[2].items()
+                        },
+                        {key.cell_id: value for key, value in entry[3].items()},  <- Power from each cell
+                    ]
+                    for entry in results
+                ]
+
+                zenith = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_ZENITH] for hour in range(start, start + length)] <- Solar zenith
+                Also get solar azimuth
+                Also for the solar irradiance
+
+                # Save the output data
+                with open(
+                    os.path.join(
+                        OUTPUT_DIRECTORY,
+                        ml_filename,
+                    ),
+                    "w",
+                    encoding="UTF-8",
+                ) as output_file:
+                    json.dump(all_mpp_data, output_file)
+
+                import pdb
+
+                pdb.set_trace()
+
+            # import run_simulation
+
+            # for scenario in scenarios:
+            #     scenario_name = scenario.name  # Get the scenario name
+
+            #     # Check if the output already exists
+            #     output_file = f"outputs/{scenario_name}_results.json"
+            #     if os.path.isfile(output_file):
+            #         print(f"Results for scenario {scenario_name} already exist. Skipping.")
+            #         continue
+                
+            #     # Run the simulation for the scenario
+            #     print(f"Running simulation for scenario: {scenario_name}")
+            #     run_simulation(scenario_name)
+            #     print(f"Simulation for scenario {scenario_name} completed.")
 
                 # Job 5. Run the code, in a parallel loop, to develop a machine-learning object
                 # which is trained on the training data.
 
                 # Save all the objects and the results.
 
-            # Job 4. Split the weather data into training and test data ready to ML.
+            # Job 4. Split the output data into training and test data ready to ML.
 
             # Job 6. Create a machine-learning object based on the data and train
 
