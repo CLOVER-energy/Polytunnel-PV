@@ -1850,7 +1850,7 @@ def main(unparsed_arguments) -> None:
 
             # firstly, the function to remove no-sunlight hours
 
-            def remove_all_zero_rows_by_index(dataframe):
+            def remove_irradiance_zero_rows(dataframe):
 
                 # firstly filter out the rows with no data or non-numerical values
                 float_dataframe = dataframe.select_dtypes(include=['float64'])
@@ -1864,39 +1864,17 @@ def main(unparsed_arguments) -> None:
 
             # Job 2. Open the data from the training data-set file if it already exists,
             # otherwise, construct new data.
-            
-            if os.path.isfile((filename := "training_data_hours.csv")):
-                data_train = pd.read_csv(filename)
-            else:
-                data = irradiance_frame
-                start = parsed_args.start_day_index
-                length = parsed_args.iteration_length
 
-                # Find the hours we want based on the input
-                sliced_data = data[start : start+length]
-
-                # Remove rows where all values are zero in both datasets
-                data_non_zero = remove_all_zero_rows_by_index(sliced_data)
-                # num_rows = data_non_zero.shape[0]
-                # print(num_rows)
-
-                # Split and get both datasets
-                data_train = data_non_zero.sample(frac=0.8, random_state=40)
-                data_test = data_non_zero.drop(data_train.index)
-
-                # Save them to the file
-                current_folder = os.path.dirname(os.path.abspath(__file__))
-                target_folder = os.path.join(current_folder, 'machine_learning')
-                print(target_folder)
-
-                os.makedirs(target_folder, exist_ok=True)
-
-                data_test.to_csv(os.path.join(target_folder, 'training_data_hours.csv'), index=False, encoding='utf-8')
-                print(data_test)
+            start = parsed_args.start_day_index
+            length = parsed_args.iteration_length
+            current_folder = os.path.dirname(os.path.abspath(__file__))
+            target_folder = os.path.join(current_folder, '..\..\machine_learning')
+            target_file = os.path.join(target_folder, 'training_data_hours.csv')
 
             # Job 3. Open the output file if it already exists, otherwise, run simulations
-            if os.path.isfile((ml_filename:=f"ml_runs_{start}_{start+length}.json")):
-                results = None  # FIXME
+            if os.path.isfile(target_file):
+                data_train = pd.read_csv(target_file)
+                print(data_train)
 
             else:
                 results = Parallel(n_jobs=8)(
@@ -1932,41 +1910,75 @@ def main(unparsed_arguments) -> None:
                         return 0
                     return 1
 
-                import pdb
-
-                pdb.set_trace()
+                # pdb.set_trace()
 
                 all_mpp_data = [
                     [
-                        entry[0],  <- Time of day
-                        entry[1],  <- Power - the thing we want to predict
+                        entry[0],  # <- Time of day
+                        entry[1],  # <- Power - the thing we want to predict
                         {
                             key.cell_id: bool(value)
                             for key, value in entry[2].items()
                         },
-                        {key.cell_id: value for key, value in entry[3].items()},  <- Power from each cell
+                        {key.cell_id: value for key, value in entry[3].items()}, # <- Power from each cell
                     ]
                     for entry in results
                 ]
 
-                zenith = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_ZENITH] for hour in range(start, start + length)] <- Solar zenith
-                Also get solar azimuth
-                Also for the solar irradiance
+                zenith = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_ZENITH]
+                               for hour in range(start, start + length)] # <- Solar zenith
+                azimuth = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_AZIMUTH]
+                               for hour in range(start, start + length)]
+                # irradiance_dir = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][IRRADIANCE_DIRECT]
+                #                for hour in range(start, start + length)]
+                # irradiance_n = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][IRRADIANCE_DIRECT_NORMAL]
+                #                for hour in range(start, start + length)]
+                # irradiance_diff = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][IRRADIANCE_DIFFUSE]
+                #                for hour in range(start, start + length)]
+                irradiance_g = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][IRRADIANCE_GLOBAL_HORIZONTAL]
+                               for hour in range(start, start + length)]
+                time = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][TIME]
+                               for hour in range(start, start + length)]
+                temperature = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][TEMPERATURE]
+                               for hour in range(start, start + length)]
+                wind_speed = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][WIND_SPEED]
+                               for hour in range(start, start + length)]
+
+                data = {
+                    "Time": time,
+                    "Irradiance": irradiance_g,
+                    "Zenith": zenith,
+                    "Azimuth": azimuth,
+                    "Temperature": temperature,
+                    "Wind Speed": wind_speed
+                }
+
+                df = pd.DataFrame(data)
+
+                # Remove rows with zero irradiance
+                df = df[df["Irradiance"] != 0]
+
+                # Split the data into training and testing parts
+                data_train = df.sample(frac=train, random_state=40)
+                data_test = df.drop(data_train.index)
 
                 # Save the output data
-                with open(
-                    os.path.join(
-                        OUTPUT_DIRECTORY,
-                        ml_filename,
-                    ),
-                    "w",
-                    encoding="UTF-8",
-                ) as output_file:
-                    json.dump(all_mpp_data, output_file)
+                os.makedirs(target_folder, exist_ok=True)
 
-                import pdb
+                data_train.to_csv(os.path.join(target_folder, 'training_data_hours.csv'), index=False, encoding='utf-8')
 
-                pdb.set_trace()
+                print(data_train)
+                # with open(
+                #     os.path.join(
+                #         OUTPUT_DIRECTORY,
+                #         ml_filename,
+                #     ),
+                #     "w",
+                #     encoding="UTF-8",
+                # ) as output_file:
+                #     json.dump(all_mpp_data, output_file)
+
+                # pdb.set_trace()
 
             # import run_simulation
 
