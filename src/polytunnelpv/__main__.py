@@ -1850,7 +1850,7 @@ def main(unparsed_arguments) -> None:
 
             # firstly, the function to remove no-sunlight hours
 
-            def remove_irradiance_zero_rows(dataframe):
+            def remove_all_zero_rows(dataframe):
 
                 # firstly filter out the rows with no data or non-numerical values
                 float_dataframe = dataframe.select_dtypes(include=['float64'])
@@ -1925,6 +1925,41 @@ def main(unparsed_arguments) -> None:
                     for entry in results
                 ]
 
+                # all_values = []
+                
+                # for entry in all_mpp_data:
+    
+                #     cell_values = [float(value) for value in entry[3].values()]
+                #     all_values.extend(cell_values)
+
+                # print(all_values)
+
+                data_dict = {}
+
+                for entry in all_mpp_data:
+                    time = entry[0]
+                    cell_data = entry[3]
+
+                    for cell_id, value in cell_data.items():
+                        if cell_id not in data_dict:
+
+                            data_dict[cell_id] = {}
+                            
+                        data_dict[cell_id][time] = float(value)
+
+                mpp_data = pd.DataFrame(data_dict)
+
+                mpp_data_non_zero = remove_all_zero_rows(mpp_data)
+
+                mpp_mean = mpp_data_non_zero.mean(axis=1)
+
+                mpp_mean_df = pd.DataFrame(mpp_mean, columns=['Mean MPP'])
+
+                mpp_mean_df.index = mpp_data_non_zero.index
+                
+                # print(mpp_data_non_zero)
+                # print(mpp_mean)
+
                 zenith = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_ZENITH]
                                for hour in range(start, start + length)] # <- Solar zenith
                 azimuth = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_AZIMUTH]
@@ -1955,19 +1990,23 @@ def main(unparsed_arguments) -> None:
 
                 df = pd.DataFrame(data)
 
-                # Remove rows with zero irradiance
-                df = df[df["Irradiance"] != 0]
+                df_combined = pd.concat([df, mpp_mean_df], axis=1)
+
+                df_combined = df_combined.loc[mpp_mean_df.index]
+
+                df_combined = df_combined[df_combined[mpp_mean_df.columns].ne(0).any(axis=1)]
 
                 # Split the data into training and testing parts
-                data_train = df.sample(frac=train, random_state=40)
-                data_test = df.drop(data_train.index)
+                data_train = df_combined.sample(frac=train, random_state=40)
+                data_test = df_combined.drop(data_train.index)
 
                 # Save the output data
                 os.makedirs(target_folder, exist_ok=True)
 
                 data_train.to_csv(os.path.join(target_folder, 'training_data_hours.csv'), index=False, encoding='utf-8')
 
-                print(data_train)
+                # print(data_train)
+
                 # with open(
                 #     os.path.join(
                 #         OUTPUT_DIRECTORY,
