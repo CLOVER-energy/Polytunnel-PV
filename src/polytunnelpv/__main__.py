@@ -1936,26 +1936,39 @@ def main(unparsed_arguments) -> None:
 
                 data_dict = {}
 
-                for entry in all_mpp_data:
-                    time = entry[0]
+                time = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][TIME]
+                               for hour in range(start, start + length)]
+
+                for entry, time_stamp in zip(all_mpp_data, time):
                     cell_data = entry[3]
 
                     for cell_id, value in cell_data.items():
-                        if cell_id not in data_dict:
 
+                        if cell_id not in data_dict:
                             data_dict[cell_id] = {}
-                            
-                        data_dict[cell_id][time] = float(value)
+        
+                        data_dict[cell_id][time_stamp] = float(value)
 
                 mpp_data = pd.DataFrame(data_dict)
 
+                mpp_data['Time'] = time
+                mpp_data.set_index('Time', inplace=True)
+
                 mpp_data_non_zero = remove_all_zero_rows(mpp_data)
 
-                mpp_mean = mpp_data_non_zero.mean(axis=1)
+                mpp_data_non_zero['Mean MPP'] = mpp_data_non_zero.mean(axis=1)
 
-                mpp_mean_df = pd.DataFrame(mpp_mean, columns=['Mean MPP'])
+                # print(mpp_data_non_zero)
 
-                mpp_mean_df.index = mpp_data_non_zero.index
+                # mpp_mean = mpp_data_non_zero.mean(axis=1)
+
+                # mpp_mean_df = pd.DataFrame(mpp_mean, columns=['Mean MPP'])
+
+                # mpp_mean_df.index = mpp_data_non_zero.index
+
+                mpp_mean_df = mpp_data_non_zero[['Mean MPP']]
+
+                # print(mpp_mean_df)
                 
                 # print(mpp_data_non_zero)
                 # print(mpp_mean)
@@ -1971,8 +1984,6 @@ def main(unparsed_arguments) -> None:
                 # irradiance_diff = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][IRRADIANCE_DIFFUSE]
                 #                for hour in range(start, start + length)]
                 irradiance_g = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][IRRADIANCE_GLOBAL_HORIZONTAL]
-                               for hour in range(start, start + length)]
-                time = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][TIME]
                                for hour in range(start, start + length)]
                 temperature = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][TEMPERATURE]
                                for hour in range(start, start + length)]
@@ -1990,11 +2001,11 @@ def main(unparsed_arguments) -> None:
 
                 df = pd.DataFrame(data)
 
-                df_combined = pd.concat([df, mpp_mean_df], axis=1)
-
-                df_combined = df_combined.loc[mpp_mean_df.index]
+                df_combined = pd.merge(df, mpp_mean_df, on='Time', how='inner')
 
                 df_combined = df_combined[df_combined[mpp_mean_df.columns].ne(0).any(axis=1)]
+
+                print(df_combined)
 
                 # Split the data into training and testing parts
                 data_train = df_combined.sample(frac=train, random_state=40)
@@ -2016,6 +2027,8 @@ def main(unparsed_arguments) -> None:
                 #     encoding="UTF-8",
                 # ) as output_file:
                 #     json.dump(all_mpp_data, output_file)
+
+                # import pdb
 
                 # pdb.set_trace()
 
