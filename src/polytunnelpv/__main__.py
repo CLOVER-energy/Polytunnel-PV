@@ -1868,6 +1868,11 @@ def main(unparsed_arguments) -> None:
             start = parsed_args.start_day_index
             length = parsed_args.iteration_length
             current_folder = os.path.dirname(os.path.abspath(__file__))
+            
+            # getcwd() would work too.
+            # import pdb
+            # pdb.set_trace()
+
             target_folder = os.path.join(current_folder, '..\..\machine_learning')
             target_file = os.path.join(target_folder, 'training_data_hours.csv')
 
@@ -1925,53 +1930,20 @@ def main(unparsed_arguments) -> None:
                     for entry in results
                 ]
 
-                # all_values = []
-                
-                # for entry in all_mpp_data:
-    
-                #     cell_values = [float(value) for value in entry[3].values()]
-                #     all_values.extend(cell_values)
-
-                # print(all_values)
-
-                data_dict = {}
+                power_data = [entry[1] for entry in all_mpp_data]
+                cleaned_data = [float(value) for value in power_data]
 
                 time = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][TIME]
                                for hour in range(start, start + length)]
 
-                for entry, time_stamp in zip(all_mpp_data, time):
-                    cell_data = entry[3]
-
-                    for cell_id, value in cell_data.items():
-
-                        if cell_id not in data_dict:
-                            data_dict[cell_id] = {}
-        
-                        data_dict[cell_id][time_stamp] = float(value)
-
-                mpp_data = pd.DataFrame(data_dict)
+                mpp_data = pd.DataFrame(cleaned_data, columns=['Power'])
 
                 mpp_data['Time'] = time
                 mpp_data.set_index('Time', inplace=True)
 
                 mpp_data_non_zero = remove_all_zero_rows(mpp_data)
-
-                mpp_data_non_zero['Mean MPP'] = mpp_data_non_zero.mean(axis=1)
-
-                # print(mpp_data_non_zero)
-
-                # mpp_mean = mpp_data_non_zero.mean(axis=1)
-
-                # mpp_mean_df = pd.DataFrame(mpp_mean, columns=['Mean MPP'])
-
-                # mpp_mean_df.index = mpp_data_non_zero.index
-
-                mpp_mean_df = mpp_data_non_zero[['Mean MPP']]
-
-                # print(mpp_mean_df)
                 
-                # print(mpp_data_non_zero)
-                # print(mpp_mean)
+                power = mpp_data_non_zero[["Power"]]
 
                 zenith = [locations_to_weather_and_solar_map[modelling_scenario.location][hour][SOLAR_ZENITH]
                                for hour in range(start, start + length)] # <- Solar zenith
@@ -2001,11 +1973,11 @@ def main(unparsed_arguments) -> None:
 
                 df = pd.DataFrame(data)
 
-                df_combined = pd.merge(df, mpp_mean_df, on='Time', how='inner')
+                df_combined = pd.merge(df, power, on='Time', how='inner')
 
-                df_combined = df_combined[df_combined[mpp_mean_df.columns].ne(0).any(axis=1)]
+                df_combined = df_combined[df_combined[power.columns].ne(0).any(axis=1)]
 
-                print(df_combined)
+                df_combined.to_csv(os.path.join(target_folder, 'combined_data_hours.csv'), index=False, encoding='utf-8')
 
                 # Split the data into training and testing parts
                 data_train = df_combined.sample(frac=train, random_state=40)
@@ -2015,6 +1987,7 @@ def main(unparsed_arguments) -> None:
                 os.makedirs(target_folder, exist_ok=True)
 
                 data_train.to_csv(os.path.join(target_folder, 'training_data_hours.csv'), index=False, encoding='utf-8')
+                data_test.to_csv(os.path.join(target_folder, 'testing_data_hours.csv'), index=False, encoding='utf-8')
 
                 # print(data_train)
 
