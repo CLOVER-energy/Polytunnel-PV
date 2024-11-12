@@ -1840,12 +1840,140 @@ def main(unparsed_arguments) -> None:
             # otherwise, construct new data.
             if os.path.isfile((filename := "training_data_hours.csv")):
                 training_data_hours = pd.read_csv(filename)
+                # pd.DataFrame
+                # 0, 0
+                # 1, 0
+                # ...
+                # 8, 1
+                # 9, 0
             else:
                 # Compute a series of random hours throughout the year
                 # Save them to the file
                 pass
 
             # Split the weather data into training and test data.
+
+            # Use joblib to parallelize the for loop
+            start_time = time.time()
+            print(
+                (this_string := "Parallel MPP computation")
+                + "." * (88 - (len(this_string) + len(DONE)))
+                + " ",
+                end="",
+            )
+            with tqdm(
+                desc="MPP computation", total=parsed_args.iteration_length, unit="hour"
+            ) as pbar:
+                # with ThreadPool(8) as mpool:
+                #     results_map = mpool.map(
+                #         functools.partial(
+                #             process_single_mpp_calculation,
+                #             irradiance_frame=irradiance_frame,
+                #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                #             pbar=pbar,
+                #             pv_system=pv_system,
+                #             scenario=modelling_scenario,
+                #         ),
+                #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
+                #     )
+
+                results = Parallel(n_jobs=8)(
+                    delayed(
+                        functools.partial(
+                            process_single_mpp_calculation_without_pbar,
+                            irradiance_frame=irradiance_frame,
+                            locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                            pv_system=pv_system,
+                            scenario=modelling_scenario,
+                        )
+                    )(time_of_day)
+                    for time_of_day in range(
+                        parsed_args.start_day_index,
+                        parsed_args.start_day_index + parsed_args.iteration_length,
+                    )
+                )
+
+            end_time = time.time()
+            print(DONE)
+            print(f"Parallel processing took {end_time - start_time:.2f} seconds")
+
+            # Process results and accumulate daily data
+            all_mpp_data: list[
+                tuple[
+                    str,
+                    int,
+                    dict[BypassedCellString | PVCell, bool],
+                    dict[BypassedCellString | PVCell, float],
+                ]
+            ] = []
+
+            daily_data = defaultdict(list)
+            for result in results:
+                if result is not None:
+                    hour, mpp_power, bypassed_cell_strings, cellwise_mpp = result
+                    if mpp_power is not None:
+                        daily_data[
+                            (
+                                date_str := (
+                                    initial_time + timedelta(hours=hour)
+                                ).strftime("%d/%m/%Y")
+                            )
+                        ].append((hour, mpp_power))
+                        all_mpp_data.append(
+                            (
+                                date_str,
+                                hour,
+                                mpp_power,
+                                bypassed_cell_strings,
+                                cellwise_mpp,
+                            )
+                        )
+
+            def _process_bypassing(entry_to_process: bool | None) -> None:
+                """
+                Process the bypass-diode.
+
+                :param: entry_to_process
+                    The entry to process.
+
+                :returns: The processed entry.
+
+                """
+
+                if entry_to_process == "0":
+                    return None
+                if entry_to_process == "False":
+                    return 0
+                return 1
+
+            all_mpp_data = [
+                [
+                    entry[0],
+                    entry[1],
+                    entry[2],
+                    {
+                        key.cell_id: _process_bypassing(str(value))
+                        for key, value in entry[3].items()
+                    },
+                    {key.cell_id: value for key, value in entry[4].items()},
+                ]
+                for entry in all_mpp_data
+            ]
+
+            # Save the output data
+            with open(
+                os.path.join(
+                    OUTPUT_DIRECTORY,
+                    f"hourly_mpp_{scenario.name}_"
+                    f"{(start_hour:=parsed_args.start_day_index)}_to_"
+                    f"{(end_hour:=start_hour + parsed_args.iteration_length)}.json",
+                ),
+                "w",
+                encoding="UTF-8",
+            ) as output_file:
+                json.dump(all_mpp_data, output_file)
+
+            training_data = results[training_hours]
 
             # Week 3 only: Select the machine-learning algorithm from either an argument
             # that we take in on the command-line, in Python, or from some file, or we
