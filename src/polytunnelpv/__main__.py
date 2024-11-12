@@ -1874,12 +1874,13 @@ def main(unparsed_arguments) -> None:
             # pdb.set_trace()
 
             target_folder = os.path.join(current_folder, '..\..\machine_learning')
-            target_file = os.path.join(target_folder, 'training_data_hours.csv')
+            train_file = os.path.join(target_folder, 'training_data_hours.csv')
+            test_file = os.path.join(target_folder, 'training_data_hours.csv')
 
             # Job 3. Open the output file if it already exists, otherwise, run simulations
-            if os.path.isfile(target_file):
-                data_train = pd.read_csv(target_file)
-                print(data_train)
+            if os.path.isfile(train_file):
+                data_train = pd.read_csv(train_file)
+                data_test = pd.read_csv(test_file)
 
             else:
                 results = Parallel(n_jobs=8)(
@@ -1982,7 +1983,7 @@ def main(unparsed_arguments) -> None:
                 # Split the data into training and testing parts
                 data_train = df_combined.sample(frac=train, random_state=40)
                 data_test = df_combined.drop(data_train.index)
-
+                
                 # Save the output data
                 os.makedirs(target_folder, exist_ok=True)
 
@@ -2029,6 +2030,218 @@ def main(unparsed_arguments) -> None:
             # Job 4. Split the output data into training and test data ready to ML.
 
             # Job 6. Create a machine-learning object based on the data and train
+
+            from sklearn.pipeline import make_pipeline
+            from sklearn.preprocessing import StandardScaler
+            from sklearn.linear_model import SGDRegressor
+            import joblib
+            import numpy as np
+
+            # SGD RGRESSION #
+
+            # CASE 1
+            # Factors: Irradiance, Zenith, Azimuth
+
+            # Split training data into features X and targets Y
+            X1 = data_train[['Irradiance', 'Zenith', 'Azimuth']]
+            Y1 = data_train[['Power']]
+
+            # Split testing data into features A and targets B
+            A1 = data_test[['Irradiance', 'Zenith', 'Azimuth']]
+            B1 = data_test[['Power']]
+
+            # Scale the input and use the pipeline to combine two functions
+            reg = make_pipeline(StandardScaler(),
+                    SGDRegressor(max_iter=1000, tol=1e-3))
+            reg.fit(X1.values, np.ravel(Y1))
+
+            # Save the trained model to a file
+            joblib.dump(reg, 'sgd_regression1.pkl')
+
+            # Load the features
+            known_parameters1 = data_test[['Irradiance', 'Zenith', 'Azimuth']]
+            
+            # Predict the mpp
+            predicted_mpp1 = reg.predict(known_parameters1)
+
+            # Evaluate the quality of sgd regression
+            #sgd = SGDRegressor()
+            score1 = reg.score(A1, B1)
+
+            print(score1)
+
+            # Plots for comparison
+            plt.xlabel('Irradiance')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth')
+            plt.scatter(data_test[['Irradiance']], predicted_mpp1, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Irradiance']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+            
+            plt.xlabel('Zenith')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth')
+            plt.scatter(data_test[['Zenith']], predicted_mpp1, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Zenith']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            plt.xlabel('Azimuth')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth')
+            plt.scatter(data_test[['Azimuth']], predicted_mpp1, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Azimuth']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            import pdb
+
+            pdb.set_trace()
+
+
+            ##############################################
+            # CASE 2
+            # Factors: Irradiance, Zenith, Azimuth, Temperature
+
+            X2 = data_train[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']]
+            Y2 = data_train[['Power']]
+
+            # Split testing data into features A and targets B
+            A2 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']]
+            B2 = data_test[['Power']]
+
+            # Scale the input and use the pipeline to combine two functions
+            reg = make_pipeline(StandardScaler(),
+                    SGDRegressor(max_iter=1000, tol=1e-3))
+            reg.fit(X2.values, np.ravel(Y2))
+
+            # Save the trained model to a file
+            joblib.dump(reg, 'sgd_regression2.pkl')
+
+            # Load the features
+            known_parameters2 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']]
+            
+            # Predict the mpp
+            predicted_mpp2 = reg.predict(known_parameters2)
+
+            # Evaluate the quality of sgd regression
+            #sgd = SGDRegressor()
+            score2 = reg.score(A2, B2)
+
+            print(score2)
+
+            # Plots for comparison
+            plt.xlabel('Irradiance')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
+            plt.scatter(data_test[['Irradiance']], predicted_mpp2, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Irradiance']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+            
+            plt.xlabel('Zenith')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
+            plt.scatter(data_test[['Zenith']], predicted_mpp2, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Zenith']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            plt.xlabel('Azimuth')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
+            plt.scatter(data_test[['Azimuth']], predicted_mpp2, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Azimuth']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            plt.xlabel('Temperature')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
+            plt.scatter(data_test[['Temperature']], predicted_mpp2, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Temperature']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            pdb.set_trace()
+
+            ##############################################
+            # CASE 3
+            # Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed
+
+            
+            X3 = data_train[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']]
+            Y3 = data_train[['Power']]
+
+            # Split testing data into features A and targets B
+            A3 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']]
+            B3 = data_test[['Power']]
+
+            # Scale the input and use the pipeline to combine two functions
+            reg = make_pipeline(StandardScaler(),
+                    SGDRegressor(max_iter=1000, tol=1e-3))
+            reg.fit(X3.values, np.ravel(Y3))
+
+            # Save the trained model to a file
+            joblib.dump(reg, 'sgd_regression2.pkl')
+
+            # Load the features
+            known_parameters3 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']]
+            
+            # Predict the mpp
+            predicted_mpp3 = reg.predict(known_parameters3)
+
+            # Evaluate the quality of sgd regression
+            #sgd = SGDRegressor()
+            score3 = reg.score(A3, B3)
+
+            print(score3)
+
+            # Plots for comparison
+            plt.xlabel('Irradiance')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
+            plt.scatter(data_test[['Irradiance']], predicted_mpp3, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Irradiance']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+            
+            plt.xlabel('Zenith')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
+            plt.scatter(data_test[['Zenith']], predicted_mpp3, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Zenith']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            plt.xlabel('Azimuth')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
+            plt.scatter(data_test[['Azimuth']], predicted_mpp3, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Azimuth']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            plt.xlabel('Temperature')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
+            plt.scatter(data_test[['Temperature']], predicted_mpp3, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Temperature']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            plt.xlabel('Wind Speed')
+            plt.ylabel('Mpp')
+            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
+            plt.scatter(data_test[['Wind Speed']], predicted_mpp3, color = 'r', label = 'Prediction') 
+            plt.scatter(data_test[['Wind Speed']], data_test[['Power']], color = 'b', label = 'Actual measurment')
+            plt.legend()
+            plt.show()
+
+            pdb.set_trace()
+
+
 
             # Week 3 only: Select the machine-learning algorithm from either an argument
             # that we take in on the command-line, in Python, or from some file, or we
