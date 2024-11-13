@@ -4,9 +4,9 @@
   pv_module: mia_sole_flex_03_280nl_unbypassed
 
 # Scenario 2: Default Bypass (2)
-- name: circular_polysolar_kent_bypassed
+- name: circular_polysolar_kent_bypassed_2
   location: polysolar_kent
-  pv_module: mia_sole_flex_03_280nl_bypassed
+  pv_module: mia_sole_flex_03_280nl_bypassed_2
 
 # # Scenario 3: Skip All (Bypassed 132)
 # - name: circular_polysolar_kent_bypassed_132

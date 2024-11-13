@@ -133,7 +133,7 @@
   offset_angle: 90
   polytunnel_curve: tilted_kent_circle
 
-- name: mia_sole_flex_03_280nl_bypassed
+- name: mia_sole_flex_03_280nl_bypassed_2
   cell_type: Miasole_FLEX_03_280NL
   type: thin_film
   cell_breakdown_voltage: -4

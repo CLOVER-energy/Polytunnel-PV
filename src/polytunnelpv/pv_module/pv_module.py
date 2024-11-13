@@ -256,7 +256,9 @@ class Curve(ABC):
                     azimuth_angle = (
                         pi
                         if rotated_normal[0] == 0
-                        else pi / 2 if (rotated_normal[0] > 0) else -pi / 2
+                        else pi / 2
+                        if (rotated_normal[0] > 0)
+                        else -pi / 2
                     )
                 else:
                     arccos_angle = acos(
@@ -505,9 +507,10 @@ class CurvedPVModule:
             ) * sin(radians(offset_angle))
 
             # Construct and return a PV cell.
-            cell_azimuth, cell_tilt = (
-                polytunnel_curve.get_angles_from_surface_displacement(cell_displacement)
-            )
+            (
+                cell_azimuth,
+                cell_tilt,
+            ) = polytunnel_curve.get_angles_from_surface_displacement(cell_displacement)
             return PVCell(
                 azimuth=cell_azimuth,
                 cell_type=cell_type,
