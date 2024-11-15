@@ -230,11 +230,11 @@ PVLIB_DATABASE_NAME: str = "CECmod"
 
 # PV_MODULES_FILENAME:
 #   The name of the PV-modules file.
-PV_MODULES_FILENAME: str = "pv_modules.yaml"
+PV_MODULES_FILENAME: str = "pv_modules.json"
 
 # SCENARIOS_FILENAME:
 #   The name of the scenarios file.
-SCENARIOS_FILENAME: str = "scenarios.yaml"
+SCENARIOS_FILENAME: str = "scenarios.json"
 
 # SKIPPED:
 #   The message to display when a task was successful.
@@ -2597,17 +2597,20 @@ def main(unparsed_arguments) -> None:
             timestamps_data["date"] = [
                 int(entry.split("/")[0]) for entry in timestamps_data.index
             ]
+
+            date_adjustment_factor: float = 1 / len(set(timestamps_data["date"]))
+
             for index in timestamps_data.index:
                 plt.plot(
                     [
                         x_coord := timestamps_data["hour"][index]
-                        + 0.1
+                        + date_adjustment_factor
                         * (
                             date_number := int(
                                 timestamps_data["date"][index].split("/")[0]
                             )
                         )
-                        - 0.1,
+                        - date_adjustment_factor,
                         x_coord,
                     ],
                     [
