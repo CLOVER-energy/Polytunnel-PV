@@ -2569,6 +2569,78 @@ def main(unparsed_arguments) -> None:
                 ) as validation_file:
                     json.dumps(all_mpp_data, validation_file, indent=4)
 
+            timestamps_data["Predicted PV to batt"] = [
+                entry[2] for entry in all_mpp_data
+            ]
+
+            # Plot the validation data
+            sns.set_palette(
+                sns.color_palette(
+                    [
+                        "#8F1838",
+                        "#C11F33",
+                        "#EA1D2D",
+                        "#F36E24",
+                        "#F99D25",
+                        "#FDB714",
+                        "#00ACD7",
+                        "#007DBB",
+                        "#00558A",
+                        "#1A3668",
+                        "#48773C",
+                        "#40AE49",
+                    ]
+                )
+            )
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            timestamps_data["date"] = [
+                int(entry.split("/")[0]) for entry in timestamps_data.index
+            ]
+            for index in timestamps_data.index:
+                plt.plot(
+                    [
+                        x_coord := timestamps_data["hour"][index]
+                        + 0.1
+                        * (
+                            date_number := int(
+                                timestamps_data["date"][index].split("/")[0]
+                            )
+                        )
+                        - 0.1,
+                        x_coord,
+                    ],
+                    [
+                        timestamps_data["Predicted PV to batt"][index],
+                        timestamps_data["Combined hourly PV to batt"][index],
+                    ],
+                    color=f"C{date_number}",
+                    label=timestamps_data["date"][index],
+                )
+                plt.scatter(
+                    [x_coord],
+                    [timestamps_data["Predicted PV to batt"][index]],
+                    edgecolors=[f"C{date_number}"],
+                    marker="h",
+                    s=75,
+                    facecolors="none",
+                )
+                plt.scatter(
+                    [x_coord],
+                    [timestamps_data["Combined hourly PV to batt"][index]],
+                    facecolors=[f"C{date_number}"],
+                    marker="h",
+                    s=50,
+                    edgecolors="none",
+                )
+
+            plt.xlabel("Hour of the day")
+            plt.ylabel("Power produced / kW")
+            plt.savefig(
+                "validation_figure.pdf", format="pdf", bbox_inches="tight", pad_inches=0
+            )
+            plt.show()
+
             import pdb
 
             pdb.set_trace()
