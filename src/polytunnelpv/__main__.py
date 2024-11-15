@@ -517,7 +517,7 @@ def _parse_pv_modules(
         "r",
         encoding=FILE_ENCODING,
     ) as f:
-        pv_module_data = yaml.safe_load(f)
+        pv_module_data = json.load(f)
 
     def _construct_pv_module(pv_module_entry) -> CurvedPVModule:
         """
@@ -635,7 +635,7 @@ def _parse_scenarios(
         "r",
         encoding=FILE_ENCODING,
     ) as f:
-        scenarios_data = yaml.safe_load(f)
+        scenarios_data = json.load(f)
 
     return [
         Scenario.from_scenarios_file(entry, locations, pv_modules)
