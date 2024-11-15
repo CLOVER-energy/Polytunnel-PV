@@ -1751,10 +1751,6 @@ def main(unparsed_arguments) -> None:
                 for entry in all_mpp_data
             ]
 
-            import pdb
-
-            pdb.set_trace()
-
             # Save the output data
             with open(
                 os.path.join(
