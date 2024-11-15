@@ -579,9 +579,9 @@ def _parse_pv_modules(
             ) from caught_error
 
         # Map the parameters to those electrical parameters that the cell is expecting.
-        pv_module_entry[
-            CELL_ELECTRICAL_PARAMETERS
-        ] = relabel_cell_electrical_parameters(cell_electrical_parameters)
+        pv_module_entry[CELL_ELECTRICAL_PARAMETERS] = (
+            relabel_cell_electrical_parameters(cell_electrical_parameters)
+        )
 
         return constructor(**pv_module_entry)
 

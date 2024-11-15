@@ -256,9 +256,7 @@ class Curve(ABC):
                     azimuth_angle = (
                         pi
                         if rotated_normal[0] == 0
-                        else pi / 2
-                        if (rotated_normal[0] > 0)
-                        else -pi / 2
+                        else pi / 2 if (rotated_normal[0] > 0) else -pi / 2
                     )
                 else:
                     arccos_angle = acos(
