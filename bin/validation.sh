@@ -12,5 +12,5 @@
 #PBS -l select=1:ncpus=1:mem=8Gb
 #PBS -N polytunnel-pv-validation
 
-python -m src.polytunnelpv --scenario circular_polysolar_kent_bypassed \
+python -m src.polytunnelpv --scenario circular_polysolar_kent_bypassed_2 \
     --operating-mode validation --timestamps-file hourly_december_data_martyn.csv
