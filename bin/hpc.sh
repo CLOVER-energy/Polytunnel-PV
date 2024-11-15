@@ -20,7 +20,7 @@ source activate py310
 cd $PBS_O_WORKDIR
 
 # Determine the scenario to run
-SCENARIO="$(head scenarios.txt -n $PBS_ARRAY_INDEX | tail -n 1)"
+SCENARIO="$(head  -n $PBS_ARRAY_INDEX scenarios.txt | tail -n 1)"
 
 python -m src.polytunnelpv --scenario $SCENARIO -st 0 -i 8760 --operating-mode hourly_mpp \
     --timestamps-file hourly_december_data_martyn.csv
