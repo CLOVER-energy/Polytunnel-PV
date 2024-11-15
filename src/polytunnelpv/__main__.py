@@ -555,23 +555,24 @@ def _parse_pv_modules(
 
         # Try first to find the cell definition in a user-defined scope.
         try:
-            cell_electrical_parameters = PRE_LOADED_PV_CELLS.get(
-                cell_type_name, user_defined_pv_cells[cell_type_name]
-            )
+            cell_electrical_parameters = PRE_LOADED_PV_CELLS[cell_type_name]
         except KeyError:
-            # Look within the pvlib database for the cell name.
             try:
-                cell_electrical_parameters = (
-                    pvlib.pvsystem.retrieve_sam(PVLIB_DATABASE_NAME)
-                    .loc[:, cell_type_name]
-                    .to_dict()
-                )
-                PRE_LOADED_PV_CELLS[cell_type_name] = cell_electrical_parameters
+                cell_electrical_parameters = user_defined_pv_cells[cell_type_name]
             except KeyError:
-                raise Exception(
-                    f"Could not find cell name {cell_type_name} within either local or "
-                    "pvlib-imported scope."
-                ) from None
+                # Look within the pvlib database for the cell name.
+                try:
+                    cell_electrical_parameters = (
+                        pvlib.pvsystem.retrieve_sam(PVLIB_DATABASE_NAME)
+                        .loc[:, cell_type_name]
+                        .to_dict()
+                    )
+                    PRE_LOADED_PV_CELLS[cell_type_name] = cell_electrical_parameters
+                except KeyError:
+                    raise Exception(
+                        f"Could not find cell name {cell_type_name} within either local or "
+                        "pvlib-imported scope."
+                    ) from None
 
         # Create bypass diodes based on the information provided.
         try:
