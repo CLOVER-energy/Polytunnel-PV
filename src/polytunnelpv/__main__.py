@@ -2035,211 +2035,247 @@ def main(unparsed_arguments) -> None:
             from sklearn.preprocessing import StandardScaler
             from sklearn.linear_model import SGDRegressor
             import joblib
-            import numpy as np
+            from sklearn.tree import DecisionTreeRegressor
+            from sklearn.metrics import mean_squared_error, r2_score
+            from sklearn.neural_network import MLPRegressor
+            from sklearn.model_selection import GridSearchCV
+            from sklearn.inspection import permutation_importance
+            from sklearn.ensemble import RandomForestRegressor
+
+            def normalization_processing():
+
+                columns_to_normalize = ['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']
+                data_train[columns_to_normalize] = data_train[columns_to_normalize].apply(lambda x: x / x.max(), axis=0)
+                data_test[columns_to_normalize] = data_test[columns_to_normalize].apply(lambda x: x / x.max(), axis=0)
+
+                decision_X_train = {
+                    'set_1': data_train[['Irradiance', 'Zenith', 'Azimuth']],
+                    'set_2': data_train[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']],
+                    'set_3': data_train[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']],
+                }
+                decision_Y_train = data_train['Power']
+
+                decision_X_test = {
+                    'set_1': data_test[['Irradiance', 'Zenith', 'Azimuth']],
+                    'set_2': data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']],
+                    'set_3': data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']],
+                }
+                decision_Y_test = data_test['Power']
+
+                return decision_X_train, decision_X_test, decision_Y_train, decision_Y_test
+            
+            X_train_sets, X_test_sets, Y_train, Y_test = normalization_processing()
 
             # SGD RGRESSION #
-
-            # CASE 1
-            # Factors: Irradiance, Zenith, Azimuth
-
-            # Split training data into features X and targets Y
-            X1 = data_train[['Irradiance', 'Zenith', 'Azimuth']]
-            Y1 = data_train[['Power']]
-
-            # Split testing data into features A and targets B
-            A1 = data_test[['Irradiance', 'Zenith', 'Azimuth']]
-            B1 = data_test[['Power']]
-
-            # Scale the input and use the pipeline to combine two functions
-            reg = make_pipeline(StandardScaler(),
-                    SGDRegressor(max_iter=1000, tol=1e-3))
-            reg.fit(X1.values, np.ravel(Y1))
-
-            # Save the trained model to a file
-            joblib.dump(reg, 'sgd_regression1.pkl')
-
-            # Load the features
-            known_parameters1 = data_test[['Irradiance', 'Zenith', 'Azimuth']]
             
-            # Predict the mpp
-            predicted_mpp1 = reg.predict(known_parameters1)
+            def SGD_Regressor(X_train, X_test, Y_train, Y_test, a):
 
-            # Evaluate the quality of sgd regression
-            #sgd = SGDRegressor()
-            score1 = reg.score(A1, B1)
+                sgd_regressor = SGDRegressor(max_iter=a, tol=1e-4, learning_rate='invscaling',
+                                              penalty='l2', eta0=0.01, random_state=42)
 
-            print(score1)
+                sgd_regressor.fit(X_train, Y_train)
 
-            # Plots for comparison
-            plt.xlabel('Irradiance')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth')
-            plt.scatter(data_test[['Irradiance']], predicted_mpp1, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Irradiance']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
-            
-            plt.xlabel('Zenith')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth')
-            plt.scatter(data_test[['Zenith']], predicted_mpp1, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Zenith']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                Y_pred = sgd_regressor.predict(X_test)
 
-            plt.xlabel('Azimuth')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth')
-            plt.scatter(data_test[['Azimuth']], predicted_mpp1, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Azimuth']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                mse = mean_squared_error(Y_test, Y_pred)
+                r2 = r2_score(Y_test, Y_pred)
 
-            import pdb
+                # print(f"Mean Squared Error: {mse}")
+                # print(f"R^2 Score: {r2}")
 
-            pdb.set_trace()
+                # print(f"Coefficients: {sgd_regressor.coef_}")
+                # print(f"Intercept: {sgd_regressor.intercept_}")
+
+                # plt.figure(figsize=(8, 6))
+
+                # plt.scatter(Y_test, Y_pred, color='blue', alpha=0.5, label='Predicted vs True')
+
+                # plt.plot([Y_test.min(), Y_test.max()], [Y_pred.min(), Y_pred.max()], color='red', linestyle='--', label='Perfect Fit')
+
+                # plt.title('SGD: Actual vs Predicted', fontsize=14)
+                # plt.xlabel('Actual Values', fontsize=12)
+                # plt.ylabel('Predicted Values', fontsize=12)
+
+                # plt.legend()
+
+                # plt.savefig('ML_Images\SGD_Regressor.pdf')
+
+                # plt.show()
+
+                return r2
+
+            # SGD_Regressor(X_train_sets['set_1'], X_test_sets['set_1'], Y_train, Y_test, 1000)
+            # SGD_Regressor(X_train_sets['set_2'], X_test_sets['set_2'], Y_train, Y_test, 1000)
+            # SGD_Regressor(X_train_sets['set_3'], X_test_sets['set_3'], Y_train, Y_test, 1000)
+
+            def SGD_Regressor_Iterations(X_train, X_test, Y_train, Y_test):
+
+                iterations_10_100 = np.arange(10, 101, 10)
+                iterations_100_1000 = np.arange(100, 1001, 50)
+
+                iterations = np.concatenate([iterations_10_100, iterations_100_1000])
+
+                r2_values = []
+
+                for a in iterations:
+                    r2 = SGD_Regressor(X_train, X_test, Y_train, Y_test, a)
+                    r2_values.append(r2)
+
+                plt.figure(figsize=(10, 6))
+
+                plt.plot(iterations, r2_values, marker='o', color='g', label='R²')
+                plt.xlabel('Number of Iterations (max_iter)')
+                plt.ylabel('R² Score')
+                plt.title('R² vs. Iterations')
+                plt.grid(True)
+
+                plt.savefig('ML_Images\SGD_Regressor_Iterations.pdf')
+                plt.show()
+
+                pass
+
+            # SGD_Regressor_Iterations(X_train_sets['set_3'], X_test_sets['set_3'], Y_train, Y_test)
+
+            # The Decision Tree Regression #
+
+            # Case 1: 3 factors
+
+            def Decision_Regressor(X_train, X_test, Y_train, Y_test):
+
+                model = DecisionTreeRegressor(max_depth=5, min_samples_leaf=5, min_samples_split=5, random_state=40)
+                model.fit(X_train, Y_train)
+
+                Y_pred = model.predict(X_test)
+                mse = mean_squared_error(Y_test, Y_pred)
+
+                # The parameters and scores:
+
+                params = model.get_params()
+                print("Model Parameters:")
+                for param, value in params.items():
+                    print(f"{param}: {value}")
+
+                train_score = model.score(X_train, Y_train)
+                test_score = model.score(X_test, Y_test)
+                print(f"Train Score (R^2): {train_score:.4f}")
+                print(f"Test Score (R^2): {test_score:.4f}")
+
+                feature_importances = model.feature_importances_
+                print("Feature Importances:", feature_importances)
+
+                depth = model.get_depth()
+                n_leaves = model.get_n_leaves()
+                print(f"Tree Depth: {depth}")
+                print(f"Number of Leaves: {n_leaves}")
+
+                # print(Y_test.max)
+
+                plt.figure(figsize=(10, 6))
+                plt.scatter(Y_test, Y_pred, alpha=0.7, label="Predicted vs. True")
+                plt.plot([0, Y_test.max()], [0, Y_pred.max()], '--r', label="Ideal Fit (real = predict)")
+                plt.xlabel("Actual Values")
+                plt.ylabel("Predicted Values")
+                plt.title(f"Decision Tree Regression (MSE: {mse:.4f})")
+                plt.legend()
+                plt.grid(True)
+
+                plt.savefig('ML_Images\Decision_Tree_Regressor.pdf')
+
+                plt.show()
+
+                pass
+
+            # Choose different sets to investigate different numbers of parameters.
+
+            # Decision_Regressor(X_train_sets['set_1'], X_test_sets['set_1'], Y_train, Y_test)
+            # Decision_Regressor(X_train_sets['set_2'], X_test_sets['set_2'], Y_train, Y_test)
+            # Decision_Regressor(X_train_sets['set_3'], X_test_sets['set_3'], Y_train, Y_test)
 
 
-            ##############################################
-            # CASE 2
-            # Factors: Irradiance, Zenith, Azimuth, Temperature
 
-            X2 = data_train[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']]
-            Y2 = data_train[['Power']]
+            # The MLP Regressor#
 
-            # Split testing data into features A and targets B
-            A2 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']]
-            B2 = data_test[['Power']]
+            def MLP_Regressor(X_train, X_test, Y_train, Y_test):
 
-            # Scale the input and use the pipeline to combine two functions
-            reg = make_pipeline(StandardScaler(),
-                    SGDRegressor(max_iter=1000, tol=1e-3))
-            reg.fit(X2.values, np.ravel(Y2))
+                mlp = MLPRegressor(hidden_layer_sizes=(200, 100), max_iter=1000, activation='relu',
+                                   solver='adam', random_state=21, early_stopping=True, validation_fraction=0.1)
+                
+                # For some reason, the random state hugely changes the test score.
+                # I tried out a few values of random state, among with 40 and 20 produce very awful scores.
 
-            # Save the trained model to a file
-            joblib.dump(reg, 'sgd_regression2.pkl')
+                mlp.fit(X_train, Y_train)
 
-            # Load the features
-            known_parameters2 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature']]
-            
-            # Predict the mpp
-            predicted_mpp2 = reg.predict(known_parameters2)
+                result = permutation_importance(mlp, X_test, Y_test, n_repeats=10, random_state=42)
 
-            # Evaluate the quality of sgd regression
-            #sgd = SGDRegressor()
-            score2 = reg.score(A2, B2)
+                print("Permutation importances: ", result.importances_mean)
 
-            print(score2)
+                Y_pred = mlp.predict(X_test)
 
-            # Plots for comparison
-            plt.xlabel('Irradiance')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
-            plt.scatter(data_test[['Irradiance']], predicted_mpp2, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Irradiance']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
-            
-            plt.xlabel('Zenith')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
-            plt.scatter(data_test[['Zenith']], predicted_mpp2, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Zenith']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                mse = mean_squared_error(Y_test, Y_pred)
+                r2 = r2_score(Y_test, Y_pred)
 
-            plt.xlabel('Azimuth')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
-            plt.scatter(data_test[['Azimuth']], predicted_mpp2, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Azimuth']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                print(f'Mean Squared Error: {mse}')
+                print(f'R^2 Score: {r2}')
 
-            plt.xlabel('Temperature')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature')
-            plt.scatter(data_test[['Temperature']], predicted_mpp2, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Temperature']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                plt.figure(figsize=(8, 6))
+                plt.scatter(Y_test, Y_pred, color='blue', alpha=0.6)
 
-            pdb.set_trace()
+                plt.plot([Y_test.min(), Y_test.max()], [Y_test.min(), Y_test.max()], color='red', linewidth=2, linestyle='--')
 
-            ##############################################
-            # CASE 3
-            # Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed
+                plt.title('MLP: Actual vs Predicted', fontsize=14)
+                plt.xlabel('Actual Values', fontsize=12)
+                plt.ylabel('Predicted Values', fontsize=12)
 
-            
-            X3 = data_train[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']]
-            Y3 = data_train[['Power']]
+                plt.savefig('ML_Images\MLP_Regressor.pdf')
 
-            # Split testing data into features A and targets B
-            A3 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']]
-            B3 = data_test[['Power']]
+                plt.show()
 
-            # Scale the input and use the pipeline to combine two functions
-            reg = make_pipeline(StandardScaler(),
-                    SGDRegressor(max_iter=1000, tol=1e-3))
-            reg.fit(X3.values, np.ravel(Y3))
+                pass
 
-            # Save the trained model to a file
-            joblib.dump(reg, 'sgd_regression2.pkl')
+            # MLP_Regressor(X_train_sets['set_1'], X_test_sets['set_1'], Y_train, Y_test)
+            # MLP_Regressor(X_train_sets['set_2'], X_test_sets['set_2'], Y_train, Y_test)
+            # MLP_Regressor(X_train_sets['set_3'], X_test_sets['set_3'], Y_train, Y_test)
 
-            # Load the features
-            known_parameters3 = data_test[['Irradiance', 'Zenith', 'Azimuth', 'Temperature', 'Wind Speed']]
-            
-            # Predict the mpp
-            predicted_mpp3 = reg.predict(known_parameters3)
+            # The Random Forest Regressor #
 
-            # Evaluate the quality of sgd regression
-            #sgd = SGDRegressor()
-            score3 = reg.score(A3, B3)
+            def Random_Forest_Regressor(X_train, X_test, Y_train, Y_test):
 
-            print(score3)
+                rf = RandomForestRegressor(n_estimators=100, max_depth=5, min_samples_leaf=5,
+                                             min_samples_split=5, random_state=42)
 
-            # Plots for comparison
-            plt.xlabel('Irradiance')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
-            plt.scatter(data_test[['Irradiance']], predicted_mpp3, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Irradiance']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
-            
-            plt.xlabel('Zenith')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
-            plt.scatter(data_test[['Zenith']], predicted_mpp3, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Zenith']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                rf.fit(X_train, Y_train)
 
-            plt.xlabel('Azimuth')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
-            plt.scatter(data_test[['Azimuth']], predicted_mpp3, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Azimuth']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                Y_pred = rf.predict(X_test)
 
-            plt.xlabel('Temperature')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
-            plt.scatter(data_test[['Temperature']], predicted_mpp3, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Temperature']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                mse = mean_squared_error(Y_test, Y_pred)
+                r2 = r2_score(Y_test, Y_pred)
 
-            plt.xlabel('Wind Speed')
-            plt.ylabel('Mpp')
-            plt.title('Factors: Irradiance, Zenith, Azimuth, Temperature, Wind Speed')
-            plt.scatter(data_test[['Wind Speed']], predicted_mpp3, color = 'r', label = 'Prediction') 
-            plt.scatter(data_test[['Wind Speed']], data_test[['Power']], color = 'b', label = 'Actual measurment')
-            plt.legend()
-            plt.show()
+                print("Mean Squared Error:", mse)
+                print("R^2 Score:", r2)
 
-            pdb.set_trace()
+                feature_importances = rf.feature_importances_
+                print("Feature Importances:", feature_importances)
+
+                plt.figure(figsize=(8, 6))
+                plt.scatter(Y_test, Y_pred, color='blue', alpha=0.6)
+                plt.plot([min(Y_test), max(Y_test)], [min(Y_test), max(Y_test)], color='red', linestyle='--')  # 完美预测线
+                plt.xlabel('Actual Values')
+                plt.ylabel('Predicted Values')
+                plt.title('RFR: Actual vs Predicted Values')
+
+                plt.savefig('ML_Images\RF_Regressor.pdf')
+                plt.show()
+
+                pass
+
+            # Random_Forest_Regressor(X_train_sets['set_1'], X_test_sets['set_1'], Y_train, Y_test)
+            # Random_Forest_Regressor(X_train_sets['set_2'], X_test_sets['set_2'], Y_train, Y_test)
+            # Random_Forest_Regressor(X_train_sets['set_3'], X_test_sets['set_3'], Y_train, Y_test)
+
+
+
+
+
 
 
 
