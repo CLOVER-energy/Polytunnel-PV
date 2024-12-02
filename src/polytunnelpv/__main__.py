@@ -2500,7 +2500,7 @@ def main(unparsed_arguments) -> None:
             # For each hour within the series of start times, compute the MPP
             # unless the file for validation already exists with these times in.
             if os.path.isfile(
-                validation_filename := "validation_file_{timestamps_filename}_{start_time}_{end_time}".format(
+                validation_filename := "validation_file_{timestamps_filename}_{start_time}_{end_time}.json".format(
                     timestamps_filename=parsed_args.timestamps_file,
                     start_time=int(timestamps_data[_start_time_column_name][0]),
                     end_time=int(timestamps_data[_start_time_column_name][-1]),
@@ -2571,11 +2571,13 @@ def main(unparsed_arguments) -> None:
                 with open(
                     validation_filename, "w", encoding="UTF-8"
                 ) as validation_file:
-                    json.dumps(all_mpp_data, validation_file, indent=4)
+                    json.dump(all_mpp_data, validation_file, indent=4)
 
             timestamps_data["Predicted PV to batt"] = [
                 entry[2] for entry in all_mpp_data
             ]
+
+            timestamps_data["Combined hourly PV to batt"] *= 100
 
             # Plot the validation data
             sns.set_palette(
@@ -2611,7 +2613,7 @@ def main(unparsed_arguments) -> None:
                         + date_adjustment_factor
                         * (
                             date_number := int(
-                                timestamps_data["date"][index].split("/")[0]
+                                timestamps_data["date"][index]
                             )
                         )
                         - date_adjustment_factor,
