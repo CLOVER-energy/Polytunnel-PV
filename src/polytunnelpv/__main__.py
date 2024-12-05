@@ -32,6 +32,8 @@ import multiprocessing
 import os
 import pvlib
 import re
+import scipy
+import scipy.optimize
 import seaborn as sns
 import sys
 import time
@@ -109,6 +111,10 @@ FILE_ENCODING: str = "UTF-8"
 # HOUR:
 #   Column header to use when saving hour information.
 HOUR: str = "Hour"
+
+# INDEX:
+#   Used to distinguish plot versions.
+INDEX: int = 1
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -2573,11 +2579,66 @@ def main(unparsed_arguments) -> None:
                 ) as validation_file:
                     json.dump(all_mpp_data, validation_file, indent=4)
 
-            timestamps_data["Predicted PV to batt"] = [
-                entry[2] for entry in all_mpp_data
-            ]
+            import pdb
+
+            pdb.set_trace()
+
+            all_mpp_frame = pd.DataFrame(
+                {
+                    "date": [entry[0] for entry in all_mpp_data],
+                    "hour": [entry[1] for entry in all_mpp_data],
+                    "Predicted PV to batt": [entry[2] for entry in all_mpp_data],
+                }
+            )
+            all_mpp_frame["date"] = (
+                ["01/12/2023"] * 9
+                + ["02/12/2023"] * 9
+                + ["03/12/2023"] * 15
+                + ["04/12/2023"] * 7
+                + ["05/12/2023"] * 8
+                + ["06/12/2023"] * 8
+                + ["07/12/2023"] * 8
+                + ["08/12/2023"] * 9
+                + ["09/12/2023"] * 15
+                + ["10/12/2023"] * 8
+                + ["11/12/2023"] * 9
+                + ["12/12/2023"] * 8
+                + ["13/12/2023"] * 8
+                + ["14/12/2023"] * 8
+                + ["15/12/2023"] * 9
+                + ["16/12/2023"] * 12
+                + ["17/12/2023"] * 7
+                + ["18/12/2023"] * 8
+                + ["19/12/2023"] * 7
+                + ["20/12/2023"] * 9
+                + ["21/12/2023"] * 8
+                + ["22/12/2023"] * 16
+                + ["23/12/2023"] * 16
+                + ["24/12/2023"] * 8
+                + ["25/12/2023"] * 7
+                + ["26/12/2023"] * 9
+                + ["27/12/2023"] * 7
+                + ["28/12/2023"] * 8
+                + ["29/12/2023"] * 9
+                + ["30/12/2023"] * 8
+                + ["31/12/2023"] * 9
+            )
+            timestamps_data = pd.merge(
+                timestamps_data, all_mpp_frame, how="left", on=["date", "hour"]
+            )
+
+            # timestamps_data["Predicted PV to batt"] = [
+            #     entry[2] for entry in all_mpp_data
+            # ]
 
             timestamps_data["Combined hourly PV to batt"] *= 100
+            timestamps_data["Max PV to batt"] *= 100
+            timestamps_data["Min PV to batt"] *= 100
+
+            timestamps_data["full_date"] = timestamps_data["date"]
+            timestamps_data["date"] = [
+                int(entry.split("/")[0]) for entry in timestamps_data["date"]
+            ]
 
             # Plot the validation data
             sns.set_palette(
@@ -2599,23 +2660,20 @@ def main(unparsed_arguments) -> None:
                 )
             )
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
             timestamps_data["date"] = [
                 int(entry.split("/")[0]) for entry in timestamps_data.index
             ]
 
             date_adjustment_factor: float = 1 / len(set(timestamps_data["date"]))
 
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
             for index in timestamps_data.index:
                 plt.plot(
                     [
                         x_coord := timestamps_data["hour"][index]
                         + date_adjustment_factor
-                        * (
-                            date_number := int(
-                                timestamps_data["date"][index]
-                            )
-                        )
+                        * (date_number := int(timestamps_data["date"][index]))
                         - date_adjustment_factor,
                         x_coord,
                     ],
@@ -2643,11 +2701,312 @@ def main(unparsed_arguments) -> None:
                     edgecolors="none",
                 )
 
+            norm = plt.Normalize(
+                0.5,
+                31.5,
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), 31
+                ),
+                norm=norm,
+            )
+            (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Day of the month",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
+
+            plt.xlim(7, 17)
+            sns.despine()
             plt.xlabel("Hour of the day")
             plt.ylabel("Power produced / kW")
             plt.savefig(
-                "validation_figure.pdf", format="pdf", bbox_inches="tight", pad_inches=0
+                "validation_figure_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
             )
+            plt.show()
+
+            import pdb
+
+            pdb.set_trace()
+
+            # def _trial_function(x: float, a: float, b: float, c: float) -> float:
+            def _trial_function(x: float, a: float, b: float) -> float:
+                """
+                A guess at the distribution, perhaps x^2.
+
+                """
+                return a * x + b
+                # return a * x ** 2 + b * x + c
+
+            fit = scipy.optimize.curve_fit(
+                _trial_function,
+                timestamps_data["Combined hourly PV to batt"],
+                timestamps_data["Predicted PV to batt"],
+            )
+            fit_no_zeros = scipy.optimize.curve_fit(
+                _trial_function,
+                timestamps_data[timestamps_data["Predicted PV to batt"] > 0.1][
+                    "Combined hourly PV to batt"
+                ],
+                timestamps_data[timestamps_data["Predicted PV to batt"] > 0.1][
+                    "Predicted PV to batt"
+                ],
+            )
+
+            # Determine the wind-speed data
+            wind_speed_data = [
+                entry["wind_speed"]
+                for entry in locations_to_weather_and_solar_map[
+                    modelling_scenario.location
+                ]
+            ]
+            wind_speed_slice = [
+                wind_speed_data[hour]
+                for hour in timestamps_data["start_time"].astype(int)
+            ]
+            timestamps_data["wind_speed"] = wind_speed_slice
+
+            # Compute the likely temperature difference in the panels
+
+            # Compute a likely predicted error bar
+            timestamps_data["Predicted PV error"] = (
+                0.181 * timestamps_data["Predicted PV to batt"]
+            )
+            timestamps_data["Measured PV error"] = (
+                0.181 * timestamps_data["Combined hourly PV to batt"]
+            )
+
+            cmap = sns.cubehelix_palette(start=-0.4, rot=-0.4, as_cmap=True)
+            sns.set_palette(sns.cubehelix_palette(start=-0.4, rot=-0.4, n_colors=31))
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            sns.scatterplot(
+                timestamps_data,
+                x="Combined hourly PV to batt",
+                y="Predicted PV to batt",
+                hue="date",
+                marker="h",
+                s=75,
+                alpha=0.8,
+                palette=cmap,
+                # facecolors="none",
+            )
+
+            for index, date in enumerate(set(timestamps_data["date"])):
+                sliced_data = timestamps_data[timestamps_data["date"] == date]
+                plt.errorbar(
+                    sliced_data["Combined hourly PV to batt"],
+                    sliced_data["Predicted PV to batt"],
+                    xerr=(
+                        sliced_data["Combined hourly PV to batt"]
+                        - sliced_data["Min PV to batt"],
+                        sliced_data["Max PV to batt"]
+                        - sliced_data["Combined hourly PV to batt"],
+                    ),
+                    yerr=sliced_data["Predicted PV error"],
+                    ecolor=f"C{index}",
+                    fmt="none",
+                )
+
+            plt.plot(
+                linspace := np.linspace(
+                    0,
+                    max(
+                        timestamps_data["Combined hourly PV to batt"].max(),
+                        timestamps_data["Predicted PV to batt"].max(),
+                    ),
+                    1000,
+                ),
+                linspace,
+                "--",
+                color="black",
+                label="Ideal fit",
+            )
+
+            sns.regplot(
+                timestamps_data,
+                x="Combined hourly PV to batt",
+                y="Predicted PV to batt",
+                # hue="date",
+                marker="h",
+                color="C30",
+                scatter=False,
+                # s=75,
+                # alpha=0.8,
+                # palette=cmap
+            )
+
+            # plt.plot(
+            #     linspace,
+            #     [_trial_function(entry, *fit[0]) for entry in linspace],
+            #     "--",
+            #     color="orange",
+            #     label="Curve fit",
+            # )
+
+            # plt.plot(
+            #     linspace,
+            #     [_trial_function(entry, *fit_no_zeros[0]) for entry in linspace],
+            #     "--",
+            #     color="teal",
+            #     label="Curve fit (ignoring zeroes)",
+            # )
+
+            plt.xlabel("Measured output power / kW")
+            plt.ylabel("Modelled output power / kW")
+            xlim = plt.xlim(-5, 100)
+            ylim = plt.ylim(-5, 80)
+
+            sns.despine()
+
+            norm = plt.Normalize(
+                0.5,
+                31.5,
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), 31
+                ),
+                norm=norm,
+            )
+            (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Day of the month",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
+
+            plt.savefig(
+                f"variation_scatter_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+
+            plt.show()
+
+            sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=13))
+            cmap = sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=13, as_cmap=True)
+
+            for date in range(31):
+                plt.figure(figsize=(48 / 5, 32 / 5))
+                sns.scatterplot(
+                    (
+                        sliced_data := timestamps_data[
+                            (timestamps_data["date"] == date)
+                            & (timestamps_data["hour"] >= 6)
+                            & (timestamps_data["hour"] <= 18)
+                        ]
+                    ),
+                    x="Combined hourly PV to batt",
+                    y="Predicted PV to batt",
+                    hue="hour",
+                    hue_norm=(6, 18),
+                    hue_order=sorted(range(6, 18)),
+                    marker="h",
+                    s=75,
+                    alpha=1.0,
+                    # color=f"C{date}"
+                    palette=cmap,
+                    # facecolors="none",
+                )
+                for index, hour in enumerate(range(6, 19)):
+                    if len(sliced_data[sliced_data["hour"] == hour]) == 0:
+                        continue
+                    plt.errorbar(
+                        sliced_data[sliced_data["hour"] == hour][
+                            "Combined hourly PV to batt"
+                        ],
+                        sliced_data[sliced_data["hour"] == hour][
+                            "Predicted PV to batt"
+                        ],
+                        xerr=(
+                            sliced_data[sliced_data["hour"] == hour][
+                                "Combined hourly PV to batt"
+                            ]
+                            - sliced_data[sliced_data["hour"] == hour][
+                                "Min PV to batt"
+                            ],
+                            sliced_data[sliced_data["hour"] == hour]["Max PV to batt"]
+                            - sliced_data[sliced_data["hour"] == hour][
+                                "Combined hourly PV to batt"
+                            ],
+                        ),
+                        yerr=sliced_data[sliced_data["hour"] == hour][
+                            "Predicted PV error"
+                        ],
+                        ecolor=f"C{index}",
+                        # fmt="gh",
+                        fmt="none",
+                    )
+                plt.plot(
+                    sliced_data["Combined hourly PV to batt"],
+                    sliced_data["Predicted PV to batt"],
+                    "-.",
+                    color="grey",
+                )
+                plt.plot(
+                    linspace := np.linspace(
+                        0,
+                        max(
+                            timestamps_data["Combined hourly PV to batt"].max(),
+                            timestamps_data["Predicted PV to batt"].max(),
+                        ),
+                        1000,
+                    ),
+                    linspace,
+                    "--",
+                    color="black",
+                    label="Ideal fit",
+                )
+                # plt.plot(
+                #     linspace,
+                #     [_trial_function(entry, *fit[0]) for entry in linspace],
+                #     "--",
+                #     color="orange",
+                #     label="Curve fit",
+                # )
+                # plt.plot(
+                #     linspace,
+                #     [_trial_function(entry, *fit_no_zeros[0]) for entry in linspace],
+                #     "--",
+                #     color="teal",
+                #     label="Curve fit (ignoring zeroes)",
+                # )
+                plt.xlabel("Measured output power / kW")
+                plt.ylabel("Modelled output power / kW")
+                plt.xlim(*xlim)
+                plt.ylim(*ylim)
+                plt.legend().remove()
+                norm = plt.Normalize(5.5, 18.5)
+                scalar_mappable = plt.cm.ScalarMappable(
+                    cmap=mcolors.LinearSegmentedColormap.from_list(
+                        "Custom", sns.color_palette().as_hex(), 13
+                    ),
+                    norm=norm,
+                )
+                (axis := plt.gca()).figure.colorbar(
+                    scalar_mappable,
+                    ax=axis,
+                    label="Hour of the day",
+                    pad=(_pad := 0.025),
+                )
+                plt.savefig(
+                    f"validation_for_day_{date}_{INDEX}.pdf",
+                    format="pdf",
+                    bbox_inches="tight",
+                    pad_inches=0,
+                )
+
             plt.show()
 
             import pdb
