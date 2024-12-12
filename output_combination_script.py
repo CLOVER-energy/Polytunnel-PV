@@ -39,11 +39,9 @@ def main() -> None:
         ) as output_file:
             filedata = json.load(output_file)
 
-        filename_to_data_map[
-            filename.split("hourly_mpp_circular_polysolar_kent_")[1].replace(
-                ".json", ""
-            )
-        ] = [entry[2] for entry in filedata]
+        filename_to_data_map[filename.split("hourly_mpp_")[1].split("_4344_to")[0]] = [
+            entry[2] for entry in filedata
+        ]
 
     time_series = [entry[1] for entry in filedata]
     filename_to_data_map["hour"] = time_series
