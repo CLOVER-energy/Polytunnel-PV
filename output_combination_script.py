@@ -17,7 +17,7 @@ def main() -> None:
 
     # Check the script is being executed correctly and that all exepcted files are
     # present.
-    if os.path.basename(os.path.getcwd()) != "Polytunnel-PV":
+    if os.path.basename(os.getcwd()) != "Polytunnel-PV":
         raise Exception("Script must be launched from the polytunnel root directory.")
 
     if not os.path.isdir(output_dirname := "outputs_1"):
@@ -46,12 +46,13 @@ def main() -> None:
         ] = [entry[2] for entry in filedata]
 
     time_series = [entry[1] for entry in filedata]
+    filename_to_data_map["hour"] = time_series
 
     combined_frame = pd.DataFrame(filename_to_data_map)
     with open(
         "combined_bypass_diode_investigation.csv", "w", encoding="UTF-8"
     ) as combined_file:
-        combined_frame.to_csv(combined_frame)
+        combined_frame.to_csv(combined_file)
 
 
 if __name__ == "__main__":
