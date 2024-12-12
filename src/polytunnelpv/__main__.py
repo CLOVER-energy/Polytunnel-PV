@@ -80,6 +80,9 @@ rcParams["ps.fonttype"] = 42
 sns.set_context("notebook")
 sns.set_style("ticks")
 
+import warnings
+warnings.filterwarnings("ignore")
+
 # BYPASS_DIODES:
 #   Keyword for the bypass-diode parameters.
 BYPASS_DIODES: str = "bypass_diodes"
@@ -1761,7 +1764,7 @@ def main(unparsed_arguments) -> None:
             with open(
                 os.path.join(
                     OUTPUT_DIRECTORY,
-                    f"hourly_mpp_{scenario.name}_"
+                    f"hourly_mpp_{modelling_scenario.name}_"
                     f"{(start_hour:=parsed_args.start_day_index)}_to_"
                     f"{(end_hour:=start_hour + parsed_args.iteration_length)}.json",
                 ),
