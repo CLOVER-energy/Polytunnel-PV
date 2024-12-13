@@ -19,6 +19,7 @@ import json
 import math
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
+import os
 import seaborn as sns
 import sys
 import warnings
@@ -133,14 +134,14 @@ def main(args: list[Any]) -> None:
         {module.name: module for module in pv_modules},
     )
 
+    # Remove ludicrous values
+    combined_data.clip(lower=0, upper=5000, inplace=True)
+    combined_data = combined_data[[entry for entry in combined_data if combined_data[entry].max(axis=0) < 5000]]
+
     # Determine scenario information relevant for analysis.
     relevant_scenarios = {entry.name: entry for entry in scenarios if entry.name in combined_data.columns}
     bypass_diodes = {scenario.name: [entry for entry in scenario.pv_module.pv_cells_and_cell_strings if not isinstance(entry, PVCell)] for scenario in relevant_scenarios.values()}
     num_bypass_diodes = {scenario_name: len(diodes) for scenario_name, diodes in bypass_diodes.items()}
-
-    import pdb
-
-    pdb.set_trace()
 
     num_diodes_frame = pd.DataFrame({"scenario": num_bypass_diodes.keys(), "num_diodes": num_bypass_diodes.values()})
     num_diodes_frame.index = num_diodes_frame["scenario"]
@@ -198,6 +199,11 @@ def main(args: list[Any]) -> None:
     )
 
     plt.legend().remove()
+
+    plt.xlabel("Hour of the day")
+    plt.ylabel("System-wide power produced / kW")
+    plt.savefig(f"hourly_power_scatter_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf", format="pdf", bbox_inches="tight", pad_inches=0)
+
     plt.show()
 
     diodes_to_power = {num_diodes: pd.DataFrame({"power": frame.sum(axis=0).transpose().reset_index(drop=True)}) for num_diodes, frame in diodes_to_frame.items()}
@@ -206,10 +212,51 @@ def main(args: list[Any]) -> None:
 
     num_diodes_power_frame = pd.concat(diodes_to_power.values(), axis=0)
 
-    plt.figure(figsize=(48/5, 32/5))
-    sns.catplot(num_diodes_power_frame, kind="box", x="num_diodes", y="power")
-    plt.show()
+    # Bypass didoe number impact
+    cat_plot = sns.catplot(num_diodes_power_frame, kind="boxen", x="num_diodes", y="power", height=6.5, aspect=(48/32), palette=sns.color_palette(), 
+    linewidth=0, linecolor=".7",
+    line_kws=dict(linewidth=0, color="#cde"), showfliers=True)
 
+    plt.xlabel("Number of bypass diodes installed")
+    plt.ylabel("System-wide power produced / kW")
+    # norm = plt.Normalize(
+    #     min(set(diodes_to_frame)) - 1,
+    #     max(set(diodes_to_frame)) + 1,
+    # )
+    # scalar_mappable = plt.cm.ScalarMappable(
+    #     cmap=mcolors.LinearSegmentedColormap.from_list(
+    #         "Custom", sns.color_palette().as_hex(), len(set(diodes_to_frame)) + 1
+    #     ),
+    #     norm=norm,
+    # )
+
+    # colorbar = (axis := plt.gca()).figure.colorbar(
+    #     scalar_mappable,
+    #     ax=axis,
+    #     label="Number of bypass diodes installed",
+    #     pad=(_pad := 0.025),
+    # )
+
+    plt.legend().remove()
+    plt.ylim(0, None)
+
+    medians = num_diodes_power_frame.groupby(['num_diodes'])['power'].median()
+    vertical_offset = num_diodes_power_frame['power'].median() * 0.05 # offset from median for display
+
+    for xtick, xtick_position in zip(cat_plot.ax.get_xticklabels(), cat_plot.ax.get_xticks()):
+        if (xtick_value:=int(xtick._text)) < plt.xlim()[0]:
+            continue
+        cat_plot.ax.text(xtick_position,medians[xtick_value] + vertical_offset,f"{medians[xtick_value]:.0f}",
+            horizontalalignment='center',size='x-small',color=sns.color_palette().as_hex()[-1],weight='semibold')
+
+    for ax in plt.gcf().axes:
+        median = num_diodes_power_frame.groupby("num_diodes")["power"].median()
+        for index, med in enumerate(median.values):
+            ax.axhline(xmin=(x_pos:=index / len(median.values)), y=med, xmax=x_pos+1 /len(median.values), color='white')
+
+    plt.savefig(f"number_of_diodes_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf", format="pdf", bbox_inches="tight", pad_inches=0)
+
+    plt.show()
 
     # Plot staggered box plots
     plt.figure(figsize=(48/5, 32/5))
@@ -219,7 +266,7 @@ def main(args: list[Any]) -> None:
         melted_frame["bypass_diodes"] = num_diodes
         melted_frames.append(melted_frame)
 
-    sns.boxplot(pd.concat(melted_frames, axis=0), x="index", y="value", hue="bypass_diodes", dodge=True)
+    sns.boxplot(combined_melted_frame:=pd.concat(melted_frames, axis=0), x="index", y="value", hue="bypass_diodes", dodge=True)
 
     plt.xlim(5, 19)
 
@@ -243,6 +290,70 @@ def main(args: list[Any]) -> None:
 
     plt.legend().remove()
     plt.show()
+
+    joint_plot = sns.jointplot(combined_melted_frame, x="index", y="value", hue="bypass_diodes", palette=sns.color_palette(),
+            marginal_ticks=True,
+            height=6.5,
+            ratio=6)
+
+    sns.scatterplot(
+        combined_melted_frame, x="index", y="value", hue="bypass_diodes",
+        alpha=0.85,
+        ax=joint_plot.ax_joint,
+        # cbar=True,
+        # cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+        marker="D",
+        palette=sns.color_palette(),
+    )
+
+    norm = plt.Normalize(
+        min(set(diodes_to_frame)) - 0.5,
+        max(set(diodes_to_frame)) + 0.5,
+    )
+    scalar_mappable = plt.cm.ScalarMappable(
+        cmap=mcolors.LinearSegmentedColormap.from_list(
+            "Custom", sns.color_palette().as_hex(), len(set(diodes_to_frame)) + 1
+        ),
+        norm=norm,
+    )
+
+    colorbar = (axis := joint_plot.ax_joint).figure.colorbar(
+        scalar_mappable,
+        ax=axis,
+        label="Number of bypass diodes installed",
+        pad=(_pad := 0.025),
+    )
+
+    plt.xlabel("Hour of the day")
+    plt.ylabel("System-wide power produced / kW")
+
+    joint_plot.ax_marg_x.remove()
+
+    joint_plot.ax_joint.legend().remove()
+    joint_plot.ax_joint.set_ylim(0, 4900)
+    joint_plot.ax_joint.set_xlim(4, 20)
+
+    sns.despine(ax=joint_plot.ax_joint)
+    sns.despine(ax=joint_plot.ax_marg_y)
+    plt.subplots_adjust(
+        # top=1.1,
+        # bottom=0.1,
+        # left=0.1,
+        right=1.1
+    )
+    plt.savefig(f"bypass_diode_joint_plot_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf", format="pdf", bbox_inches="tight", pad_inches=0)
+    plt.show()
+
+    sorted_combined_data = combined_data[combined_data.sum(axis=0).sort_values(ascending=False).index]
+    sorted_combined_data.pop("hour")
+    sorted_combined_data.columns = [f"Scenario {entry.split('n_')[1].split('_4344')[0].split('_4368')[0]}" for entry in sorted_combined_data.columns]
+
+    sns.lineplot(sorted_combined_data[reversed(sorted_combined_data.columns[:len(sns.color_palette())])])
+    plt.show()
+
+    import pdb
+
+    pdb.set_trace()
 
     for num_diodes, sub_frame in combined_frame.groupby(combined_frame.loc["num_diodes"]) :
         sns.catplot(sub_frame, kind="box")
