@@ -44,11 +44,13 @@ def main() -> None:
             filename_to_july_1st_data_map[
                 filename.split("hourly_mpp_")[1].split("_4344_to")[0]
             ] = [entry[2] for entry in filedata]
+            continue
 
         if "4368" in filename:
             filename_to_july_2nd_data_map[
                 filename.split("hourly_mpp_")[1].split("_4368_to")[0]
             ] = [entry[2] for entry in filedata]
+            continue
 
     time_series = [entry[1] for entry in filedata]
     filename_to_july_1st_data_map["hour"] = time_series
