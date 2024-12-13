@@ -62,7 +62,7 @@ def main() -> None:
 
     combined_july_2nd_frame = pd.DataFrame(filename_to_july_2nd_data_map)
     with open(
-        "combined_bypass_diode_investigation_july_1st.csv", "w", encoding="UTF-8"
+        "combined_bypass_diode_investigation_july_2nd.csv", "w", encoding="UTF-8"
     ) as combined_file:
         combined_july_2nd_frame.to_csv(combined_file)
 
