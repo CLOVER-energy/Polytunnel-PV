@@ -1,14 +1,18 @@
 """Run for July 1st"""
 
 import subprocess
+
 # import warnings
 
 from tqdm import tqdm
 
-BASE_COMMAND: str = "python -m src.polytunnelpv --scenario {scenario} -st 4344 -i 24 --operating-mode hourly_mpp --timestamps-file hourly_december_data_martyn.csv"
+BASE_COMMAND: str = (
+    "python -m src.polytunnelpv --scenario {scenario} -st 4344 -i 24 --operating-mode hourly_mpp --timestamps-file hourly_december_data_martyn.csv"
+)
 
 # Filter warnings
 # warnings.filterwarnings("ignore")
+
 
 def main() -> None:
     """Main function."""
@@ -24,6 +28,7 @@ def main() -> None:
         print("FAILED")
         print(f"Parsing of scenario {scenario} failed.")
         raise
+
 
 if __name__ == "__main__":
     main()

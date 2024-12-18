@@ -81,6 +81,7 @@ sns.set_context("notebook")
 sns.set_style("ticks")
 
 import warnings
+
 warnings.filterwarnings("ignore")
 
 # BYPASS_DIODES:
@@ -955,11 +956,19 @@ def process_single_mpp_calculation_without_pbar(
             for pv_cell in scenario.pv_module.pv_cells_and_cell_strings
         }
 
+        sampling_current_series = np.array(
+            [
+                entry
+                for entry in sorted(current_series[::CURRENT_SAMPLING_RATE])
+                if entry <= 10
+            ]
+        )
+
         cellwise_voltage = {
             pv_cell: [
                 interpreter(current)
                 for current in tqdm(
-                    current_series[::CURRENT_SAMPLING_RATE],
+                    sampling_current_series,
                     desc="Interpolation calculation",
                     leave=False,
                 )
@@ -972,7 +981,7 @@ def process_single_mpp_calculation_without_pbar(
         }
         module_voltage = [sum(sublist) for sublist in zip(*cellwise_voltage.values())]
 
-        module_power = module_voltage * current_series[::CURRENT_SAMPLING_RATE]
+        module_power = module_voltage * sampling_current_series
         mpp_index: int = list(module_power).index(np.max(module_power))
 
         # Determine the power through the module at MPP
@@ -981,7 +990,7 @@ def process_single_mpp_calculation_without_pbar(
         # Determine the MPP power produced by each cell
         cellwise_mpp: dict[PVCell, float] = {
             pv_cell: voltage_interpreter(
-                (mpp_current := current_series[::CURRENT_SAMPLING_RATE][mpp_index])
+                (mpp_current := sampling_current_series[mpp_index])
             )
             * mpp_current
             for pv_cell, voltage_interpreter in cell_voltage_interpreters.items()
@@ -1665,13 +1674,15 @@ def main(unparsed_arguments) -> None:
             # Parallelised MPP computation #
             ################################
 
-            # _, mpp_power, bypassed_cell_strings = process_single_mpp_calculation_without_pbar(
-            #     8,
-            #     irradiance_frame=irradiance_frame,
-            #     locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-            #     pv_system=pv_system,
-            #     scenario=modelling_scenario,
-            # )
+            _, mpp_power, bypassed_cell_strings = (
+                process_single_mpp_calculation_without_pbar(
+                    parsed_args.start_day_index,
+                    irradiance_frame=irradiance_frame,
+                    locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+                    pv_system=pv_system,
+                    scenario=modelling_scenario,
+                )
+            )
 
             # Use joblib to parallelize the for loop
             start_time = time.time()
@@ -2220,7 +2231,7 @@ def main(unparsed_arguments) -> None:
                 * max(
                     [
                         pv_cell.short_circuit_current
-                        for pv_cell in scenario.pv_module.pv_cells
+                        for pv_cell in modelling_scenario.pv_module.pv_cells
                     ]
                 ),
                 VOLTAGE_RESOLUTION,
@@ -2343,7 +2354,7 @@ def main(unparsed_arguments) -> None:
 
             # Compute the total power produced
             cell_voltage_interpreters = {
-                pv_cell: lambda i: np.interp(
+                pv_cell: lambda i, pv_cell=pv_cell: np.interp(
                     i,
                     list(reversed(mpp_cell_to_current_map[pv_cell])),
                     list(reversed(mpp_cell_to_voltage_map[pv_cell])),
@@ -2353,25 +2364,38 @@ def main(unparsed_arguments) -> None:
                 for pv_cell in modelling_scenario.pv_module.pv_cells_and_cell_strings
             }
 
+            sampling_current_series = np.array(
+                [
+                    entry
+                    for entry in sorted(current_series[::CURRENT_SAMPLING_RATE])
+                    if entry <= 10
+                ]
+            )
+
             cellwise_voltage = {
                 pv_cell: [
-                    cell_voltage_interpreters[pv_cell](current)
+                    interpreter(current)
                     for current in tqdm(
-                        current_series[::CURRENT_SAMPLING_RATE],
-                        desc="Interpolating current",
+                        sampling_current_series,
+                        desc="Interpolation calculation",
                         leave=False,
                     )
                 ]
-                for pv_cell in tqdm(
-                    modelling_scenario.pv_module.pv_cells_and_cell_strings,
-                    desc="String-wise calculation",
+                for pv_cell, interpreter in tqdm(
+                    cell_voltage_interpreters.items(),
+                    desc="Cell-wise calculation",
                     leave=False,
                 )
             }
+
             module_voltage = [
                 sum(sublist) for sublist in zip(*cellwise_voltage.values())
             ]
 
+            module_power = module_voltage * sampling_current_series
+            mpp_index: int = list(module_power).index(np.max(module_power))
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
             ):
@@ -2382,10 +2406,9 @@ def main(unparsed_arguments) -> None:
                     color=f"C{index}",
                 )
 
-            plt.plot(
-                module_voltage,
-                current_series[::CURRENT_SAMPLING_RATE],
-                "--",
+            plt.axhline(
+                sampling_current_series[mpp_index],
+                dashes=(2, 2),
                 color="orange",
             )
 
@@ -2394,6 +2417,30 @@ def main(unparsed_arguments) -> None:
             plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
             plt.ylabel("Module current / A")
 
+            plt.xlim(-1.25, 1.5)
+
+            norm = plt.Normalize(
+                0.5, len(modelling_scenario.pv_module.pv_cells_and_cell_strings) + 0.5
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom",
+                    sns.color_palette().as_hex(),
+                    len(set(modelling_scenario.pv_module.pv_cells_and_cell_strings))
+                    + 1,
+                ),
+                norm=norm,
+            )
+
+            colorbar = (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Index of PV cell or bypassed string of PV cells",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
+
             plt.savefig(
                 f"iv_curves_with_module_{time_string}.pdf",
                 format="pdf",
@@ -2401,9 +2448,6 @@ def main(unparsed_arguments) -> None:
                 pad_inches=0,
             )
             plt.show()
-
-            module_power = module_voltage * current_series[::CURRENT_SAMPLING_RATE]
-            mpp_index: int = list(module_power).index(np.max(module_power))
 
             plt.figure(figsize=(48 / 5, 32 / 5))
             left_axis = plt.gca()
@@ -2420,14 +2464,14 @@ def main(unparsed_arguments) -> None:
                 )
 
             right_axis.plot(
-                current_series[::CURRENT_SAMPLING_RATE],
+                sampling_current_series,
                 module_power,
                 "--",
                 color="orange",
                 label="Module power",
             )
             right_axis.scatter(
-                current_series[::CURRENT_SAMPLING_RATE][mpp_index],
+                sampling_current_series[mpp_index],
                 module_power[mpp_index],
                 marker="H",
                 color="orange",
@@ -2435,11 +2479,15 @@ def main(unparsed_arguments) -> None:
                 label="Maximum power point (MPP)",
             )
 
-            left_axis.set_ylim(bottom=-25, top=25)
+            left_axis.set_ylim(bottom=-5, top=5)
             right_axis.set_ylim(
                 bottom=-(power_limit := 1.1 * np.max(module_power)), top=power_limit
             )
-            plt.xlim(np.min(current_series), np.max(current_series))
+            left_axis.set_xlim(0, 5)
+            right_axis.set_xlim(0, 5)
+
+            left_axis.axhline(0, dashes=(2, 2), color="grey")
+            right_axis.axhline(0, dashes=(2, 2), color="grey")
 
             l_handles, l_labels = left_axis.get_legend_handles_labels()
             r_handles, r_labels = right_axis.get_legend_handles_labels()
@@ -2450,9 +2498,34 @@ def main(unparsed_arguments) -> None:
                 #  title="Initial index of cell in string",
                 ncol=4,
             )
-            plt.xlabel("Module current / A")
+            left_axis.set_xlabel("Module current / A")
             left_axis.set_ylabel("Cell-wise, or cell-string-wise, power / W")
             right_axis.set_ylabel("Module power / W")
+
+            norm = plt.Normalize(
+                0.5, len(modelling_scenario.pv_module.pv_cells_and_cell_strings) + 0.5
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom",
+                    sns.color_palette().as_hex(),
+                    len(set(modelling_scenario.pv_module.pv_cells_and_cell_strings))
+                    + 1,
+                ),
+                norm=norm,
+            )
+
+            colorbar = (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Index of PV cell or bypassed string of PV cells",
+                pad=(_pad := 0.125),
+            )
+
+            plt.legend().remove()
+
+            left_axis.legend().remove()
+            right_axis.legend().remove()
 
             plt.savefig(
                 f"ip_curves_{time_string}.pdf",
