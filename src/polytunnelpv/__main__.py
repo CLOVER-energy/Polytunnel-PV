@@ -382,6 +382,29 @@ class OperatingMode(enum.Enum):
     VALIDATION: str = "validation"
 
 
+def _find_zero_crossing(numbers: list[float | int]) -> tuple[int, float | int] | None:
+    """
+    Finds the first point where the list of numbers crosses zero from +ve to -ve.
+
+    :param: numbers
+        A list of numbers, floats or integers..
+
+    :returns:
+        - The index and number of the crossing point.
+        - `None` if there is no solution.
+
+    """
+
+    # Loop through the numbers.
+    for index in range(1, len(numbers)):
+
+        # Return the index and value of the number which crosses.
+        if numbers[index - 1] > 0 and numbers[index] <= 0:
+            return index, numbers[index]
+
+    return None
+
+
 def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     """
     Parse the command-line arguments.
@@ -982,6 +1005,14 @@ def process_single_mpp_calculation_without_pbar(
         module_voltage = [sum(sublist) for sublist in zip(*cellwise_voltage.values())]
 
         module_power = module_voltage * sampling_current_series
+
+        # Sanitise the data to avoid erroneous results at high values where the series
+        # become truncated.
+        cut_off_index, _ = _find_zero_crossing(module_power)
+        module_power = module_power[:cut_off_index]
+        module_voltage = module_voltage[:cut_off_index]
+        sampling_current_series = sampling_current_series[:cut_off_index]
+
         mpp_index: int = list(module_power).index(np.max(module_power))
 
         # Determine the power through the module at MPP
@@ -1674,15 +1705,15 @@ def main(unparsed_arguments) -> None:
             # Parallelised MPP computation #
             ################################
 
-            _, mpp_power, bypassed_cell_strings = (
-                process_single_mpp_calculation_without_pbar(
-                    parsed_args.start_day_index,
-                    irradiance_frame=irradiance_frame,
-                    locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-                    pv_system=pv_system,
-                    scenario=modelling_scenario,
-                )
-            )
+            # _, mpp_power, bypassed_cell_strings = (
+            #     process_single_mpp_calculation_without_pbar(
+            #         parsed_args.start_day_index,
+            #         irradiance_frame=irradiance_frame,
+            #         locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+            #         pv_system=pv_system,
+            #         scenario=modelling_scenario,
+            #     )
+            # )
 
             # Use joblib to parallelize the for loop
             start_time = time.time()
@@ -2393,7 +2424,18 @@ def main(unparsed_arguments) -> None:
             ]
 
             module_power = module_voltage * sampling_current_series
+
+            # Sanitise the data.
+            cut_off_index, _ = _find_zero_crossing(module_power)
+            module_power = module_power[:cut_off_index]
+            module_voltage = module_voltage[:cut_off_index]
+            sampling_current_series = sampling_current_series[:cut_off_index]
+
             mpp_index: int = list(module_power).index(np.max(module_power))
+
+            import pdb
+
+            pdb.set_trace()
 
             plt.figure(figsize=(48 / 5, 32 / 5))
             for index, pv_cell in enumerate(
@@ -2479,12 +2521,12 @@ def main(unparsed_arguments) -> None:
                 label="Maximum power point (MPP)",
             )
 
-            left_axis.set_ylim(bottom=-5, top=5)
+            left_axis.set_ylim(bottom=-(cellwise_limit := 1.1 * np.max()), top=5)
             right_axis.set_ylim(
                 bottom=-(power_limit := 1.1 * np.max(module_power)), top=power_limit
             )
-            left_axis.set_xlim(0, 5)
-            right_axis.set_xlim(0, 5)
+            left_axis.set_xlim(0, sampling_current_series[cut_off_index])
+            right_axis.set_xlim(0, sampling_current_series[cut_off_index])
 
             left_axis.axhline(0, dashes=(2, 2), color="grey")
             right_axis.axhline(0, dashes=(2, 2), color="grey")
