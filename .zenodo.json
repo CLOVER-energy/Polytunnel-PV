@@ -2,16 +2,19 @@
     "access_right": "open",
     "creators": [
         {
+            "orcid": "0000-0002-2880-1243",
+            "name": "Winchester, Benedict"
+        }
+        {
             "name": "Safra, Yaar"
+        },
+        {
+            "name": "Sharma, Bhavya",
         },
         {
             "orcid": "0000-0003-1048-1330",
             "name": "Nelson, Jenny"
         },
-        {
-            "orcid": "0000-0002-2880-1243",
-            "name": "Winchester, Benedict"
-        }
     ],
     "description": "Polytunnel-PV: A framework for curved photovoltaic modules for agricultural applications",
     "license": {
