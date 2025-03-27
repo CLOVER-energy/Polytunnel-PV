@@ -2697,10 +2697,6 @@ def main(unparsed_arguments) -> None:
                 ) as validation_file:
                     json.dump(all_mpp_data, validation_file, indent=4)
 
-            import pdb
-
-            pdb.set_trace()
-
             all_mpp_frame = pd.DataFrame(
                 {
                     "date": [entry[0] for entry in all_mpp_data],
@@ -2754,9 +2750,17 @@ def main(unparsed_arguments) -> None:
             timestamps_data["Min PV to batt"] *= 100
 
             timestamps_data["full_date"] = timestamps_data["date"]
-            timestamps_data["date"] = [
-                int(entry.split("/")[0]) for entry in timestamps_data["date"]
-            ]
+            try:
+                timestamps_data["date"] = [
+                    int(entry.split("/")[0]) for entry in timestamps_data["date"]
+                ]
+            except AttributeError:
+                try:
+                    timestamps_data["date"] = [
+                        int(entry.split("/")[0]) for entry in timestamps_data.index
+                    ]
+                except AttributeError:
+                    raise Exception("Failed to parse timestamps data.")
 
             # Plot the validation data
             sns.set_palette(
@@ -2778,11 +2782,11 @@ def main(unparsed_arguments) -> None:
                 )
             )
 
-            timestamps_data["date"] = [
-                int(entry.split("/")[0]) for entry in timestamps_data.index
-            ]
-
             date_adjustment_factor: float = 1 / len(set(timestamps_data["date"]))
+
+            import pdb
+
+            pdb.set_trace()
 
             plt.figure(figsize=(48 / 5, 32 / 5))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
@@ -2818,6 +2822,1655 @@ def main(unparsed_arguments) -> None:
                     s=50,
                     edgecolors="none",
                 )
+
+            norm = plt.Normalize(
+                0.5,
+                31.5,
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), 31
+                ),
+                norm=norm,
+            )
+            (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Day of the month",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
+
+            plt.xlim(7, 17)
+            sns.despine()
+            plt.xlabel("Hour of the day")
+            plt.ylabel("Power produced / kW")
+            plt.savefig(
+                "validation_figure_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
+            timestamps_data["Delta prediction vs model"] = timestamps_data["Predicted PV to batt"] - timestamps_data["Combined hourly PV to batt"]
+            for index in timestamps_data.index:
+                plt.plot(
+                    [
+                        x_coord := timestamps_data["hour"][index]
+                        + date_adjustment_factor
+                        * (date_number := int(timestamps_data["date"][index]))
+                        - date_adjustment_factor,
+                        x_coord,
+                    ],
+                    [
+                        0,
+                        timestamps_data["Delta prediction vs model"][index],
+                    ],
+                    color=f"C{date_number}",
+                    label=timestamps_data["date"][index],
+                )
+                plt.scatter(
+                    [x_coord],
+                    [timestamps_data["Delta prediction vs model"][index]],
+                    edgecolors=[f"C{date_number}"],
+                    marker="h",
+                    s=75,
+                    facecolors="none",
+                )
+                # plt.scatter(
+                #     [x_coord],
+                #     [timestamps_data["Combined hourly PV to batt"][index]],
+                #     facecolors=[f"C{date_number}"],
+                #     marker="h",
+                #     s=50,
+                #     edgecolors="none",
+                # )
+
+            norm = plt.Normalize(
+                0.5,
+                31.5,
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), 31
+                ),
+                norm=norm,
+            )
+            (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Day of the month",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
+
+            plt.xlim(7, 17)
+            sns.despine()
+            plt.xlabel("Hour of the day")
+            plt.ylabel("P-PV model over/under prediction / kW")
+            plt.savefig(
+                "validation_figure_delta_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+            plt.show()
+
+
+            # Open and parse the diffuse data on the diffusive fraction
+            try:
+                with open("december_diffuse_fraction.csv", "r") as diffuse_data_file:
+                    diffuse_data = pd.read_csv(diffuse_data_file)
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    "Could not find difffuse-fraction information."
+                ) from None
+
+            diffuse_data.columns = pd.Index(["time"] + list(diffuse_data.columns)[1:])
+            diffuse_data["full_date"] = [
+                entry.split(" ")[0] for entry in diffuse_data["time"]
+            ]
+            diffuse_data["date"] = [
+                int(entry.split("/")[0]) for entry in diffuse_data["full_date"]
+            ]
+            diffuse_data["hour"] = [
+                int(entry.split(" ")[1].split(":")[0]) for entry in diffuse_data["time"]
+            ]
+
+            def _parse_diffusive_fraction(entry: str) -> float | None:
+                try:
+                    return float(entry)
+                except ValueError:
+                    return None
+
+            diffuse_data["Diffusive fraction"] = [
+                _parse_diffusive_fraction(entry)
+                for entry in diffuse_data["Diffusive fraction"]
+            ]
+
+            mean_diffuse = {
+                date: diffuse_data[diffuse_data["date"] == date][
+                    "Diffusive fraction"
+                ].mean()
+                for date in set(diffuse_data["date"])
+            }
+            std_diffuse = {
+                date: diffuse_data[diffuse_data["date"] == date][
+                    "Diffusive fraction"
+                ].std()
+                for date in set(diffuse_data["date"])
+            }
+            diffuse_frame = pd.DataFrame(
+                {"date": mean_diffuse.keys(), "mean": mean_diffuse.values()}
+            )
+            std_frame = pd.DataFrame(
+                {"date": std_diffuse.keys(), "std": std_diffuse.values()}
+            )
+            diffuse_frame = diffuse_frame.merge(std_frame)
+
+            # Categorise the days based on whether they're consistently cloudy, sunny,
+            # etc.
+            def _category(mean: float, std: float) -> str:
+                """
+                Categorise days based on whether they're consistently cloudy or sunny.
+
+                :param: mean:
+                    The mean value
+
+                :param: std:
+                    The std value
+
+                :returns: A `str` which categorises the day.
+
+                """
+                # Days which are consistent
+                if std <= 0.1:
+                    if mean <= 0.2:
+                        return "Consistently sunny"
+                    if mean >= 0.8:
+                        return "Consistently cloudy"
+                if mean <= 0.5:
+                    return "Intermittently sunny"
+                return "Intermittently cloudy"
+
+            diffuse_frame["category"] = [
+                _category(row["mean"], row["std"])
+                for _, row in diffuse_frame.iterrows()
+            ]
+
+            sns.set_palette(
+                list(reversed(["#423252", "#4A688B", "#779FB1", "#36C7B8", "#FBC412"]))
+            )
+
+            timestamps_data = timestamps_data.merge(diffuse_frame, on="date")
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            sns.violinplot(timestamps_data, x="date", y="Delta prediction vs model", hue="category", hue_order=["Consistently sunny", "Intermittently sunny", "Intermittently cloudy", "Consistently cloudy"], inner=None, edgecolor=None, alpha=0.55, cut=0)
+            sns.swarmplot(timestamps_data, x="date", y="Delta prediction vs model", marker="D", hue="category", hue_order=["Consistently sunny", "Intermittently sunny", "Intermittently cloudy", "Consistently cloudy"])
+
+            plt.axhline(0, color="grey")
+
+            sns.despine()
+            plt.xlabel("Hour of the day")
+            plt.ylabel("P-PV model over/under prediction / kW")
+            handles, labels = plt.gca().get_legend_handles_labels()
+
+            plt.legend(handles[:4], labels[:4], title="Day category")
+
+            plt.savefig(f"validation_figure_by_diffusivity_{INDEX}.png", transparent=True, bbox_inches="tight", pad_inches=0.04)
+            plt.savefig(f"validation_figure_by_diffusivity_{INDEX}.pdf", bbox_inches="tight", pad_inches=0.04)
+
+            plt.show()
+
+            plt.figure(figsize=(48 / 5, 32 / 5))
+            sns.scatterplot(
+                diffuse_frame,
+                x="date",
+                y="mean",
+                hue="category",
+                marker="h",
+                s=140,
+                hue_order=[
+                    "Consistently sunny",
+                    "Intermittently sunny",
+                    "Intermittently cloudy",
+                    "Consistently cloudy",
+                ],
+            )
+            plt.errorbar(
+                (
+                    diffuse_slice := diffuse_frame[
+                        diffuse_frame["category"] == "Consistently sunny"
+                    ]
+                )["date"],
+                diffuse_slice["mean"],
+                yerr=diffuse_slice["std"],
+                ls="none",
+                color="C0",
+            )
+            plt.errorbar(
+                (
+                    diffuse_slice := diffuse_frame[
+                        diffuse_frame["category"] == "Intermittently sunny"
+                    ]
+                )["date"],
+                diffuse_slice["mean"],
+                yerr=diffuse_slice["std"],
+                ls="none",
+                color="C1",
+            )
+            plt.errorbar(
+                (
+                    diffuse_slice := diffuse_frame[
+                        diffuse_frame["category"] == "Intermittently cloudy"
+                    ]
+                )["date"],
+                diffuse_slice["mean"],
+                yerr=diffuse_slice["std"],
+                ls="none",
+                color="C2",
+            )
+            plt.errorbar(
+                (
+                    diffuse_slice := diffuse_frame[
+                        diffuse_frame["category"] == "Consistently cloudy"
+                    ]
+                )["date"],
+                diffuse_slice["mean"],
+                yerr=diffuse_slice["std"],
+                ls="none",
+                color="C3",
+            )
+
+            plt.legend(title="Day category")
+            plt.xlabel("Day of the month")
+            plt.ylabel("Diffusive fraction ($D$)")
+
+            # sns.despine()
+            plt.savefig(
+                "december_diffusive_fraction.pdf", bbox_inches="tight", pad_inches=0
+            )
+
+            plt.show()
+
+            timestamps_data["Predicted PV error"] = (
+                0.181 * timestamps_data["Predicted PV to batt"]
+            )
+
+            # Plot the irradiance for set days as maps in the same way.
+            stagger: float = 0.05
+            _, axes = plt.subplots(1, 2, figsize=(48/5, 32/5))
+            sns.set_palette(["#42597F", "#FBC412"])
+            index: int = 0
+
+            for date_index in set(timestamps_data["date"]):
+                if date_index not in (11, 15):
+                    continue
+                plt.figure(figsize=(48 / 5, 32 / 5))
+                ax1 = plt.gca()
+                plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+                ax1.plot(
+                    plotting_data["hour"],
+                    plotting_data["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="C0",
+                )
+                ax1.errorbar(
+                    [entry - stagger for entry in plotting_data["hour"]],
+                    plotting_data["Predicted PV to batt"],
+                    capsize=5,
+                    color="C0",
+                    ls="none",
+                    yerr=plotting_data["Predicted PV error"],
+                )
+                ax1.fill_between(
+                    plotting_data["hour"],
+                    [0] * len(plotting_data),
+                    plotting_data["Predicted PV to batt"],
+                    color="C0",
+                    alpha=0.15,
+                )
+                ax1.plot(
+                    plotting_data["hour"],
+                    plotting_data["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color="C0",
+                )
+                ax1.errorbar(
+                    [entry + stagger for entry in plotting_data["hour"]],
+                    plotting_data["Combined hourly PV to batt"],
+                    capsize=5,
+                    color="C1",
+                    ls="none",
+                    yerr=(
+                        plotting_data["Combined hourly PV to batt"]
+                        - plotting_data["Min PV to batt"],
+                        plotting_data["Max PV to batt"]
+                        - plotting_data["Combined hourly PV to batt"],
+                    ),
+                )
+                ax1.fill_between(
+                    plotting_data["hour"],
+                    [0] * len(plotting_data),
+                    plotting_data["Combined hourly PV to batt"],
+                    color="C1",
+                    alpha=0.15,
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                        "hour"
+                    ],
+                    diffuse_slice["Diffusive fraction"],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                plt.xlabel("Hour of the day")
+                ax1.set_ylabel("Power produced / kW")
+                ax2.set_ylabel("Diffuse fraction")
+                ax1.set_ylim(0, 100)
+                ax1.set_xlim(6, 18)
+                ax2.set_ylim(0, 1)
+                ax1.legend(loc="upper left")
+                ax2.legend(loc="upper right")
+                sns.despine(right=False)
+
+            plt.show()
+
+            # Plot the consistently sunny days
+            fig, axes = plt.subplots(1, 2, figsize=(48/5, 24/5))
+            sns.set_palette(["#42597F", "#FBC412"])
+
+            date_index = 11
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax1:=axes[0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax1.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax1.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax1.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax1.set_xlabel("Hour of the day")
+            ax1.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_ylim(0, 100)
+            ax1.set_xlim(6, 18)
+            ax2.set_ylim(0, 1)
+            ax1.legend(loc="upper left")
+            # ax2.legend(loc="upper right")
+            ax1.tick_params(right=False)
+            ax2.tick_params(left=False, right=False)
+            ax2.set_yticklabels([])
+            sns.despine(ax=ax1, right=True, left=False)
+            sns.despine(ax=ax2, right=True, left=False)
+
+            date_index = 15
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax3:=axes[1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax3.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax3.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax3.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax4 = ax3.twinx()
+            ax4.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax3.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax3.set_ylim(0, 100)
+            ax3.set_xlim(6, 18)
+            ax4.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax4.legend(loc="upper right")
+            ax3.tick_params(left=False)
+            ax3.set_yticklabels([])
+            ax4.tick_params(left=False)
+            sns.despine(ax=ax3, right=False, left=True)
+            sns.despine(ax=ax4, right=False, left=True)
+
+            fig.subplots_adjust(wspace=0.15)
+
+            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
+            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
+
+            plt.savefig("december_sunny_days_output_validation.pdf", bbox_inches="tight", pad_inches=0)
+
+            plt.show()
+
+            # Plot the intermittently cloudy days
+            fig, axes = plt.subplots(2, 2, figsize=(48/5, 48/5))
+            sns.set_palette(["#42597F", "#36C7B8"])
+
+            date_index = 2
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax1:=axes[0][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax1.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax1.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax1.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax1.set_xlabel("Hour of the day")
+            ax1.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_ylim(0, 100)
+            ax1.set_xlim(6, 18)
+            ax2.set_ylim(0, 1)
+            ax1.legend(loc="upper left")
+            # ax2.legend(loc="upper right")
+            ax1.tick_params(right=False)
+            ax2.tick_params(left=False, right=False)
+            ax2.set_yticklabels([])
+            sns.despine(ax=ax1, right=True, left=False)
+            sns.despine(ax=ax2, right=True, left=False)
+
+            date_index = 6
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax3:=axes[0][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax3.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax3.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax3.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax4 = ax3.twinx()
+            ax4.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax3.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax3.set_ylim(0, 100)
+            ax3.set_xlim(6, 18)
+            ax4.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax4.legend(loc="upper right")
+            ax3.tick_params(left=False)
+            ax3.set_yticklabels([])
+            ax4.tick_params(left=False)
+            sns.despine(ax=ax3, right=False, left=True)
+            sns.despine(ax=ax4, right=False, left=True)
+
+            date_index = 8
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax5:=axes[1][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax5.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax5.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax5.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax6 = ax5.twinx()
+            ax6.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax5.set_xlabel("Hour of the day")
+            ax5.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax5.set_ylim(0, 100)
+            ax5.set_xlim(6, 18)
+            ax6.set_ylim(0, 1)
+            ax5.legend(loc="upper left")
+            # ax3.legend(loc="upper left")
+            ax5.tick_params(right=False)
+            ax6.tick_params(left=False, right=False)
+            ax6.set_yticklabels([])
+            sns.despine(ax=ax5, right=True, left=False)
+            sns.despine(ax=ax6, right=True, left=False)
+
+            date_index = 17
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax7:=axes[1][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax7.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax7.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax7.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax8 = ax7.twinx()
+            ax8.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax7.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax8.set_ylabel("Diffuse fraction ($D$)")
+            ax7.set_ylim(0, 100)
+            ax7.set_xlim(6, 18)
+            ax8.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax8.legend(loc="upper right")
+            ax7.tick_params(left=False)
+            ax7.set_yticklabels([])
+            ax8.tick_params(left=False)
+            sns.despine(ax=ax7, right=False, left=True)
+            sns.despine(ax=ax8, right=False, left=True)
+
+            fig.subplots_adjust(wspace=0.15, hspace=0.35)
+
+            ax1.set_title(r"2$^{\rm{nd}}$ December", weight="bold")
+            ax3.set_title(r"6$^{\rm{th}}$ December", weight="bold")
+            ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold")
+            ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold")
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
+
+            plt.savefig("december_partly_sunny_days_output_validation.pdf", bbox_inches="tight", pad_inches=0)
+
+            plt.show()
+
+            # Plot the consistently cloudy days
+            fig, axes = plt.subplots(2, 2, figsize=(48/5, 48/5))
+            sns.set_palette(["#42597F", "#379CCA"])
+
+            date_index = 4
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax1:=axes[0][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax1.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax1.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax1.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax1.set_xlabel("Hour of the day")
+            ax1.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_ylim(0, 100)
+            ax1.set_xlim(6, 18)
+            ax2.set_ylim(0, 1)
+            ax1.legend(loc="upper left")
+            # ax2.legend(loc="upper right")
+            ax1.tick_params(right=False)
+            ax2.tick_params(left=False, right=False)
+            ax2.set_yticklabels([])
+            sns.despine(ax=ax1, right=True, left=False)
+            sns.despine(ax=ax2, right=True, left=False)
+
+            date_index = 5
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax3:=axes[0][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax3.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax3.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax3.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax4 = ax3.twinx()
+            ax4.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax3.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax3.set_ylim(0, 100)
+            ax3.set_xlim(6, 18)
+            ax4.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax4.legend(loc="upper right")
+            ax3.tick_params(left=False)
+            ax3.set_yticklabels([])
+            ax4.tick_params(left=False)
+            sns.despine(ax=ax3, right=False, left=True)
+            sns.despine(ax=ax4, right=False, left=True)
+
+            date_index = 25
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax5:=axes[1][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax5.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax5.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax5.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax6 = ax5.twinx()
+            ax6.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax5.set_xlabel("Hour of the day")
+            ax5.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax5.set_ylim(0, 100)
+            ax5.set_xlim(6, 18)
+            ax6.set_ylim(0, 1)
+            ax5.legend(loc="upper left")
+            # ax3.legend(loc="upper left")
+            ax5.tick_params(right=False)
+            ax6.tick_params(left=False, right=False)
+            ax6.set_yticklabels([])
+            sns.despine(ax=ax5, right=True, left=False)
+            sns.despine(ax=ax6, right=True, left=False)
+
+            date_index = 27
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax7:=axes[1][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax7.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax7.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax7.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax8 = ax7.twinx()
+            ax8.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax7.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax8.set_ylabel("Diffuse fraction ($D$)")
+            ax7.set_ylim(0, 100)
+            ax7.set_xlim(6, 18)
+            ax8.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax8.legend(loc="upper right")
+            ax7.tick_params(left=False)
+            ax7.set_yticklabels([])
+            ax8.tick_params(left=False)
+            sns.despine(ax=ax7, right=False, left=True)
+            sns.despine(ax=ax8, right=False, left=True)
+
+            fig.subplots_adjust(wspace=0.15, hspace=0.35)
+
+            ax1.set_title(r"4$^{\rm{th}}$ December", weight="bold")
+            ax3.set_title(r"5$^{\rm{th}}$ December", weight="bold")
+            ax5.set_title(r"25$^{\rm{th}}$ December", weight="bold")
+            ax7.set_title(r"27$^{\rm{th}}$ December", weight="bold")
+
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
+
+            plt.savefig("december_cloudy_days_output_validation.pdf", bbox_inches="tight", pad_inches=0)
+
+            plt.show()
+
+            # Plot the consistently cloudy AND days
+            fig, axes = plt.subplots(3, 2, figsize=(48/5, 72/5))
+            sns.set_palette(["#42597F", "#379CCA", "#FBC412"])
+
+            date_index = 11
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax1:=axes[0][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax1.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax1.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C2",
+            )
+            ax1.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C2",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C2",
+                alpha=0.15,
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax1.set_xlabel("Hour of the day")
+            ax1.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_ylim(0, 100)
+            ax1.set_xlim(6, 18)
+            ax2.set_ylim(0, 1)
+            ax1.legend(loc="upper left")
+            # ax2.legend(loc="upper right")
+            ax1.tick_params(right=False)
+            ax2.tick_params(left=False, right=False)
+            ax2.set_yticklabels([])
+            sns.despine(ax=ax1, right=True, left=False)
+            sns.despine(ax=ax2, right=True, left=False)
+
+            date_index = 15
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax3:=axes[0][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax3.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax3.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C2",
+            )
+            ax3.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C2",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C2",
+                alpha=0.15,
+            )
+            ax4 = ax3.twinx()
+            ax4.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax3.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax3.set_ylim(0, 100)
+            ax3.set_xlim(6, 18)
+            ax4.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax4.legend(loc="upper right")
+            ax3.tick_params(left=False)
+            ax3.set_yticklabels([])
+            ax4.tick_params(left=False)
+            sns.despine(ax=ax3, right=False, left=True)
+            sns.despine(ax=ax4, right=False, left=True)
+
+            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
+            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
+
+            date_index = 4
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax5:=axes[1][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax5.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax5.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax5.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax6 = ax5.twinx()
+            ax6.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax5.set_xlabel("Hour of the day")
+            ax5.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax5.set_ylim(0, 100)
+            ax5.set_xlim(6, 18)
+            ax6.set_ylim(0, 1)
+            ax5.legend(loc="upper left")
+            # ax2.legend(loc="upper right")
+            ax5.tick_params(right=False)
+            ax6.tick_params(left=False, right=False)
+            ax6.set_yticklabels([])
+            sns.despine(ax=ax5, right=True, left=False)
+            sns.despine(ax=ax6, right=True, left=False)
+
+            date_index = 5
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax7:=axes[1][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax7.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax7.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax7.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax8 = ax7.twinx()
+            ax8.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax7.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax8.set_ylabel("Diffuse fraction ($D$)")
+            ax7.set_ylim(0, 100)
+            ax7.set_xlim(6, 18)
+            ax8.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax8.legend(loc="upper right")
+            ax7.tick_params(left=False)
+            ax7.set_yticklabels([])
+            ax8.tick_params(left=False)
+            sns.despine(ax=ax7, right=False, left=True)
+            sns.despine(ax=ax8, right=False, left=True)
+
+            date_index = 25
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax9:=axes[2][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax9.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax9.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax9.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax9.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax9.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax10 = ax9.twinx()
+            ax10.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax9.set_xlabel("Hour of the day")
+            ax9.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax9.set_ylim(0, 100)
+            ax9.set_xlim(6, 18)
+            ax10.set_ylim(0, 1)
+            ax9.legend(loc="upper left")
+            # ax3.legend(loc="upper left")
+            ax9.tick_params(right=False)
+            ax10.tick_params(left=False, right=False)
+            ax10.set_yticklabels([])
+            sns.despine(ax=ax9, right=True, left=False)
+            sns.despine(ax=ax10, right=True, left=False)
+
+            date_index = 27
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax11:=axes[2][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax11.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax11.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax11.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax11.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax11.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax12 = ax11.twinx()
+            ax12.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax11.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax12.set_ylabel("Diffuse fraction ($D$)")
+            ax11.set_ylim(0, 100)
+            ax11.set_xlim(6, 18)
+            ax12.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax12.legend(loc="upper right")
+            ax11.tick_params(left=False)
+            ax11.set_yticklabels([])
+            ax12.tick_params(left=False)
+            sns.despine(ax=ax11, right=False, left=True)
+            sns.despine(ax=ax12, right=False, left=True)
+
+            fig.subplots_adjust(wspace=0.15, hspace=0.35)
+
+            ax5.set_title(r"4$^{\rm{th}}$ December", weight="bold")
+            ax7.set_title(r"5$^{\rm{th}}$ December", weight="bold")
+            ax9.set_title(r"25$^{\rm{th}}$ December", weight="bold")
+            ax11.set_title(r"27$^{\rm{th}}$ December", weight="bold")
+
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
+            ax10.text(4.05, 1.05, "e.", fontweight="bold", fontsize=16)
+            ax12.text(5.05, 1.05, "f.", fontweight="bold", fontsize=16)
+
+            plt.savefig("ere_december_days.pdf", bbox_inches="tight", pad_inches=0)
+
+            plt.show()
+
+
+            import pdb
+
+            pdb.set_trace()
+
+
+            plt.errorbar(
+                sliced_data[sliced_data["hour"] == hour]["Combined hourly PV to batt"],
+                sliced_data[sliced_data["hour"] == hour]["Predicted PV to batt"],
+                xerr=(
+                    sliced_data[sliced_data["hour"] == hour][
+                        "Combined hourly PV to batt"
+                    ]
+                    - sliced_data[sliced_data["hour"] == hour]["Min PV to batt"],
+                    sliced_data[sliced_data["hour"] == hour]["Max PV to batt"]
+                    - sliced_data[sliced_data["hour"] == hour][
+                        "Combined hourly PV to batt"
+                    ],
+                ),
+                yerr=sliced_data[sliced_data["hour"] == hour]["Predicted PV error"],
+                ecolor=f"C{index}",
+                # fmt="gh",
+                fmt="none",
+            )
+
+            plt.scatter(
+                [x_coord],
+                [timestamps_data["Predicted PV to batt"][index]],
+                edgecolors=[f"C{date_number}"],
+                marker="h",
+                s=75,
+                facecolors="none",
+            )
+            plt.scatter(
+                [x_coord],
+                [timestamps_data["Combined hourly PV to batt"][index]],
+                facecolors=[f"C{date_number}"],
+                marker="h",
+                s=50,
+                edgecolors="none",
+            )
 
             norm = plt.Normalize(
                 0.5,

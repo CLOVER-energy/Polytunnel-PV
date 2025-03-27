@@ -69,7 +69,7 @@ rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
 # rc("figure", **{"figsize": (48 / 5, 32 / 5)})
 rcParams["pdf.fonttype"] = 42
 rcParams["ps.fonttype"] = 42
-sns.set_context("notebook")
+sns.set_context("talk")
 sns.set_style("ticks")
 
 import warnings
@@ -232,6 +232,12 @@ def main(args: list[Any]) -> None:
     plt.xlabel("Hour of the day")
     plt.ylabel("System-wide power produced / kW")
     plt.savefig(
+        f"hourly_power_scatter_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.035,
+        transparent=True,
+    )
+    plt.savefig(
         f"hourly_power_scatter_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
         bbox_inches="tight",
@@ -257,8 +263,8 @@ def main(args: list[Any]) -> None:
         kind="boxen",
         x="num_diodes",
         y="power",
-        height=6.5,
-        aspect=(48 / 32),
+        height=9.75,
+        aspect=(52 / 48),
         palette=sns.color_palette(),
         linewidth=0,
         linecolor=".7",
@@ -267,7 +273,7 @@ def main(args: list[Any]) -> None:
     )
 
     plt.xlabel("Number of bypass diodes installed")
-    plt.ylabel("System-wide power produced / kW")
+    plt.ylabel("System-wide power produced / kWh")
     # norm = plt.Normalize(
     #     min(set(diodes_to_frame)) - 1,
     #     max(set(diodes_to_frame)) + 1,
@@ -287,17 +293,19 @@ def main(args: list[Any]) -> None:
     # )
 
     plt.legend().remove()
-    plt.ylim(0, None)
+    # plt.ylim(0, None)
 
     medians = num_diodes_power_frame.groupby(["num_diodes"])["power"].median()
     vertical_offset = (
-        num_diodes_power_frame["power"].median() * 0.05
+        num_diodes_power_frame["power"].median() * 0.01
     )  # offset from median for display
 
     for xtick, xtick_position in zip(
         cat_plot.ax.get_xticklabels(), cat_plot.ax.get_xticks()
     ):
         if (xtick_value := int(xtick._text)) < plt.xlim()[0]:
+            continue
+        if xtick_value % 4 != 0:
             continue
         cat_plot.ax.text(
             xtick_position,
@@ -306,7 +314,7 @@ def main(args: list[Any]) -> None:
             horizontalalignment="center",
             size="x-small",
             color=sns.color_palette().as_hex()[-1],
-            weight="semibold",
+            # weight="semibold",
         )
 
     for ax in plt.gcf().axes:
@@ -319,8 +327,80 @@ def main(args: list[Any]) -> None:
                 color="white",
             )
 
+    plt.xticks(*[entry[::2] for entry in plt.xticks()])
+
+    plt.savefig(
+        f"number_of_diodes_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"number_of_diodes_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
+        format="pdf",
+        bbox_inches="tight",
+        pad_inches=0,
+    )
+
+    plt.show()
+
+    cat_plot = sns.catplot(
+        num_diodes_power_frame,
+        kind="boxen",
+        x="num_diodes",
+        y="power",
+        height=6.5,
+        aspect=(48 / 32),
+        palette=sns.color_palette(),
+        linewidth=0,
+        linecolor=".7",
+        line_kws=dict(linewidth=0, color="#cde"),
+        showfliers=True,
+    )
+
+    plt.xlabel("Number of bypass diodes installed")
+    plt.ylabel("System-wide power produced / kWh")
+    # norm = plt.Normalize(
+    #     min(set(diodes_to_frame)) - 1,
+    #     max(set(diodes_to_frame)) + 1,
+    # )
+    # scalar_mappable = plt.cm.ScalarMappable(
+    #     cmap=mcolors.LinearSegmentedColormap.from_list(
+    #         "Custom", sns.color_palette().as_hex(), len(set(diodes_to_frame)) + 1
+    #     ),
+    #     norm=norm,
+    # )
+
+    # colorbar = (axis := plt.gca()).figure.colorbar(
+    #     scalar_mappable,
+    #     ax=axis,
+    #     label="Number of bypass diodes installed",
+    #     pad=(_pad := 0.025),
+    # )
+
+    plt.legend().remove()
+
+    plt.plot(
+        (
+            max_frame := num_diodes_power_frame.groupby(["num_diodes"])["power"]
+            .max()
+            .reset_index(drop=True)
+        ).index,
+        max_frame.values,
+        color="grey",
+        dashes=(2, 2),
+    )
+
+    plt.xticks(*[entry[::2] for entry in plt.xticks()])
+
+    plt.savefig(
+        f"number_of_diodes_with_max_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
+    plt.savefig(
+        f"number_of_diodes_with_max_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
         bbox_inches="tight",
         pad_inches=0,
@@ -344,6 +424,7 @@ def main(args: list[Any]) -> None:
         y="value",
         hue="bypass_diodes",
         dodge=True,
+        palette=sns.color_palette(),
     )
 
     plt.xlim(5, 19)
@@ -373,6 +454,7 @@ def main(args: list[Any]) -> None:
         combined_melted_frame,
         x="index",
         y="value",
+        alpha=0,
         hue="bypass_diodes",
         palette=sns.color_palette(),
         marginal_ticks=True,
@@ -385,12 +467,13 @@ def main(args: list[Any]) -> None:
         x="index",
         y="value",
         hue="bypass_diodes",
-        alpha=0.85,
+        alpha=0.15,
         ax=joint_plot.ax_joint,
         # cbar=True,
         # cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
         marker="D",
         palette=sns.color_palette(),
+        s=150,
     )
 
     norm = plt.Normalize(
@@ -417,7 +500,7 @@ def main(args: list[Any]) -> None:
     joint_plot.ax_marg_x.remove()
 
     joint_plot.ax_joint.legend().remove()
-    joint_plot.ax_joint.set_ylim(0, 4900)
+    joint_plot.ax_joint.set_ylim(0, 265)
     joint_plot.ax_joint.set_xlim(4, 20)
 
     sns.despine(ax=joint_plot.ax_joint)
@@ -427,6 +510,12 @@ def main(args: list[Any]) -> None:
         # bottom=0.1,
         # left=0.1,
         right=1.1
+    )
+    plt.savefig(
+        f"bypass_diode_joint_plot_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
     )
     plt.savefig(
         f"bypass_diode_joint_plot_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
@@ -456,7 +545,7 @@ def main(args: list[Any]) -> None:
     for index, column in enumerate(sliced_data.columns):
         plt.fill_between(
             sliced_data.index,
-            sorted_combined_data[sorted_combined_data.columns[-1]],
+            sorted_combined_data["Scenario 21"],
             sliced_data[column],
             color=f"C{index}",
             alpha=0.1,
@@ -468,8 +557,14 @@ def main(args: list[Any]) -> None:
     plt.xlim(4, 20)
     plt.ylim(0, None)
 
-    plt.legend(ncols=2, title="Scenario ID")
+    plt.legend(ncols=2, title="Scenario ID", bbox_to_anchor=(1.1, 1.05))
     handles, labels = plt.gca().get_legend_handles_labels()
+    plt.savefig(
+        f"top_scenarios_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"top_scenarios_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
@@ -484,7 +579,7 @@ def main(args: list[Any]) -> None:
     for index, column in enumerate(sliced_data.columns):
         plt.fill_between(
             sliced_data.index,
-            sorted_combined_data[sorted_combined_data.columns[-1]],
+            sorted_combined_data["Scenario 21"],
             sliced_data[column],
             color=f"C{index}",
             alpha=0.1,
@@ -498,6 +593,12 @@ def main(args: list[Any]) -> None:
 
     plt.legend(handles, labels, ncols=2, title="Scenario ID")
 
+    plt.savefig(
+        f"top_scenarios_fill_only_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"top_scenarios_fill_only_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
@@ -521,7 +622,7 @@ def main(args: list[Any]) -> None:
     for index, column in enumerate(sliced_data.columns):
         plt.fill_between(
             sliced_data.index,
-            sorted_combined_data[sorted_combined_data.columns[-1]],
+            sorted_combined_data["Scenario 21"],
             sliced_data[column],
             color=f"C{index}",
             alpha=0.1,
@@ -533,9 +634,15 @@ def main(args: list[Any]) -> None:
     plt.xlim(4, 20)
     plt.ylim(0, None)
 
-    plt.legend(ncols=2, title="Scenario ID")
+    plt.legend(ncols=2, title="Scenario ID", bbox_to_anchor=(1.1, 1.05))
     handles, labels = plt.gca().get_legend_handles_labels()
 
+    plt.savefig(
+        f"second_scenarios_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"second_scenarios_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
@@ -548,7 +655,7 @@ def main(args: list[Any]) -> None:
     for index, column in enumerate(sliced_data.columns):
         plt.fill_between(
             sliced_data.index,
-            sorted_combined_data[sorted_combined_data.columns[-1]],
+            sorted_combined_data["Scenario 21"],
             sliced_data[column],
             color=f"C{index}",
             alpha=0.1,
@@ -562,6 +669,12 @@ def main(args: list[Any]) -> None:
 
     plt.legend(handles, labels, ncols=2, title="Scenario ID")
 
+    plt.savefig(
+        f"second_scenarios_fill_only_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"second_scenarios_fill_only_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
@@ -585,7 +698,7 @@ def main(args: list[Any]) -> None:
     for index, column in enumerate(sliced_data.columns):
         plt.fill_between(
             sliced_data.index,
-            sorted_combined_data[sorted_combined_data.columns[-1]],
+            sorted_combined_data["Scenario 21"],
             sliced_data[column],
             color=f"C{index}",
             alpha=0.1,
@@ -597,9 +710,15 @@ def main(args: list[Any]) -> None:
     plt.xlim(4, 20)
     plt.ylim(0, None)
 
-    plt.legend(ncols=2, title="Scenario ID")
+    plt.legend(ncols=2, title="Scenario ID", bbox_to_anchor=(1.1, 1.05))
     handles, labels = plt.gca().get_legend_handles_labels()
 
+    plt.savefig(
+        f"third_scenarios_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"third_scenarios_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
@@ -613,7 +732,7 @@ def main(args: list[Any]) -> None:
     for index, column in enumerate(sliced_data.columns):
         plt.fill_between(
             sliced_data.index,
-            sorted_combined_data[sorted_combined_data.columns[-1]],
+            sorted_combined_data["Scenario 21"],
             sliced_data[column],
             color=f"C{index}",
             alpha=0.1,
@@ -627,6 +746,12 @@ def main(args: list[Any]) -> None:
 
     plt.legend(handles, labels, ncols=2, title="Scenario ID")
 
+    plt.savefig(
+        f"third_scenarios_fill_only_{os.path.basename(combined_output_filename).replace('.csv', '')}.png",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        transparent=True,
+    )
     plt.savefig(
         f"third_scenarios_fill_only_{os.path.basename(combined_output_filename).replace('.csv', '')}.pdf",
         format="pdf",
