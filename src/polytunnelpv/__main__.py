@@ -2856,7 +2856,10 @@ def main(unparsed_arguments) -> None:
 
             plt.figure(figsize=(48 / 5, 32 / 5))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
-            timestamps_data["Delta prediction vs model"] = timestamps_data["Predicted PV to batt"] - timestamps_data["Combined hourly PV to batt"]
+            timestamps_data["Delta prediction vs model"] = (
+                timestamps_data["Predicted PV to batt"]
+                - timestamps_data["Combined hourly PV to batt"]
+            )
             for index in timestamps_data.index:
                 plt.plot(
                     [
@@ -2920,7 +2923,6 @@ def main(unparsed_arguments) -> None:
                 pad_inches=0,
             )
             plt.show()
-
 
             # Open and parse the diffuse data on the diffusive fraction
             try:
@@ -3010,8 +3012,35 @@ def main(unparsed_arguments) -> None:
             timestamps_data = timestamps_data.merge(diffuse_frame, on="date")
 
             plt.figure(figsize=(48 / 5, 32 / 5))
-            sns.violinplot(timestamps_data, x="date", y="Delta prediction vs model", hue="category", hue_order=["Consistently sunny", "Intermittently sunny", "Intermittently cloudy", "Consistently cloudy"], inner=None, edgecolor=None, alpha=0.55, cut=0)
-            sns.swarmplot(timestamps_data, x="date", y="Delta prediction vs model", marker="D", hue="category", hue_order=["Consistently sunny", "Intermittently sunny", "Intermittently cloudy", "Consistently cloudy"])
+            sns.violinplot(
+                timestamps_data,
+                x="date",
+                y="Delta prediction vs model",
+                hue="category",
+                hue_order=[
+                    "Consistently sunny",
+                    "Intermittently sunny",
+                    "Intermittently cloudy",
+                    "Consistently cloudy",
+                ],
+                inner=None,
+                edgecolor=None,
+                alpha=0.55,
+                cut=0,
+            )
+            sns.swarmplot(
+                timestamps_data,
+                x="date",
+                y="Delta prediction vs model",
+                marker="D",
+                hue="category",
+                hue_order=[
+                    "Consistently sunny",
+                    "Intermittently sunny",
+                    "Intermittently cloudy",
+                    "Consistently cloudy",
+                ],
+            )
 
             plt.axhline(0, color="grey")
 
@@ -3022,8 +3051,17 @@ def main(unparsed_arguments) -> None:
 
             plt.legend(handles[:4], labels[:4], title="Day category")
 
-            plt.savefig(f"validation_figure_by_diffusivity_{INDEX}.png", transparent=True, bbox_inches="tight", pad_inches=0.04)
-            plt.savefig(f"validation_figure_by_diffusivity_{INDEX}.pdf", bbox_inches="tight", pad_inches=0.04)
+            plt.savefig(
+                f"validation_figure_by_diffusivity_{INDEX}.png",
+                transparent=True,
+                bbox_inches="tight",
+                pad_inches=0.04,
+            )
+            plt.savefig(
+                f"validation_figure_by_diffusivity_{INDEX}.pdf",
+                bbox_inches="tight",
+                pad_inches=0.04,
+            )
 
             plt.show()
 
@@ -3104,7 +3142,7 @@ def main(unparsed_arguments) -> None:
 
             # Plot the irradiance for set days as maps in the same way.
             stagger: float = 0.05
-            _, axes = plt.subplots(1, 2, figsize=(48/5, 32/5))
+            _, axes = plt.subplots(1, 2, figsize=(48 / 5, 32 / 5))
             sns.set_palette(["#42597F", "#FBC412"])
             index: int = 0
 
@@ -3184,12 +3222,12 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the consistently sunny days
-            fig, axes = plt.subplots(1, 2, figsize=(48/5, 24/5))
+            fig, axes = plt.subplots(1, 2, figsize=(48 / 5, 24 / 5))
             sns.set_palette(["#42597F", "#FBC412"])
 
             date_index = 11
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax1:=axes[0]).plot(
+            (ax1 := axes[0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3262,7 +3300,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 15
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax3:=axes[1]).plot(
+            (ax3 := axes[1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3340,17 +3378,21 @@ def main(unparsed_arguments) -> None:
             ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
             ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
 
-            plt.savefig("december_sunny_days_output_validation.pdf", bbox_inches="tight", pad_inches=0)
+            plt.savefig(
+                "december_sunny_days_output_validation.pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
 
             plt.show()
 
             # Plot the intermittently cloudy days
-            fig, axes = plt.subplots(2, 2, figsize=(48/5, 48/5))
+            fig, axes = plt.subplots(2, 2, figsize=(48 / 5, 48 / 5))
             sns.set_palette(["#42597F", "#36C7B8"])
 
             date_index = 2
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax1:=axes[0][0]).plot(
+            (ax1 := axes[0][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3423,7 +3465,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 6
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax3:=axes[0][1]).plot(
+            (ax3 := axes[0][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3496,7 +3538,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 8
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax5:=axes[1][0]).plot(
+            (ax5 := axes[1][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3569,7 +3611,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 17
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax7:=axes[1][1]).plot(
+            (ax7 := axes[1][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3651,17 +3693,21 @@ def main(unparsed_arguments) -> None:
             ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
             ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
 
-            plt.savefig("december_partly_sunny_days_output_validation.pdf", bbox_inches="tight", pad_inches=0)
+            plt.savefig(
+                "december_partly_sunny_days_output_validation.pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
 
             plt.show()
 
             # Plot the consistently cloudy days
-            fig, axes = plt.subplots(2, 2, figsize=(48/5, 48/5))
+            fig, axes = plt.subplots(2, 2, figsize=(48 / 5, 48 / 5))
             sns.set_palette(["#42597F", "#379CCA"])
 
             date_index = 4
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax1:=axes[0][0]).plot(
+            (ax1 := axes[0][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3734,7 +3780,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 5
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax3:=axes[0][1]).plot(
+            (ax3 := axes[0][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3807,7 +3853,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 25
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax5:=axes[1][0]).plot(
+            (ax5 := axes[1][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3880,7 +3926,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 27
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax7:=axes[1][1]).plot(
+            (ax7 := axes[1][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -3963,17 +4009,21 @@ def main(unparsed_arguments) -> None:
             ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
             ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
 
-            plt.savefig("december_cloudy_days_output_validation.pdf", bbox_inches="tight", pad_inches=0)
+            plt.savefig(
+                "december_cloudy_days_output_validation.pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
 
             plt.show()
 
             # Plot the consistently cloudy AND days
-            fig, axes = plt.subplots(3, 2, figsize=(48/5, 72/5))
+            fig, axes = plt.subplots(3, 2, figsize=(48 / 5, 72 / 5))
             sns.set_palette(["#42597F", "#379CCA", "#FBC412"])
 
             date_index = 11
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax1:=axes[0][0]).plot(
+            (ax1 := axes[0][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -4046,7 +4096,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 15
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax3:=axes[0][1]).plot(
+            (ax3 := axes[0][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -4124,7 +4174,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 4
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax5:=axes[1][0]).plot(
+            (ax5 := axes[1][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -4197,7 +4247,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 5
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax7:=axes[1][1]).plot(
+            (ax7 := axes[1][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -4270,7 +4320,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 25
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax9:=axes[2][0]).plot(
+            (ax9 := axes[2][0]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -4343,7 +4393,7 @@ def main(unparsed_arguments) -> None:
 
             date_index = 27
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
-            (ax11:=axes[2][1]).plot(
+            (ax11 := axes[2][1]).plot(
                 plotting_data["hour"],
                 plotting_data["Predicted PV to batt"],
                 label="Modelled output power",
@@ -4430,11 +4480,9 @@ def main(unparsed_arguments) -> None:
 
             plt.show()
 
-
             import pdb
 
             pdb.set_trace()
-
 
             plt.errorbar(
                 sliced_data[sliced_data["hour"] == hour]["Combined hourly PV to batt"],
