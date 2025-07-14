@@ -1006,7 +1006,7 @@ def get_irradiance(
 
 
 def relabel_cell_electrical_parameters(
-    cell_electrical_params: dict[str, float]
+    cell_electrical_params: dict[str, float],
 ) -> dict[str, float]:
     """
     Re-map entries within the mapping to more-sensible and user-readable variable names.
