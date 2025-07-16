@@ -340,8 +340,6 @@ class ModuleType(enum.Enum):
     THIN_FILM: str = "thin_film"
 
 
-
-
 @dataclass
 class CurvedPVModule:
     """

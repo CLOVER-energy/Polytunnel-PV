@@ -626,7 +626,12 @@ def _parse_pv_modules(
 
         return constructor(**pv_module_entry)
 
-    return [_construct_pv_module(pv_module_entry) for pv_module_entry in pv_module_data]
+    return [
+        _construct_pv_module(pv_module_entry)
+        for pv_module_entry in tqdm(
+            pv_module_data, desc="Parsing PV modules", leave=True
+        )
+    ]
 
 
 def _parse_pv_system() -> PVSystem:
@@ -696,7 +701,11 @@ def _parse_weather() -> dict[str, pd.DataFrame]:
     location_name_to_data_map: dict[str, pd.DataFrame] = {}
 
     # Parse the solar data
-    for filename in os.listdir(WEATHER_DATA_DIRECTORY):
+    for filename in tqdm(
+        os.listdir(WEATHER_DATA_DIRECTORY),
+        desc="Parsing weather data files",
+        leave=False,
+    ):
         # Skip the file if it's not in the expected format.
         try:
             location_name = WEATHER_DATA_REGEX.match(filename).group("location_name")  # type: ignore [union-attr]
@@ -708,7 +717,9 @@ def _parse_weather() -> dict[str, pd.DataFrame]:
         ) as f:
             location_name_to_data_map[location_name] = pd.read_csv(f, comment="#")
 
-    for filename in os.listdir(WEATHER_DATA_DIRECTORY):
+    for filename in tqdm(
+        os.listdir(WEATHER_DATA_DIRECTORY), desc="Parsing wind data files", leave=False
+    ):
         # Skip the file if it's not in the expected format.
         try:
             location_name = WIND_DATA_REGEX.match(filename).group("location_name")  # type: ignore [union-attr]
