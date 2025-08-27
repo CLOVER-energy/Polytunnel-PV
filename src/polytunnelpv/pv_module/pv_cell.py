@@ -758,12 +758,13 @@ class PVCell:
         ambient_celsius_temperature: float,
         irradiance_array: np.ndarray,
         wind_speed: float,
-        voltage_interp_array: np.ndarray | None = None,
-        param_grid: np.ndarray | None = None,
         *,
         current_density_series: np.ndarray | None = None,
         current_series: np.ndarray | None = None,
         voltage_series: np.ndarray | None = None,
+        interpolation_array = None,
+        voltage_interp_array = None,
+        param_grid = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Calculate the IV curve for the cell.
@@ -800,7 +801,8 @@ class PVCell:
             )
             - ZERO_CELSIUS_OFFSET
         )
-        #print(solar_irradiance,cell_temperature)
+        
+        #voltage_series = interpolation_array.get_or_interpolate(solar_irradiance,cell_temperature)
         
         if not isinstance(voltage_interp_array,np.ndarray) or not isinstance(param_grid,np.ndarray):
             return calculate_cell_iv_curve(

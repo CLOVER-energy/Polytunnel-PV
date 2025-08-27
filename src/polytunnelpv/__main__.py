@@ -70,6 +70,7 @@ from .pv_module.pv_module import (
     CurvedPVModule,
     ModuleType,
     TYPE_TO_CURVE_MAPPING,
+    AdaptiveSparseArray3D,
 )
 from .pv_system import ModuleString, PVSystem
 from .scenario import Scenario
@@ -578,7 +579,7 @@ def _parse_pv_modules(
 
         pv_module_entry[POLYTUNNEL_CURVE] = polytunnels[
             pv_module_entry[POLYTUNNEL_CURVE]
-        ]
+        ]       
 
         # Attempt to determine the PV-cell parameters
         try:
@@ -597,16 +598,24 @@ def _parse_pv_modules(
             except KeyError:
                 # Look within the pvlib database for the cell name.
                 try:
+                    
                     cell_electrical_parameters = (
                         pvlib.pvsystem.retrieve_sam(PVLIB_DATABASE_NAME)
                         .loc[:, cell_type_name]
                         .to_dict()
                     )
                     PRE_LOADED_PV_CELLS[cell_type_name] = cell_electrical_parameters
+                    
 
-                    # match name:
-                    #     case "CdTe":
-                    #         PRE_LOADED_PV_CELLS[cell_type_name]["EgRef"] = 1.475
+                    match cell_type_name:
+                        case "CdTe":
+                            PRE_LOADED_PV_CELLS[cell_type_name]["EgRef"] = 1.475
+                            PRE_LOADED_PV_CELLS[cell_type_name]["dEgdT"] = -0.0003
+                    
+                        case "Miasole_FLEX_03_280NL":
+                            # Copper Indium Gallium diSelenide (CIGS):
+                            PRE_LOADED_PV_CELLS[cell_type_name]["EgRef"] = 1.15
+                            PRE_LOADED_PV_CELLS[cell_type_name]["dEgdT"] = -0.00011
 
                     #  Crystalline Silicon (Si):
                     #      * EgRef = 1.121
@@ -657,7 +666,7 @@ def _parse_pv_modules(
                 except KeyError:
                     raise Exception(
                         f"Could not find cell name {cell_type_name} within either local or "
-                        "pvlib-imported scope."
+                        f"pvlib-imported scope. Type name: {type_name}"
                     ) from None
 
         # Create bypass diodes based on the information provided.
@@ -921,8 +930,9 @@ def process_single_mpp_calculation_without_pbar_interpolation(
     ],
     pv_system: PVSystem,
     scenario: Scenario,
-    voltage_interp_array: np.ndarray | None,
-    param_grid: np.ndarray | None,
+    interpolation_array: AdaptiveSparseArray3D | None = None,
+    voltage_interp_array = None,
+    param_grid = None,
 ) -> tuple[
     int,
     float,
@@ -1029,8 +1039,9 @@ def process_single_mpp_calculation_without_pbar_interpolation(
                 .reset_index(drop=True),
                 wind_speed=0,
                 current_series=current_series,
-                voltage_interp_array=voltage_interp_array,
-                param_grid=param_grid,
+                interpolation_array = interpolation_array,
+                voltage_interp_array = voltage_interp_array,
+                param_grid = param_grid,
             )
             
             cell_to_current_map[pv_cell] = output_current_series
@@ -1078,10 +1089,9 @@ def process_single_mpp_calculation_without_pbar_interpolation(
         }
         
         module_voltage = [sum(sublist) for sublist in zip(*cellwise_voltage.values())]
-
+        
         module_power = module_voltage * sampling_current_series
-
-        #print(module_power)
+        
         # Sanitise the data to avoid erroneous results at high values where the series
         # become truncated.
         cut_off_index, _ = _find_zero_crossing(module_power)
@@ -1089,11 +1099,15 @@ def process_single_mpp_calculation_without_pbar_interpolation(
         module_voltage = module_voltage[:cut_off_index]
         sampling_current_series = sampling_current_series[:cut_off_index]
 
-        #print(module_power)
-        mpp_index: int = list(module_power).index(np.max(module_power))
+        
+        combined_module_voltage = pv_system.combine_voltages(module_voltage)
+        combined_sampling_current_series = pv_system.combine_currents(sampling_current_series)
+        combined_module_power = pv_system.combine_powers(module_power)
+        
+        mpp_index: int = list(combined_module_power).index(np.max(combined_module_power))
 
         # Determine the power through the module at MPP
-        mpp_power: float = module_power[mpp_index]
+        mpp_power: float = combined_module_power[mpp_index]
 
         # Determine the MPP power produced by each cell
         cellwise_mpp: dict[PVCell, float] = {
@@ -2249,31 +2263,31 @@ def main(unparsed_arguments) -> None:
             ) as output_file:
                 json.dump(all_mpp_data, output_file, indent=4)
                 
-            mpp_filename = os.path.join(
-                OUTPUT_DIRECTORY,
-                f"hourly_mpp_{modelling_scenario.name}_"
-                f"{(start_hour:=parsed_args.start_day_index)}_to_"
-                f"{(end_hour:=start_hour + parsed_args.iteration_length)}.xlsx")
-            # Save daily data to a single Excel file with separate sheets
-            with pd.ExcelWriter(
-                mpp_filename,
-                engine="openpyxl",
-            ) as writer:
+            # mpp_filename = os.path.join(
+            #     OUTPUT_DIRECTORY,
+            #     f"hourly_mpp_{modelling_scenario.name}_"
+            #     f"{(start_hour:=parsed_args.start_day_index)}_to_"
+            #     f"{(end_hour:=start_hour + parsed_args.iteration_length)}.xlsx")
+            # # Save daily data to a single Excel file with separate sheets
+            # with pd.ExcelWriter(
+            #     mpp_filename,
+            #     engine="openpyxl",
+            # ) as writer:
 
-                # Ensure at least one sheet is present and visible
-                workbook = writer.book
-                placeholder_sheet = workbook.create_sheet(title="Sheet1")
+            #     # Ensure at least one sheet is present and visible
+            #     workbook = writer.book
+            #     placeholder_sheet = workbook.create_sheet(title="Sheet1")
 
-                for date_str, data in daily_data.items():
-                    date_str_formatted = datetime.strptime(date_str, '%d/%m/%Y').strftime('%d_%m_%Y')
-                    df = pd.DataFrame(data, columns=["Hour", "MPP (W)"])
-                    total_mpp = df["MPP (W)"].sum()
-                    df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
-                    df.to_excel(writer, sheet_name=date_str_formatted, index=False)
+            #     for date_str, data in daily_data.items():
+            #         date_str_formatted = datetime.strptime(date_str, '%d/%m/%Y').strftime('%d_%m_%Y')
+            #         df = pd.DataFrame(data, columns=["Hour", "MPP (W)"])
+            #         total_mpp = df["MPP (W)"].sum()
+            #         df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
+            #         df.to_excel(writer, sheet_name=date_str_formatted, index=False)
 
-                # Remove the placeholder sheet if it was not used
-                if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
-                    del workbook["Sheet1"]
+            #     # Remove the placeholder sheet if it was not used
+            #     if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
+            #         del workbook["Sheet1"]
 
             # Generate a heatmap of whether the power generation in the cells.
             cellwise_mpp_frame = pd.DataFrame(
@@ -2297,13 +2311,13 @@ def main(unparsed_arguments) -> None:
                 square=True,
                 vmin=0,
             )
-            plt.savefig(
-                f"cellwise_mpp_{modelling_scenario.name}_{start_hour}_{end_hour}."
-                f"{(fig_format:='pdf')}",
-                format=fig_format,
-                bbox_inches="tight",
-                pad_inches=0,
-            )
+            # plt.savefig(
+            #     f"cellwise_mpp_{modelling_scenario.name}_{start_hour}_{end_hour}."
+            #     f"{(fig_format:='pdf')}",
+            #     format=fig_format,
+            #     bbox_inches="tight",
+            #     pad_inches=0,
+            # )
             # plt.show()
 
             # Generate a heatmap of whether the cells were in reverse bias.
@@ -2321,17 +2335,23 @@ def main(unparsed_arguments) -> None:
             )
 
             sns.heatmap(reverse_bias_frame, cmap="PiYG_r", square=True, vmin=0, vmax=1)
-            plt.savefig(
-                f"cellwise_reverse_bias_{modelling_scenario.name}_{start_hour}_"
-                f"{end_hour}.{(fig_format:='pdf')}",
-                format=fig_format,
-                bbox_inches="tight",
-                pad_inches=0,
-            )
+            # plt.savefig(
+            #     f"cellwise_reverse_bias_{modelling_scenario.name}_{start_hour}_"
+            #     f"{end_hour}.{(fig_format:='pdf')}",
+            #     format=fig_format,
+            #     bbox_inches="tight",
+            #     pad_inches=0,
+            # )
             # plt.show()
             
         case OperatingMode.HOURLY_MPP_INTERPOLATION.value:
+                     
+            ################################
+            # Parallelised MPP computation #
+            ################################
             
+            # Use joblib to parallelize the for loop
+            start_time = time.time()
             # Calculate interpolation array
             irradiance_spectrum = np.linspace(1,34.64,101)**2 #range from 1 to 1200
             temperature_spectrum = np.linspace(5,100,51) 
@@ -2339,22 +2359,21 @@ def main(unparsed_arguments) -> None:
                                         irradiance_points=irradiance_spectrum,
                                         temperature_points=temperature_spectrum,
                                         scenario=modelling_scenario,
-                                    )   
-            print("Calculation of interpolation array....DONE")
-
+                                    )
+            # interpolation_pv_cell = scenario.pv_module.pv_cells_and_cell_strings[0]
+            # pv_cell_used = scenario.pv_module.pv_cells_and_cell_strings[0]
+            # if type(pv_cell_used) == BypassedCellString:
+            #     pv_cell_used = scenario.pv_module.pv_cells_and_cell_strings[0].pv_cells[0]
+            # interpolation_array = AdaptiveSparseArray3D(pv_cell_used,irrad_threshold=2,temp_threshold=1.5,max_size=5000)
+            print("Initialisation of interpolation array....DONE")
             
-            ################################
-            # Parallelised MPP computation #
-            ################################
-            
-            # Use joblib to parallelize the for loop
-            start_time = time.time()
             print(
                 (this_string := "Parallel MPP computation")
                 + "." * (88 - (len(this_string) + len(DONE)))
                 + " ",
                 end="",
             )
+            #results =[]
             with tqdm(
                 desc="MPP computation", total=parsed_args.iteration_length, unit="hour"
             ) as pbar:
@@ -2366,8 +2385,9 @@ def main(unparsed_arguments) -> None:
                             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
                             pv_system=pv_system,
                             scenario=modelling_scenario,
+                            #interpolation_array = interpolation_array,
                             voltage_interp_array = voltage_interp_array,
-                            param_grid = param_grid
+                            param_grid = param_grid,
                         )
                     )(time_of_day)
                     for time_of_day in range(
@@ -2437,33 +2457,6 @@ def main(unparsed_arguments) -> None:
             ) as output_file:
                 json.dump(all_mpp_data, output_file, indent=4)
                 
-            # Save daily data to a single Excel file with separate sheets
-                
-            mpp_filename = os.path.join(
-                OUTPUT_DIRECTORY,
-                f"{OperatingMode.HOURLY_MPP_INTERPOLATION.value}_{modelling_scenario.name}_"
-                f"{(start_hour:=parsed_args.start_day_index)}_to_"
-                f"{(end_hour:=start_hour + parsed_args.iteration_length)}.xlsx")
-            
-            with pd.ExcelWriter(
-                mpp_filename,
-                engine="openpyxl",
-            ) as writer:
-
-                # Ensure at least one sheet is present and visible
-                workbook = writer.book
-                placeholder_sheet = workbook.create_sheet(title="Sheet1")
-
-                for date_str, data in daily_data.items():
-                    date_str_formatted = datetime.strptime(date_str, '%d/%m/%Y').strftime('%d_%m_%Y')
-                    df = pd.DataFrame(data, columns=["Hour", "MPP (W)"])
-                    total_mpp = df["MPP (W)"].sum()
-                    df.loc["Total"] = ["Total", total_mpp]  # Adding the total MPP at the end
-                    df.to_excel(writer, sheet_name=date_str_formatted, index=False)
-
-                # Remove the placeholder sheet if it was not used
-                if "Sheet1" in workbook.sheetnames and len(workbook.sheetnames) > 1:
-                    del workbook["Sheet1"]
 
             # Generate a heatmap of whether the power generation in the cells.
             cellwise_mpp_frame = pd.DataFrame(
@@ -2487,13 +2480,13 @@ def main(unparsed_arguments) -> None:
                 square=True,
                 vmin=0,
             )
-            plt.savefig(
-                f"cellwise_mpp_{modelling_scenario.name}_{start_hour}_{end_hour}."
-                f"{(fig_format:='pdf')}",
-                format=fig_format,
-                bbox_inches="tight",
-                pad_inches=0,
-            )
+            # plt.savefig(
+            #     f"cellwise_mpp_{modelling_scenario.name}_{start_hour}_{end_hour}."
+            #     f"{(fig_format:='pdf')}",
+            #     format=fig_format,
+            #     bbox_inches="tight",
+            #     pad_inches=0,
+            # )
             # plt.show()
 
             # Generate a heatmap of whether the cells were in reverse bias.
@@ -2511,13 +2504,13 @@ def main(unparsed_arguments) -> None:
             )
 
             sns.heatmap(reverse_bias_frame, cmap="PiYG_r", square=True, vmin=0, vmax=1)
-            plt.savefig(
-                f"cellwise_reverse_bias_{modelling_scenario.name}_{start_hour}_"
-                f"{end_hour}.{(fig_format:='pdf')}",
-                format=fig_format,
-                bbox_inches="tight",
-                pad_inches=0,
-            )
+            # plt.savefig(
+            #     f"cellwise_reverse_bias_{modelling_scenario.name}_{start_hour}_"
+            #     f"{end_hour}.{(fig_format:='pdf')}",
+            #     format=fig_format,
+            #     bbox_inches="tight",
+            #     pad_inches=0,
+            # )
             # plt.show()
 
         case OperatingMode.HOURLY_MPP_MACHINE_LEARNING_TRAING.value:
@@ -3286,18 +3279,29 @@ def main(unparsed_arguments) -> None:
                     all_mpp_data = json.load(validation_file)
 
             else:
+                irradiance_spectrum = np.linspace(1,34.64,101)**2 #range from 1 to 1200
+                temperature_spectrum = np.linspace(5,100,51) 
+                voltage_interp_array, param_grid = create_voltage_interpolating_array(
+                                            irradiance_points=irradiance_spectrum,
+                                            temperature_points=temperature_spectrum,
+                                            scenario=modelling_scenario,
+                                        )
                 results = Parallel(n_jobs=8)(
                     delayed(
                         functools.partial(
-                            process_single_mpp_calculation_without_pbar,
+                            process_single_mpp_calculation_without_pbar_interpolation,
                             irradiance_frame=irradiance_frame,
                             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
                             pv_system=pv_system,
                             scenario=modelling_scenario,
+                            #interpolation_array = interpolation_array,
+                            voltage_interp_array = voltage_interp_array,
+                            param_grid = param_grid,
                         )
                     )(int(time_of_day))
                     for time_of_day in timestamps_data[_start_time_column_name]
                 )
+
 
                 # Format the data correctly.
                 all_mpp_data: list[
@@ -3310,16 +3314,14 @@ def main(unparsed_arguments) -> None:
                 ] = []
 
                 daily_data = defaultdict(list)
-                for result in results:
+                for i,result in enumerate(results):
                     if result is not None:
                         hour, mpp_power, bypassed_cell_strings, cellwise_mpp = result
                         if mpp_power is not None:
+                            date_str = (initial_time + timedelta(hours=timestamps_data[_start_time_column_name][i])
+                                        ).strftime("%d/%m/%Y")
                             daily_data[
-                                (
-                                    date_str := (
-                                        initial_time + timedelta(hours=hour)
-                                    ).strftime("%d/%m/%Y")
-                                )
+                                date_str                      
                             ].append((hour, mpp_power))
                             all_mpp_data.append(
                                 (
@@ -3386,7 +3388,7 @@ def main(unparsed_arguments) -> None:
                 + ["28/12/2023"] * 8
                 + ["29/12/2023"] * 9
                 + ["30/12/2023"] * 8
-                + ["31/12/2023"] * 9
+                + ["31/12/2023"] * 11
             )
             timestamps_data = pd.merge(
                 timestamps_data, all_mpp_frame, how="left", on=["date", "hour"]
@@ -3396,9 +3398,9 @@ def main(unparsed_arguments) -> None:
             #     entry[2] for entry in all_mpp_data
             # ]
 
-            timestamps_data["Combined hourly PV to batt"] *= 100
-            timestamps_data["Max PV to batt"] *= 100
-            timestamps_data["Min PV to batt"] *= 100
+            timestamps_data["Combined hourly PV to batt"] *= 1000
+            # timestamps_data["Max PV to batt"] *= 1000
+            # timestamps_data["Min PV to batt"] *= 1000
 
             timestamps_data["full_date"] = timestamps_data["date"]
             try:
@@ -3566,7 +3568,7 @@ def main(unparsed_arguments) -> None:
             plt.xlim(7, 17)
             sns.despine()
             plt.xlabel("Hour of the day")
-            plt.ylabel("P-PV model over/under prediction / kW")
+            plt.ylabel("P-PV model over/under prediction / W")
             plt.savefig(
                 "validation_figure_delta_{INDEX}.pdf",
                 format="pdf",

@@ -292,12 +292,13 @@ class BypassedCellString:
         ambient_celsius_temperature: float,
         irradiance_array: np.ndarray,
         wind_speed: float,
-        voltage_interp_array: np.ndarray | None = None,
-        param_grid: np.ndarray | None = None,
         *,
         current_density_series: np.ndarray | None = None,
         current_series: np.ndarray | None = None,
         voltage_series: np.ndarray | None = None,
+        interpolation_array = None,
+        voltage_interp_array = None,
+        param_grid = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[bool]]:
         """
         Calculate the IV curve for the bypassed string of cells.
@@ -349,9 +350,10 @@ class BypassedCellString:
                 wind_speed,
                 current_density_series=current_density_series,
                 current_series=current_series,
-                # voltage_series=voltage_series,
+                #voltage_series=voltage_series,
+                interpolation_array=interpolation_array,
                 voltage_interp_array = voltage_interp_array,
-                param_grid=param_grid,
+                param_grid = param_grid,
                 
             )
             for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False)
