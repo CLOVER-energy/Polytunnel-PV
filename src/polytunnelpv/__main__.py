@@ -84,6 +84,81 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+# MM:
+#   Conversion factor from mm to inches.
+MM = 1 / 25.4
+
+# MONTHS:
+#   A list of names of months
+MONTHS: list[str] = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
+
+# Plotting context
+rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 5})
+sns.set_context("paper", rc={"font.size": 5, "axes.titlesize": 5, "axes.labelsize": 5})
+plt.rcParams["font.size"] = 5
+sns.set_style("ticks")
+
+plt.rcParams["pdf.fonttype"] = 42
+plt.rcParams["ps.fonttype"] = 42
+
+rcParams["pdf.fonttype"] = 42
+rcParams["ps.fonttype"] = 42
+
+
+TOTEX_HEADER: str = "Other TOTEX"
+
+rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
+sns.set_context("paper")
+sns.set_style("whitegrid")
+
+# Set custom color-blind colormap
+colorblind_palette = sns.color_palette(
+    [
+        "#E04606",  # Orange
+        "#F09F52",  # Pale orange
+        "#52C0AD",  # Pale green
+        "#006264",  # Green
+        "#D8247C",  # Pink
+        "#EDEDED",  # Pale pink
+        "#E7DFBE",  # Pale yellow
+        "#FBBB2C",  # Yellow
+    ]
+)
+
+sns.set_palette(colorblind_palette)
+
+thesis_palette = sns.color_palette(
+    [
+        "#E04606",
+        "#F9A130",
+        "#FCB919",  # SDG 7
+        "#EFF2DD",
+        "#27BFE6",  # SDG 6
+        "#144E56",
+        "#D8247C",  # Pink
+        "#EDEDED",  # Pale pink
+        "#E7DFBE",  # Pale yellow
+    ]
+)
+
+# Figure size
+# fig, axes = plt.subplots(2, 2, figsize=(48 / 5, 32 / 5))
+
+# fig = plt.figure(figsize=(48 / 5, 32 / 5))
+
 # BYPASS_DIODES:
 #   Keyword for the bypass-diode parameters.
 BYPASS_DIODES: str = "bypass_diodes"
@@ -118,7 +193,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 1
+INDEX: int = 2
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -2111,7 +2186,7 @@ def main(unparsed_arguments) -> None:
                     ]
                 )
             )
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             dashes = Dashes()
 
             for time_of_day in tqdm(
@@ -2176,7 +2251,7 @@ def main(unparsed_arguments) -> None:
             )
             plt.show()
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             dashes = Dashes()
 
             for time_of_day in tqdm(
@@ -2383,7 +2458,7 @@ def main(unparsed_arguments) -> None:
 
             # Plot the IV curves across the module, along with the power that each
             # bypassed group produces
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             left_axis = plt.gca()
             right_axis = left_axis.twinx()
 
@@ -2420,7 +2495,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the IV curves across the module as current and power only.
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
 
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
@@ -2499,7 +2574,7 @@ def main(unparsed_arguments) -> None:
 
             pdb.set_trace()
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
             ):
@@ -2553,7 +2628,7 @@ def main(unparsed_arguments) -> None:
             )
             plt.show()
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             left_axis = plt.gca()
             right_axis = left_axis.twinx()
 
@@ -2850,7 +2925,7 @@ def main(unparsed_arguments) -> None:
 
             pdb.set_trace()
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
             for index in timestamps_data.index:
                 plt.plot(
@@ -2916,7 +2991,7 @@ def main(unparsed_arguments) -> None:
             )
             plt.show()
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
             timestamps_data["Delta prediction vs model"] = (
                 timestamps_data["Predicted PV to batt"]
@@ -3073,7 +3148,7 @@ def main(unparsed_arguments) -> None:
 
             timestamps_data = timestamps_data.merge(diffuse_frame, on="date")
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             sns.violinplot(
                 timestamps_data,
                 x="date",
@@ -3127,7 +3202,7 @@ def main(unparsed_arguments) -> None:
 
             plt.show()
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             sns.scatterplot(
                 diffuse_frame,
                 x="date",
@@ -3204,14 +3279,14 @@ def main(unparsed_arguments) -> None:
 
             # Plot the irradiance for set days as maps in the same way.
             stagger: float = 0.05
-            _, axes = plt.subplots(1, 2, figsize=(48 / 5, 32 / 5))
+            _, axes = plt.subplots(1, 2, figsize=(180 * MM, 120 * MM))
             sns.set_palette(["#42597F", "#FBC412"])
             index: int = 0
 
             for date_index in set(timestamps_data["date"]):
                 if date_index not in (11, 15):
                     continue
-                plt.figure(figsize=(48 / 5, 32 / 5))
+                plt.figure(figsize=(180 * MM, 120 * MM))
                 ax1 = plt.gca()
                 plotting_data = timestamps_data[timestamps_data["date"] == date_index]
                 ax1.plot(
@@ -3284,8 +3359,15 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the consistently sunny days
-            fig, axes = plt.subplots(1, 2, figsize=(48 / 5, 24 / 5))
+            fig, axes = plt.subplots(1, 2, figsize=(300 * MM, 150 * MM))
             sns.set_palette(["#42597F", "#FBC412"])
+
+            sns.set_context(
+                "notebook",
+                rc={"font.size": 16, "axes.titlesize": 16, "axes.labelsize": 16},
+            )
+            plt.rcParams["font.size"] = 16
+            rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 16})
 
             date_index = 11
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
@@ -3352,9 +3434,10 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left")
+            ax1.legend(loc="upper left", fontsize=16)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
+            ax1.tick_params(axis="both", which="major", labelsize=16)
             ax2.tick_params(left=False, right=False)
             ax2.set_yticklabels([])
             sns.despine(ax=ax1, right=True, left=False)
@@ -3426,10 +3509,10 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right")
-            ax3.tick_params(left=False)
+            ax4.legend(loc="upper right", fontsize=16)
+            ax3.tick_params(left=False, which="major", labelsize=16)
             ax3.set_yticklabels([])
-            ax4.tick_params(left=False)
+            ax4.tick_params(left=False, which="major", labelsize=16)
             sns.despine(ax=ax3, right=False, left=True)
             sns.despine(ax=ax4, right=False, left=True)
 
@@ -3437,11 +3520,674 @@ def main(unparsed_arguments) -> None:
 
             ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
             ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
+            ax3.tick_params(axis="both", which="major", labelsize=16)
+            ax4.tick_params(axis="both", which="major", labelsize=16)
+
+            plt.xticks(fontsize=16)
 
             plt.savefig(
-                "december_sunny_days_output_validation.pdf",
+                f"december_sunny_days_output_validation_{INDEX}.pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+
+            plt.show()
+
+            # Plot the validation days for EUPVSEC
+            import pdb
+
+            pdb.set_trace()
+
+            fig, axes = plt.subplots(2, 3, figsize=(450 * MM, 300 * MM))
+            sns.set_palette(["#42597F", "#379CCA", "#36C7B8", "#FBC412"])
+
+            date_index = 4
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax1 := axes[0][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax1.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax1.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax1.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax1.set_xlabel("Hour of the day")
+            ax1.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_ylim(0, 100)
+            ax1.set_xlim(6, 18)
+            ax2.set_ylim(0, 1)
+            ax1.legend(loc="upper left", fontsize=16, title="Cloudy", title_fontsize=16)
+            # ax2.legend(loc="upper right")
+            ax1.tick_params(right=False)
+            ax2.tick_params(left=False, right=False)
+            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax2.set_yticklabels([])
+            sns.despine(ax=ax1, right=True, left=False)
+            sns.despine(ax=ax2, right=True, left=False)
+
+            date_index = 5
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax3 := axes[0][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax3.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax3.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax3.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax4 = ax3.twinx()
+            ax4.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax3.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            # ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax3.set_ylim(0, 100)
+            ax3.set_xlim(6, 18)
+            ax4.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax4.legend(loc="upper right", fontsize=16)
+            ax3.tick_params(left=False, right=False)
+            ax3.set_yticklabels([])
+            ax3.tick_params(axis="both", which="major", labelsize=16)
+            ax4.tick_params(left=False, right=False)
+            ax4.set_yticklabels([])
+            sns.despine(ax=ax3, right=True, left=True)
+            sns.despine(ax=ax4, right=True, left=True)
+
+            date_index = 2
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax5 := axes[0][2]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax5.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax5.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C2",
+            )
+            ax5.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C2",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax5.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C2",
+                alpha=0.15,
+            )
+            ax6 = ax5.twinx()
+            ax6.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax5.set_xlabel("Hour of the day")
+            # ax5.set_ylabel("Power produced / kW")
+            ax6.set_ylabel("Diffuse fraction ($D$)")
+            ax5.tick_params(axis="both", which="major", labelsize=16)
+            ax6.tick_params(axis="both", which="major", labelsize=16)
+            ax5.set_ylim(0, 100)
+            ax5.set_xlim(6, 18)
+            ax6.set_ylim(0, 1)
+            ax5.legend(
+                loc="upper left", fontsize=16, title="Partly cloudy", title_fontsize=16
+            )
+            # ax6.legend(loc="upper right")
+            ax5.tick_params(left=False)
+            ax6.tick_params(left=False, right=False)
+            ax5.set_yticklabels([])
+            sns.despine(ax=ax5, right=False, left=True)
+            sns.despine(ax=ax6, right=False, left=True)
+
+            date_index = 17
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax7 := axes[1][0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax7.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax7.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C2",
+            )
+            ax7.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C2",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax7.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C2",
+                alpha=0.15,
+            )
+            ax8 = ax7.twinx()
+            ax8.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax7.set_xlabel("Hour of the day")
+            ax7.set_ylabel("Power produced / kW")
+            # ax8.set_ylabel("Diffuse fraction ($D$)")
+            ax7.set_ylim(0, 100)
+            ax7.set_xlim(6, 18)
+            ax8.set_ylim(0, 1)
+            # ax7.legend(loc="upper left")
+            # ax8.legend(loc="upper right", fontsize=16)
+            ax7.tick_params(right=False)
+            ax7.tick_params(axis="both", which="major", labelsize=16)
+            ax8.set_yticklabels([])
+            ax8.tick_params(right=False)
+            sns.despine(ax=ax7, right=True, left=False)
+            sns.despine(ax=ax8, right=True, left=True)
+
+            date_index = 11
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax9 := axes[1][1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax9.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax9.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax9.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C3",
+            )
+            ax9.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C3",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax9.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C3",
+                alpha=0.15,
+            )
+            ax10 = ax9.twinx()
+            ax10.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax9.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            # ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax9.set_ylim(0, 100)
+            ax9.set_xlim(6, 18)
+            ax10.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax9.legend(loc="upper left", fontsize=16, title="Sunny", title_fontsize=16)
+            ax9.tick_params(left=False, right=False)
+            ax9.set_yticklabels([])
+            ax9.tick_params(axis="both", which="major", labelsize=16)
+            ax10.tick_params(left=False, right=False)
+            ax10.set_yticklabels([])
+            sns.despine(ax=ax9, right=True, left=True)
+            sns.despine(ax=ax10, right=True, left=True)
+
+            date_index = 15
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax11 := axes[1][2]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax11.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax11.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax11.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C3",
+            )
+            ax11.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C3",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax11.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C3",
+                alpha=0.15,
+            )
+            ax12 = ax11.twinx()
+            ax12.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax11.set_xlabel("Hour of the day")
+            # ax11.set_ylabel("Power produced / kW")
+            ax12.set_ylabel("Diffuse fraction ($D$)")
+            ax11.set_ylim(0, 100)
+            ax11.set_xlim(6, 18)
+            ax12.set_ylim(0, 1)
+            # ax11.legend(loc="upper left")
+            # ax12.legend(loc="upper right", fontsize=16)
+            ax11.tick_params(left=False, which="major", labelsize=16)
+            ax11.set_yticklabels([])
+            ax12.tick_params(left=False, which="major", labelsize=16)
+            sns.despine(ax=ax11, right=False, left=True)
+            sns.despine(ax=ax12, right=False, left=True)
+
+            fig.subplots_adjust(wspace=0.15)
+            fig.subplots_adjust(hspace=0.35)
+
+            ax1.set_title(r"4$^{\rm{th}}$ December", weight="bold")
+            ax3.set_title(r"5$^{\rm{th}}$ December", weight="bold")
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
+            ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold")
+            ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold")
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=24)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=24)
+            ax9.set_title(r"2$^{\rm{nd}}$ December", weight="bold")
+            ax11.set_title(r"15$^{\rm{th}}$ December", weight="bold")
+            ax10.text(4.05, 1.05, "e.", fontweight="bold", fontsize=24)
+            ax12.text(5.05, 1.05, "f.", fontweight="bold", fontsize=24)
+
+            plt.xticks(fontsize=16)
+
+            plt.savefig(
+                f"december_eupvsec_validation_{INDEX}.pdf",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+
+            plt.show()
+
+            # Plot consistently sunny days
+            fig, axes = plt.subplots(1, 2, figsize=(300 * MM, 150 * MM))
+            sns.set_palette(["#42597F", "#FBC412"])
+
+            sns.set_context(
+                "notebook",
+                rc={"font.size": 16, "axes.titlesize": 16, "axes.labelsize": 16},
+            )
+            plt.rcParams["font.size"] = 16
+            rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 16})
+
+            date_index = 11
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax1 := axes[0]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax1.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax1.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax1.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax1.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax2 = ax1.twinx()
+            ax2.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax1.set_xlabel("Hour of the day")
+            ax1.set_ylabel("Power produced / kW")
+            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_ylim(0, 100)
+            ax1.set_xlim(6, 18)
+            ax2.set_ylim(0, 1)
+            ax1.legend(loc="upper left", fontsize=16)
+            # ax2.legend(loc="upper right")
+            ax1.tick_params(right=False)
+            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax2.tick_params(left=False, right=False)
+            ax2.set_yticklabels([])
+            sns.despine(ax=ax1, right=True, left=False)
+            sns.despine(ax=ax2, right=True, left=False)
+
+            date_index = 15
+            plotting_data = timestamps_data[timestamps_data["date"] == date_index]
+            (ax3 := axes[1]).plot(
+                plotting_data["hour"],
+                plotting_data["Predicted PV to batt"],
+                label="Modelled output power",
+                color="C0",
+            )
+            ax3.errorbar(
+                [entry - stagger for entry in plotting_data["hour"]],
+                plotting_data["Predicted PV to batt"],
+                capsize=5,
+                color="C0",
+                ls="none",
+                yerr=plotting_data["Predicted PV error"],
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Predicted PV to batt"],
+                color="C0",
+                alpha=0.15,
+            )
+            ax3.plot(
+                plotting_data["hour"],
+                plotting_data["Combined hourly PV to batt"],
+                label="Measured output power",
+                color="C1",
+            )
+            ax3.errorbar(
+                [entry + stagger for entry in plotting_data["hour"]],
+                plotting_data["Combined hourly PV to batt"],
+                capsize=5,
+                color="C1",
+                ls="none",
+                yerr=(
+                    plotting_data["Combined hourly PV to batt"]
+                    - plotting_data["Min PV to batt"],
+                    plotting_data["Max PV to batt"]
+                    - plotting_data["Combined hourly PV to batt"],
+                ),
+            )
+            ax3.fill_between(
+                plotting_data["hour"],
+                [0] * len(plotting_data),
+                plotting_data["Combined hourly PV to batt"],
+                color="C1",
+                alpha=0.15,
+            )
+            ax4 = ax3.twinx()
+            ax4.plot(
+                (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
+                    "hour"
+                ],
+                diffuse_slice["Diffusive fraction"],
+                "--",
+                color="black",
+                label="Diffuse fraction estimate",
+            )
+            ax3.set_xlabel("Hour of the day")
+            # ax3.set_ylabel("Power produced / kW")
+            ax4.set_ylabel("Diffuse fraction ($D$)")
+            ax3.set_ylim(0, 100)
+            ax3.set_xlim(6, 18)
+            ax4.set_ylim(0, 1)
+            # ax3.legend(loc="upper left")
+            ax4.legend(loc="upper right", fontsize=16)
+            ax3.tick_params(left=False, which="major", labelsize=16)
+            ax3.set_yticklabels([])
+            ax4.tick_params(left=False, which="major", labelsize=16)
+            sns.despine(ax=ax3, right=False, left=True)
+            sns.despine(ax=ax4, right=False, left=True)
+
+            fig.subplots_adjust(wspace=0.15)
+
+            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
+            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
+            ax2.text(4.05, 1.05, "e.", fontweight="bold", fontsize=24)
+            ax4.text(5.05, 1.05, "f.", fontweight="bold", fontsize=24)
+            ax3.tick_params(axis="both", which="major", labelsize=16)
+            ax4.tick_params(axis="both", which="major", labelsize=16)
+
+            plt.xticks(fontsize=16)
+
+            plt.savefig(
+                f"december_sunny_days_output_validation_ef_{INDEX}.pdf",
                 bbox_inches="tight",
                 pad_inches=0,
             )
@@ -3449,7 +4195,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the intermittently cloudy days
-            fig, axes = plt.subplots(2, 2, figsize=(48 / 5, 48 / 5))
+            fig, axes = plt.subplots(2, 2, figsize=(300 * MM, 300 * MM))
             sns.set_palette(["#42597F", "#36C7B8"])
 
             date_index = 2
@@ -3517,7 +4263,7 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left")
+            ax1.legend(loc="upper left", fontsize=16)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
             ax2.tick_params(left=False, right=False)
@@ -3591,7 +4337,7 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right")
+            ax4.legend(loc="upper right", fontsize=16)
             ax3.tick_params(left=False)
             ax3.set_yticklabels([])
             ax4.tick_params(left=False)
@@ -3663,7 +4409,7 @@ def main(unparsed_arguments) -> None:
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
-            ax5.legend(loc="upper left")
+            ax5.legend(loc="upper left", fontsize=16)
             # ax3.legend(loc="upper left")
             ax5.tick_params(right=False)
             ax6.tick_params(left=False, right=False)
@@ -3737,7 +4483,7 @@ def main(unparsed_arguments) -> None:
             ax7.set_xlim(6, 18)
             ax8.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax8.legend(loc="upper right")
+            # ax8.legend(loc="upper right", fontsize=16)
             ax7.tick_params(left=False)
             ax7.set_yticklabels([])
             ax8.tick_params(left=False)
@@ -3746,17 +4492,26 @@ def main(unparsed_arguments) -> None:
 
             fig.subplots_adjust(wspace=0.15, hspace=0.35)
 
-            ax1.set_title(r"2$^{\rm{nd}}$ December", weight="bold")
+            ax1.set_title(r"2$^{\rm{nd}}$ December", weight="bold", fontsize=16)
             ax3.set_title(r"6$^{\rm{th}}$ December", weight="bold")
             ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold")
             ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
-            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
-            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=24)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=24)
+
+            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax2.tick_params(axis="both", which="major", labelsize=16)
+            ax3.tick_params(axis="both", which="major", labelsize=16)
+            ax4.tick_params(axis="both", which="major", labelsize=16)
+            ax5.tick_params(axis="both", which="major", labelsize=16)
+            ax6.tick_params(axis="both", which="major", labelsize=16)
+            ax7.tick_params(axis="both", which="major", labelsize=16)
+            ax8.tick_params(axis="both", which="major", labelsize=16)
 
             plt.savefig(
-                "december_partly_sunny_days_output_validation.pdf",
+                f"december_partly_sunny_days_output_validation_{INDEX}.pdf",
                 bbox_inches="tight",
                 pad_inches=0,
             )
@@ -3764,7 +4519,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the consistently cloudy days
-            fig, axes = plt.subplots(2, 2, figsize=(48 / 5, 48 / 5))
+            fig, axes = plt.subplots(2, 2, figsize=(300 * MM, 300 * MM))
             sns.set_palette(["#42597F", "#379CCA"])
 
             date_index = 4
@@ -3832,7 +4587,7 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left")
+            ax1.legend(loc="upper left", fontsize=16)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
             ax2.tick_params(left=False, right=False)
@@ -3906,7 +4661,7 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right")
+            ax4.legend(loc="upper right", fontsize=16)
             ax3.tick_params(left=False)
             ax3.set_yticklabels([])
             ax4.tick_params(left=False)
@@ -3978,7 +4733,7 @@ def main(unparsed_arguments) -> None:
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
-            ax5.legend(loc="upper left")
+            ax5.legend(loc="upper left", fontsize=16)
             # ax3.legend(loc="upper left")
             ax5.tick_params(right=False)
             ax6.tick_params(left=False, right=False)
@@ -4052,7 +4807,7 @@ def main(unparsed_arguments) -> None:
             ax7.set_xlim(6, 18)
             ax8.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax8.legend(loc="upper right")
+            ax8.legend(loc="upper right", fontsize=16)
             ax7.tick_params(left=False)
             ax7.set_yticklabels([])
             ax8.tick_params(left=False)
@@ -4066,13 +4821,22 @@ def main(unparsed_arguments) -> None:
             ax5.set_title(r"25$^{\rm{th}}$ December", weight="bold")
             ax7.set_title(r"27$^{\rm{th}}$ December", weight="bold")
 
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
-            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
-            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=24)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=24)
+
+            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax2.tick_params(axis="both", which="major", labelsize=16)
+            ax3.tick_params(axis="both", which="major", labelsize=16)
+            ax4.tick_params(axis="both", which="major", labelsize=16)
+            ax5.tick_params(axis="both", which="major", labelsize=16)
+            ax6.tick_params(axis="both", which="major", labelsize=16)
+            ax7.tick_params(axis="both", which="major", labelsize=16)
+            ax8.tick_params(axis="both", which="major", labelsize=16)
 
             plt.savefig(
-                "december_cloudy_days_output_validation.pdf",
+                f"december_cloudy_days_output_validation_{INDEX}.pdf",
                 bbox_inches="tight",
                 pad_inches=0,
             )
@@ -4148,7 +4912,7 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left")
+            ax1.legend(loc="upper left", title="Cloudy")
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
             ax2.tick_params(left=False, right=False)
@@ -4299,7 +5063,7 @@ def main(unparsed_arguments) -> None:
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
-            ax5.legend(loc="upper left")
+            ax5.legend(loc="upper left", title="Partly cloudy")
             # ax2.legend(loc="upper right")
             ax5.tick_params(right=False)
             ax6.tick_params(left=False, right=False)
@@ -4373,7 +5137,7 @@ def main(unparsed_arguments) -> None:
             ax7.set_xlim(6, 18)
             ax8.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax8.legend(loc="upper right")
+            # ax8.legend(loc="upper right")
             ax7.tick_params(left=False)
             ax7.set_yticklabels([])
             ax8.tick_params(left=False)
@@ -4445,7 +5209,7 @@ def main(unparsed_arguments) -> None:
             ax9.set_ylim(0, 100)
             ax9.set_xlim(6, 18)
             ax10.set_ylim(0, 1)
-            ax9.legend(loc="upper left")
+            ax9.legend(loc="upper left", title="Sunny")
             # ax3.legend(loc="upper left")
             ax9.tick_params(right=False)
             ax10.tick_params(left=False, right=False)
@@ -4519,7 +5283,7 @@ def main(unparsed_arguments) -> None:
             ax11.set_xlim(6, 18)
             ax12.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax12.legend(loc="upper right")
+            # ax12.legend(loc="upper right")
             ax11.tick_params(left=False)
             ax11.set_yticklabels([])
             ax12.tick_params(left=False)
@@ -4667,7 +5431,7 @@ def main(unparsed_arguments) -> None:
             cmap = sns.cubehelix_palette(start=-0.4, rot=-0.4, as_cmap=True)
             sns.set_palette(sns.cubehelix_palette(start=-0.4, rot=-0.4, n_colors=31))
 
-            plt.figure(figsize=(48 / 5, 32 / 5))
+            plt.figure(figsize=(180 * MM, 120 * MM))
             sns.scatterplot(
                 timestamps_data,
                 x="Combined hourly PV to batt",
@@ -4779,7 +5543,7 @@ def main(unparsed_arguments) -> None:
             cmap = sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=13, as_cmap=True)
 
             for date in range(31):
-                plt.figure(figsize=(48 / 5, 32 / 5))
+                plt.figure(figsize=(180 * MM, 120 * MM))
                 sns.scatterplot(
                     (
                         sliced_data := timestamps_data[
@@ -4959,7 +5723,7 @@ def main(unparsed_arguments) -> None:
     #     ax2.plot([0], [1], transform=ax2.transAxes, **kwargs)
 
     # gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
-    # fig, axes = plt.subplots(5, 2, figsize=(48 / 5, 32 / 5), gridspec_kw=gridspec)
+    # fig, axes = plt.subplots(5, 2, figsize=(180 * MM, 120 * MM), gridspec_kw=gridspec)
     # fig.subplots_adjust(hspace=0, wspace=0.25)
 
     # axes[2, 0].set_visible(False)
