@@ -73,12 +73,18 @@ from .pv_module.pv_module import (
 from .pv_system import ModuleString, PVSystem
 from .scenario import Scenario
 
-rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
-# rc("figure", **{"figsize": (48 / 5, 32 / 5)})
+# Plotting context
+rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 7})
+sns.set_context("paper", rc={"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7})
+sns.set_style("ticks")
+
+plt.rcParams["pdf.fonttype"] = 42
+plt.rcParams["ps.fonttype"] = 42
 rcParams["pdf.fonttype"] = 42
 rcParams["ps.fonttype"] = 42
-sns.set_context("notebook")
-sns.set_style("ticks")
+
+plt.rcParams["font.size"] = 7
+
 
 import warnings
 
@@ -105,23 +111,10 @@ MONTHS: list[str] = [
     "Dec",
 ]
 
-# Plotting context
-rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 5})
-sns.set_context("paper", rc={"font.size": 5, "axes.titlesize": 5, "axes.labelsize": 5})
-plt.rcParams["font.size"] = 5
-sns.set_style("ticks")
-
-plt.rcParams["pdf.fonttype"] = 42
-plt.rcParams["ps.fonttype"] = 42
-
-rcParams["pdf.fonttype"] = 42
-rcParams["ps.fonttype"] = 42
-
 
 TOTEX_HEADER: str = "Other TOTEX"
 
 rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
-sns.set_context("paper")
 sns.set_style("whitegrid")
 
 # Set custom color-blind colormap
@@ -193,7 +186,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 2
+INDEX: int = 3
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -1582,7 +1575,6 @@ def main(unparsed_arguments) -> None:
 
     # Matplotlib setup
     rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
-    sns.set_context("notebook")
     sns.set_style("ticks")
 
     # Parse the command-line arguments.
@@ -2186,7 +2178,7 @@ def main(unparsed_arguments) -> None:
                     ]
                 )
             )
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             dashes = Dashes()
 
             for time_of_day in tqdm(
@@ -2251,7 +2243,7 @@ def main(unparsed_arguments) -> None:
             )
             plt.show()
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             dashes = Dashes()
 
             for time_of_day in tqdm(
@@ -2458,7 +2450,7 @@ def main(unparsed_arguments) -> None:
 
             # Plot the IV curves across the module, along with the power that each
             # bypassed group produces
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             left_axis = plt.gca()
             right_axis = left_axis.twinx()
 
@@ -2495,7 +2487,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the IV curves across the module as current and power only.
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
 
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
@@ -2574,7 +2566,7 @@ def main(unparsed_arguments) -> None:
 
             pdb.set_trace()
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
             ):
@@ -2628,7 +2620,7 @@ def main(unparsed_arguments) -> None:
             )
             plt.show()
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             left_axis = plt.gca()
             right_axis = left_axis.twinx()
 
@@ -2925,7 +2917,7 @@ def main(unparsed_arguments) -> None:
 
             pdb.set_trace()
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
             for index in timestamps_data.index:
                 plt.plot(
@@ -2991,7 +2983,7 @@ def main(unparsed_arguments) -> None:
             )
             plt.show()
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
             timestamps_data["Delta prediction vs model"] = (
                 timestamps_data["Predicted PV to batt"]
@@ -3148,7 +3140,7 @@ def main(unparsed_arguments) -> None:
 
             timestamps_data = timestamps_data.merge(diffuse_frame, on="date")
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             sns.violinplot(
                 timestamps_data,
                 x="date",
@@ -3202,7 +3194,7 @@ def main(unparsed_arguments) -> None:
 
             plt.show()
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             sns.scatterplot(
                 diffuse_frame,
                 x="date",
@@ -3279,14 +3271,14 @@ def main(unparsed_arguments) -> None:
 
             # Plot the irradiance for set days as maps in the same way.
             stagger: float = 0.05
-            _, axes = plt.subplots(1, 2, figsize=(180 * MM, 120 * MM))
+            _, axes = plt.subplots(1, 2, figsize=(171 * MM, 120 * MM))
             sns.set_palette(["#42597F", "#FBC412"])
             index: int = 0
 
             for date_index in set(timestamps_data["date"]):
                 if date_index not in (11, 15):
                     continue
-                plt.figure(figsize=(180 * MM, 120 * MM))
+                plt.figure(figsize=(171 * MM, 120 * MM))
                 ax1 = plt.gca()
                 plotting_data = timestamps_data[timestamps_data["date"] == date_index]
                 ax1.plot(
@@ -3359,15 +3351,15 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the consistently sunny days
-            fig, axes = plt.subplots(1, 2, figsize=(300 * MM, 150 * MM))
+            fig, axes = plt.subplots(1, 2, figsize=(171 * MM, 80 * MM))
             sns.set_palette(["#42597F", "#FBC412"])
 
             sns.set_context(
                 "notebook",
-                rc={"font.size": 16, "axes.titlesize": 16, "axes.labelsize": 16},
+                rc={"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7},
             )
-            plt.rcParams["font.size"] = 16
-            rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 16})
+            plt.rcParams["font.size"] = 7
+            rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 7})
 
             date_index = 11
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
@@ -3434,10 +3426,10 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left", fontsize=16)
+            ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
-            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax1.tick_params(axis="both", which="major", labelsize=7)
             ax2.tick_params(left=False, right=False)
             ax2.set_yticklabels([])
             sns.despine(ax=ax1, right=True, left=False)
@@ -3509,23 +3501,23 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right", fontsize=16)
-            ax3.tick_params(left=False, which="major", labelsize=16)
+            ax4.legend(loc="upper right", fontsize=7)
+            ax3.tick_params(left=False, which="major", labelsize=7)
             ax3.set_yticklabels([])
-            ax4.tick_params(left=False, which="major", labelsize=16)
+            ax4.tick_params(left=False, which="major", labelsize=7)
             sns.despine(ax=ax3, right=False, left=True)
             sns.despine(ax=ax4, right=False, left=True)
 
             fig.subplots_adjust(wspace=0.15)
 
-            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
-            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
-            ax3.tick_params(axis="both", which="major", labelsize=16)
-            ax4.tick_params(axis="both", which="major", labelsize=16)
+            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=7)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=7)
+            ax3.tick_params(axis="both", which="major", labelsize=7)
+            ax4.tick_params(axis="both", which="major", labelsize=7)
 
-            plt.xticks(fontsize=16)
+            plt.xticks(fontsize=7)
 
             plt.savefig(
                 f"december_sunny_days_output_validation_{INDEX}.pdf",
@@ -3540,7 +3532,7 @@ def main(unparsed_arguments) -> None:
 
             pdb.set_trace()
 
-            fig, axes = plt.subplots(2, 3, figsize=(450 * MM, 300 * MM))
+            fig, axes = plt.subplots(2, 3, figsize=(171 * MM, 120 * MM))
             sns.set_palette(["#42597F", "#379CCA", "#36C7B8", "#FBC412"])
 
             date_index = 4
@@ -3608,11 +3600,11 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left", fontsize=16, title="Cloudy", title_fontsize=16)
+            ax1.legend(loc="upper left", fontsize=7, title="Cloudy", title_fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
             ax2.tick_params(left=False, right=False)
-            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax1.tick_params(axis="both", which="major", labelsize=7)
             ax2.set_yticklabels([])
             sns.despine(ax=ax1, right=True, left=False)
             sns.despine(ax=ax2, right=True, left=False)
@@ -3683,10 +3675,10 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right", fontsize=16)
+            ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False, right=False)
             ax3.set_yticklabels([])
-            ax3.tick_params(axis="both", which="major", labelsize=16)
+            ax3.tick_params(axis="both", which="major", labelsize=7)
             ax4.tick_params(left=False, right=False)
             ax4.set_yticklabels([])
             sns.despine(ax=ax3, right=True, left=True)
@@ -3754,13 +3746,13 @@ def main(unparsed_arguments) -> None:
             ax5.set_xlabel("Hour of the day")
             # ax5.set_ylabel("Power produced / kW")
             ax6.set_ylabel("Diffuse fraction ($D$)")
-            ax5.tick_params(axis="both", which="major", labelsize=16)
-            ax6.tick_params(axis="both", which="major", labelsize=16)
+            ax5.tick_params(axis="both", which="major", labelsize=7)
+            ax6.tick_params(axis="both", which="major", labelsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
             ax5.legend(
-                loc="upper left", fontsize=16, title="Partly cloudy", title_fontsize=16
+                loc="upper left", fontsize=7, title="Partly cloudy", title_fontsize=7
             )
             # ax6.legend(loc="upper right")
             ax5.tick_params(left=False)
@@ -3835,9 +3827,9 @@ def main(unparsed_arguments) -> None:
             ax7.set_xlim(6, 18)
             ax8.set_ylim(0, 1)
             # ax7.legend(loc="upper left")
-            # ax8.legend(loc="upper right", fontsize=16)
+            # ax8.legend(loc="upper right", fontsize=7)
             ax7.tick_params(right=False)
-            ax7.tick_params(axis="both", which="major", labelsize=16)
+            ax7.tick_params(axis="both", which="major", labelsize=7)
             ax8.set_yticklabels([])
             ax8.tick_params(right=False)
             sns.despine(ax=ax7, right=True, left=False)
@@ -3909,10 +3901,10 @@ def main(unparsed_arguments) -> None:
             ax9.set_xlim(6, 18)
             ax10.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax9.legend(loc="upper left", fontsize=16, title="Sunny", title_fontsize=16)
+            ax9.legend(loc="upper left", fontsize=7, title="Sunny", title_fontsize=7)
             ax9.tick_params(left=False, right=False)
             ax9.set_yticklabels([])
-            ax9.tick_params(axis="both", which="major", labelsize=16)
+            ax9.tick_params(axis="both", which="major", labelsize=7)
             ax10.tick_params(left=False, right=False)
             ax10.set_yticklabels([])
             sns.despine(ax=ax9, right=True, left=True)
@@ -3984,30 +3976,30 @@ def main(unparsed_arguments) -> None:
             ax11.set_xlim(6, 18)
             ax12.set_ylim(0, 1)
             # ax11.legend(loc="upper left")
-            # ax12.legend(loc="upper right", fontsize=16)
-            ax11.tick_params(left=False, which="major", labelsize=16)
+            # ax12.legend(loc="upper right", fontsize=7)
+            ax11.tick_params(left=False, which="major", labelsize=7)
             ax11.set_yticklabels([])
-            ax12.tick_params(left=False, which="major", labelsize=16)
+            ax12.tick_params(left=False, which="major", labelsize=7)
             sns.despine(ax=ax11, right=False, left=True)
             sns.despine(ax=ax12, right=False, left=True)
 
             fig.subplots_adjust(wspace=0.15)
-            fig.subplots_adjust(hspace=0.35)
+            fig.subplots_adjust(hspace=0.45)
 
-            ax1.set_title(r"4$^{\rm{th}}$ December", weight="bold")
-            ax3.set_title(r"5$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
-            ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold")
-            ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold")
-            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=24)
-            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=24)
-            ax9.set_title(r"2$^{\rm{nd}}$ December", weight="bold")
-            ax11.set_title(r"15$^{\rm{th}}$ December", weight="bold")
-            ax10.text(4.05, 1.05, "e.", fontweight="bold", fontsize=24)
-            ax12.text(5.05, 1.05, "f.", fontweight="bold", fontsize=24)
+            ax1.set_title(r"4$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax3.set_title(r"5$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=7)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=7)
+            ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=7)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=7)
+            ax9.set_title(r"2$^{\rm{nd}}$ December", weight="bold", fontsize=7)
+            ax11.set_title(r"15$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax10.text(4.05, 1.05, "e.", fontweight="bold", fontsize=7)
+            ax12.text(5.05, 1.05, "f.", fontweight="bold", fontsize=7)
 
-            plt.xticks(fontsize=16)
+            plt.xticks(fontsize=7)
 
             plt.savefig(
                 f"december_eupvsec_validation_{INDEX}.pdf",
@@ -4018,15 +4010,15 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot consistently sunny days
-            fig, axes = plt.subplots(1, 2, figsize=(300 * MM, 150 * MM))
+            fig, axes = plt.subplots(1, 2, figsize=(171 * MM, 80 * MM))
             sns.set_palette(["#42597F", "#FBC412"])
 
             sns.set_context(
                 "notebook",
-                rc={"font.size": 16, "axes.titlesize": 16, "axes.labelsize": 16},
+                rc={"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7},
             )
-            plt.rcParams["font.size"] = 16
-            rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 16})
+            plt.rcParams["font.size"] = 7
+            rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 7})
 
             date_index = 11
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
@@ -4093,10 +4085,10 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left", fontsize=16)
+            ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
-            ax1.tick_params(axis="both", which="major", labelsize=16)
+            ax1.tick_params(axis="both", which="major", labelsize=7)
             ax2.tick_params(left=False, right=False)
             ax2.set_yticklabels([])
             sns.despine(ax=ax1, right=True, left=False)
@@ -4168,23 +4160,23 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right", fontsize=16)
-            ax3.tick_params(left=False, which="major", labelsize=16)
+            ax4.legend(loc="upper right", fontsize=7)
+            ax3.tick_params(left=False, which="major", labelsize=7)
             ax3.set_yticklabels([])
-            ax4.tick_params(left=False, which="major", labelsize=16)
+            ax4.tick_params(left=False, which="major", labelsize=7)
             sns.despine(ax=ax3, right=False, left=True)
             sns.despine(ax=ax4, right=False, left=True)
 
             fig.subplots_adjust(wspace=0.15)
 
-            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
-            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "e.", fontweight="bold", fontsize=24)
-            ax4.text(5.05, 1.05, "f.", fontweight="bold", fontsize=24)
-            ax3.tick_params(axis="both", which="major", labelsize=16)
-            ax4.tick_params(axis="both", which="major", labelsize=16)
+            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax2.text(4.05, 1.05, "e.", fontweight="bold", fontsize=7)
+            ax4.text(5.05, 1.05, "f.", fontweight="bold", fontsize=7)
+            ax3.tick_params(axis="both", which="major", labelsize=7)
+            ax4.tick_params(axis="both", which="major", labelsize=7)
 
-            plt.xticks(fontsize=16)
+            plt.xticks(fontsize=7)
 
             plt.savefig(
                 f"december_sunny_days_output_validation_ef_{INDEX}.pdf",
@@ -4195,7 +4187,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the intermittently cloudy days
-            fig, axes = plt.subplots(2, 2, figsize=(300 * MM, 300 * MM))
+            fig, axes = plt.subplots(2, 2, figsize=(171 * MM, 171 * MM))
             sns.set_palette(["#42597F", "#36C7B8"])
 
             date_index = 2
@@ -4263,7 +4255,7 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left", fontsize=16)
+            ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
             ax2.tick_params(left=False, right=False)
@@ -4337,7 +4329,7 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right", fontsize=16)
+            ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False)
             ax3.set_yticklabels([])
             ax4.tick_params(left=False)
@@ -4409,7 +4401,7 @@ def main(unparsed_arguments) -> None:
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
-            ax5.legend(loc="upper left", fontsize=16)
+            ax5.legend(loc="upper left", fontsize=7)
             # ax3.legend(loc="upper left")
             ax5.tick_params(right=False)
             ax6.tick_params(left=False, right=False)
@@ -4478,37 +4470,37 @@ def main(unparsed_arguments) -> None:
             )
             ax7.set_xlabel("Hour of the day")
             # ax3.set_ylabel("Power produced / kW")
-            ax8.set_ylabel("Diffuse fraction ($D$)")
+            ax8.set_ylabel("Diffuse fraction ($D$)", fontsize=7)
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
             ax8.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            # ax8.legend(loc="upper right", fontsize=16)
+            # ax8.legend(loc="upper right", fontsize=7)
             ax7.tick_params(left=False)
             ax7.set_yticklabels([])
             ax8.tick_params(left=False)
             sns.despine(ax=ax7, right=False, left=True)
             sns.despine(ax=ax8, right=False, left=True)
 
-            fig.subplots_adjust(wspace=0.15, hspace=0.35)
+            fig.subplots_adjust(wspace=0.15, hspace=0.45)
 
-            ax1.set_title(r"2$^{\rm{nd}}$ December", weight="bold", fontsize=16)
-            ax3.set_title(r"6$^{\rm{th}}$ December", weight="bold")
-            ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold")
-            ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
-            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=24)
-            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=24)
+            ax1.set_title(r"2$^{\rm{nd}}$ December", weight="bold", fontsize=7)
+            ax3.set_title(r"6$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax5.set_title(r"8$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax7.set_title(r"17$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=7)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=7)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=7)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=7)
 
-            ax1.tick_params(axis="both", which="major", labelsize=16)
-            ax2.tick_params(axis="both", which="major", labelsize=16)
-            ax3.tick_params(axis="both", which="major", labelsize=16)
-            ax4.tick_params(axis="both", which="major", labelsize=16)
-            ax5.tick_params(axis="both", which="major", labelsize=16)
-            ax6.tick_params(axis="both", which="major", labelsize=16)
-            ax7.tick_params(axis="both", which="major", labelsize=16)
-            ax8.tick_params(axis="both", which="major", labelsize=16)
+            ax1.tick_params(axis="both", which="major", labelsize=7)
+            ax2.tick_params(axis="both", which="major", labelsize=7)
+            ax3.tick_params(axis="both", which="major", labelsize=7)
+            ax4.tick_params(axis="both", which="major", labelsize=7)
+            ax5.tick_params(axis="both", which="major", labelsize=7)
+            ax6.tick_params(axis="both", which="major", labelsize=7)
+            ax7.tick_params(axis="both", which="major", labelsize=7)
+            ax8.tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
                 f"december_partly_sunny_days_output_validation_{INDEX}.pdf",
@@ -4519,7 +4511,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the consistently cloudy days
-            fig, axes = plt.subplots(2, 2, figsize=(300 * MM, 300 * MM))
+            fig, axes = plt.subplots(2, 2, figsize=(171 * MM, 171 * MM))
             sns.set_palette(["#42597F", "#379CCA"])
 
             date_index = 4
@@ -4587,7 +4579,7 @@ def main(unparsed_arguments) -> None:
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
-            ax1.legend(loc="upper left", fontsize=16)
+            ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
             ax2.tick_params(left=False, right=False)
@@ -4661,7 +4653,7 @@ def main(unparsed_arguments) -> None:
             ax3.set_xlim(6, 18)
             ax4.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax4.legend(loc="upper right", fontsize=16)
+            ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False)
             ax3.set_yticklabels([])
             ax4.tick_params(left=False)
@@ -4733,7 +4725,7 @@ def main(unparsed_arguments) -> None:
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
-            ax5.legend(loc="upper left", fontsize=16)
+            ax5.legend(loc="upper left", fontsize=7)
             # ax3.legend(loc="upper left")
             ax5.tick_params(right=False)
             ax6.tick_params(left=False, right=False)
@@ -4807,33 +4799,33 @@ def main(unparsed_arguments) -> None:
             ax7.set_xlim(6, 18)
             ax8.set_ylim(0, 1)
             # ax3.legend(loc="upper left")
-            ax8.legend(loc="upper right", fontsize=16)
+            ax8.legend(loc="upper right", fontsize=7)
             ax7.tick_params(left=False)
             ax7.set_yticklabels([])
             ax8.tick_params(left=False)
             sns.despine(ax=ax7, right=False, left=True)
             sns.despine(ax=ax8, right=False, left=True)
 
-            fig.subplots_adjust(wspace=0.15, hspace=0.35)
+            fig.subplots_adjust(wspace=0.15, hspace=0.45)
 
-            ax1.set_title(r"4$^{\rm{th}}$ December", weight="bold")
-            ax3.set_title(r"5$^{\rm{th}}$ December", weight="bold")
-            ax5.set_title(r"25$^{\rm{th}}$ December", weight="bold")
-            ax7.set_title(r"27$^{\rm{th}}$ December", weight="bold")
+            ax1.set_title(r"4$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax3.set_title(r"5$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax5.set_title(r"25$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax7.set_title(r"27$^{\rm{th}}$ December", weight="bold", fontsize=7)
 
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=24)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=24)
-            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=24)
-            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=24)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=7)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=7)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=7)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=7)
 
-            ax1.tick_params(axis="both", which="major", labelsize=16)
-            ax2.tick_params(axis="both", which="major", labelsize=16)
-            ax3.tick_params(axis="both", which="major", labelsize=16)
-            ax4.tick_params(axis="both", which="major", labelsize=16)
-            ax5.tick_params(axis="both", which="major", labelsize=16)
-            ax6.tick_params(axis="both", which="major", labelsize=16)
-            ax7.tick_params(axis="both", which="major", labelsize=16)
-            ax8.tick_params(axis="both", which="major", labelsize=16)
+            ax1.tick_params(axis="both", which="major", labelsize=7)
+            ax2.tick_params(axis="both", which="major", labelsize=7)
+            ax3.tick_params(axis="both", which="major", labelsize=7)
+            ax4.tick_params(axis="both", which="major", labelsize=7)
+            ax5.tick_params(axis="both", which="major", labelsize=7)
+            ax6.tick_params(axis="both", which="major", labelsize=7)
+            ax7.tick_params(axis="both", which="major", labelsize=7)
+            ax8.tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
                 f"december_cloudy_days_output_validation_{INDEX}.pdf",
@@ -4844,7 +4836,7 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Plot the consistently cloudy AND days
-            fig, axes = plt.subplots(3, 2, figsize=(48 / 5, 72 / 5))
+            fig, axes = plt.subplots(3, 2, figsize=(171 * MM, 255 * MM))
             sns.set_palette(["#42597F", "#379CCA", "#FBC412"])
 
             date_index = 11
@@ -4993,10 +4985,10 @@ def main(unparsed_arguments) -> None:
             sns.despine(ax=ax3, right=False, left=True)
             sns.despine(ax=ax4, right=False, left=True)
 
-            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold")
-            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold")
-            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=16)
-            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=16)
+            ax1.set_title(r"11$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax3.set_title(r"15$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax2.text(4.05, 1.05, "a.", fontweight="bold", fontsize=7)
+            ax4.text(5.05, 1.05, "b.", fontweight="bold", fontsize=7)
 
             date_index = 4
             plotting_data = timestamps_data[timestamps_data["date"] == date_index]
@@ -5290,17 +5282,17 @@ def main(unparsed_arguments) -> None:
             sns.despine(ax=ax11, right=False, left=True)
             sns.despine(ax=ax12, right=False, left=True)
 
-            fig.subplots_adjust(wspace=0.15, hspace=0.35)
+            fig.subplots_adjust(wspace=0.15, hspace=0.45)
 
-            ax5.set_title(r"4$^{\rm{th}}$ December", weight="bold")
-            ax7.set_title(r"5$^{\rm{th}}$ December", weight="bold")
-            ax9.set_title(r"25$^{\rm{th}}$ December", weight="bold")
-            ax11.set_title(r"27$^{\rm{th}}$ December", weight="bold")
+            ax5.set_title(r"4$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax7.set_title(r"5$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax9.set_title(r"25$^{\rm{th}}$ December", weight="bold", fontsize=7)
+            ax11.set_title(r"27$^{\rm{th}}$ December", weight="bold", fontsize=7)
 
-            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=16)
-            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=16)
-            ax10.text(4.05, 1.05, "e.", fontweight="bold", fontsize=16)
-            ax12.text(5.05, 1.05, "f.", fontweight="bold", fontsize=16)
+            ax6.text(4.05, 1.05, "c.", fontweight="bold", fontsize=7)
+            ax8.text(5.05, 1.05, "d.", fontweight="bold", fontsize=7)
+            ax10.text(4.05, 1.05, "e.", fontweight="bold", fontsize=7)
+            ax12.text(5.05, 1.05, "f.", fontweight="bold", fontsize=7)
 
             plt.savefig("ere_december_days.pdf", bbox_inches="tight", pad_inches=0)
 
@@ -5431,7 +5423,7 @@ def main(unparsed_arguments) -> None:
             cmap = sns.cubehelix_palette(start=-0.4, rot=-0.4, as_cmap=True)
             sns.set_palette(sns.cubehelix_palette(start=-0.4, rot=-0.4, n_colors=31))
 
-            plt.figure(figsize=(180 * MM, 120 * MM))
+            plt.figure(figsize=(171 * MM, 120 * MM))
             sns.scatterplot(
                 timestamps_data,
                 x="Combined hourly PV to batt",
@@ -5543,7 +5535,7 @@ def main(unparsed_arguments) -> None:
             cmap = sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=13, as_cmap=True)
 
             for date in range(31):
-                plt.figure(figsize=(180 * MM, 120 * MM))
+                plt.figure(figsize=(171 * MM, 120 * MM))
                 sns.scatterplot(
                     (
                         sliced_data := timestamps_data[
@@ -5723,7 +5715,7 @@ def main(unparsed_arguments) -> None:
     #     ax2.plot([0], [1], transform=ax2.transAxes, **kwargs)
 
     # gridspec = {"hspace": 0.1, "height_ratios": [1, 1, 0.4, 1, 1]}
-    # fig, axes = plt.subplots(5, 2, figsize=(180 * MM, 120 * MM), gridspec_kw=gridspec)
+    # fig, axes = plt.subplots(5, 2, figsize=(171 * MM, 120 * MM), gridspec_kw=gridspec)
     # fig.subplots_adjust(hspace=0, wspace=0.25)
 
     # axes[2, 0].set_visible(False)
