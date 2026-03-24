@@ -61,7 +61,7 @@ class ConfigurationError(Exception):
 BASE_PANEL_CONFIG: dict[str, Any] = {
     "name": "mia_sole_flex_03_280nl_bd_n_{config_index}",
     "cell_type": "Miasole_FLEX_03_280NL",
-    "type": "thin_film",
+    "type": "Thin Film",
     "cell_breakdown_voltage": -4,
     "cell_length": 0.04473,  # [m] - The dimension parallel to the module
     "cell_spacing": 0.0,  # [m] - The spacing between the cells
