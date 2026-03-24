@@ -337,7 +337,13 @@ class ModuleType(enum.Enum):
 
     """
 
-    THIN_FILM: str = "thin_film"
+    CDTE: str = "CdTe"
+    CIGS: str = "CIGS"
+    CIS: str = "CIS"
+    GAAS: str = "GaAs"
+    MONO_C_SI: str = "Mono-c-Si"
+    MULTI_C_SI: str = "Multi-c-Si"
+    THIN_FILM: str = "Thin Film"
 
 
 @dataclass
@@ -424,6 +430,169 @@ class CurvedPVModule:
             pv_cells.extend(cell_or_bypassed_string.pv_cells)
 
         return pv_cells
+
+    @classmethod
+    def cigs_from_cell_number_and_dimensions(
+        cls: Type[CPVM],
+        cell_breakdown_voltage: float,
+        cell_electrical_parameters: dict[str, float],
+        cell_length: float,
+        cell_spacing: float,
+        cell_width: float,
+        n_cells: int,
+        *,
+        bypass_diodes: list[BypassDiode],
+        offset_angle: float,
+        polytunnel_curve: Curve,
+        module_centre_offset: float = 0,
+        name: str = "",
+    ) -> CPVM:
+        """
+        Instantiate a CIGS module based on the number of cells and dimensions.
+
+        A thin-film module consists of a series of cells in a row:
+
+            + | cell | cell | cell | cell | cell | cell | cell | cell | cell | -
+
+        where each cell is a single strip.
+
+        The cell dimensions and the number of cells determines the overall dimension of
+        the module. The offset angle is the angle between the axis of the polytunnel and
+        the **length** of the module. In this way, setting an offset angle of zero means
+        that the cells are aligned along the axis of the polytunnel, whilst an offset
+        angle of 90 (degrees) means that the cells are aligned perpendicular to the axis
+        of the polytunnel.
+
+        :param: **cell_breakdown_voltage:**
+            The breakdown voltage of the PV cells, in Volts.
+
+        :param: **cell_electrical_parameters:**
+            Electrical parameters used to describe the IV curve of the cell.
+
+        :param: **cell_length:**
+            The length of the cells, _i.e._, the dimension parallel to the module
+            length, given in meters.
+
+        :param: **cell_spacing:**
+            The space betweeh the cells, given in meters.
+
+        :param: **cell_width:**
+            The width of the cells, _i.e._, the dimension perpendicular to the
+            module length, given in meters.
+
+        :param: **n_cells:**
+            The number of cells in the module.
+
+        :param: **bypass_diodes:**
+            The `list` of all bypass diodes present on the module.
+
+        :param: **offest_angle:**
+            The angle between the length of the module and the axis of the
+            polytunnel.
+
+        :param: **polytunnel_curve:**
+            The curve defining the polytunnel.
+
+        :param: **module_centre_offset:**
+            The offset of the centre of the module from the centre of the curve, in
+            meters.
+
+        :returns:
+            The instantiated `CurvedPVModule` instance.
+
+        """
+
+        def _cell_from_index(cell_index: int, cell_type: CellType) -> PVCell:
+            """Construct a PV cell based on its index in the module."""
+
+            # Compute the cell displacement based on its index and the module offset.
+            cell_displacement = module_start_displacement + (
+                (cell_index + 0.5) * cell_length + cell_index * cell_spacing
+            ) * sin(radians(offset_angle))
+
+            # Construct and return a PV cell.
+            (
+                cell_azimuth,
+                cell_tilt,
+            ) = polytunnel_curve.get_angles_from_surface_displacement(cell_displacement)
+            return PVCell(
+                azimuth=cell_azimuth,
+                cell_type=cell_type,
+                length=cell_length,
+                tilt=cell_tilt,
+                width=cell_width,
+                breakdown_voltage=cell_breakdown_voltage,
+                _cell_id=cell_index,
+                **cell_electrical_parameters,  # type: ignore [arg-type]
+            )
+
+        # Determine whether the cells are mono- or bi-facial.
+        cell_type: CellType = CellType(
+            cell_electrical_parameters.pop(BIFACIAL, CellType.MONO_FACIAL.value)
+        )
+
+        # Determine the position of the start of the module.
+        module_length = n_cells * cell_length + (n_cells - 1) * cell_spacing
+        module_start_displacement = module_centre_offset - (module_length / 2) * sin(
+            radians(offset_angle)
+        )
+
+        pv_cells: list[BypassedCellString | PVCell] = list(
+            map(
+                functools.partial(_cell_from_index, cell_type=cell_type),
+                range(0, n_cells),
+            )
+        )
+
+        # Bypass the cells accordingly:
+        # Very first, confirm that none of the bypass diode ranges overlap.
+        multiply_bypassed_cell_indicies = set()
+        diode_ranges = [
+            set(range(diode.start_index, diode.end_index)) for diode in bypass_diodes
+        ]
+        for diode_number, diode_range in enumerate(diode_ranges):
+            for other_diode_range in diode_ranges[diode_number + 1 :]:
+                multiply_bypassed_cell_indicies = multiply_bypassed_cell_indicies | (
+                    diode_range & other_diode_range
+                )
+
+        if len(multiply_bypassed_cell_indicies) > 0:
+            raise Exception(
+                f"Bypass diodes for module {name} overlap. Multiply-bypassed cell "
+                "indicies: "
+                + ", ".join(
+                    sorted([str(entry) for entry in multiply_bypassed_cell_indicies])
+                )
+            )
+
+        # Go in reverse order, popping the cells into bypass diodes where appropriate.
+        bypassed_cell_strings: list[BypassedCellString] = []
+        for bypass_diode in reversed(
+            sorted(bypass_diodes, key=lambda x: x.start_index)
+        ):
+            # Construct the bypassed cell string.
+            bypassed_cell_strings.append(
+                (
+                    bypassed_cell_string := BypassedCellString(
+                        bypass_diode=bypass_diode,
+                        pv_cells=pv_cells[
+                            bypass_diode.start_index : bypass_diode.end_index
+                        ],
+                    )
+                )
+            )
+
+            # Remove these cells from the list.
+            pv_cells = [
+                cell for cell in pv_cells if cell not in bypassed_cell_string.pv_cells
+            ]
+
+        # Insert the bypassed cell strings into the list of PV cells and sort by cell
+        # id.
+        pv_cells.extend(bypassed_cell_strings)
+        pv_cells = sorted(pv_cells, key=lambda cell: cell.cell_id)
+
+        return cls(pv_cells, ModuleType.CIGS, name, offset_angle)
 
     @classmethod
     def thin_film_from_cell_number_and_dimensions(
@@ -603,7 +772,8 @@ class CurvedPVModule:
         """
 
         return {  # type: ignore [return-value]
-            ModuleType.THIN_FILM: cls.thin_film_from_cell_number_and_dimensions
+            ModuleType.THIN_FILM: cls.thin_film_from_cell_number_and_dimensions,
+            ModuleType.CIGS: cls.cigs_from_cell_number_and_dimensions,
         }[module_type]
 
 

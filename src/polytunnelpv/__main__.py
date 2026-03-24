@@ -168,9 +168,17 @@ CELL_TYPE: str = "cell_type"
 #    Rate used to sample current data for ease of calculation.
 CURRENT_SAMPLING_RATE: int = 20
 
+# D_EG_DT:
+#   Keyword used for coding reference bandgap energy temperature dependence.
+D_EG_DT: str = "dEgdT"
+
 # DONE:
 #   The message to display when a task was successful.
 DONE: str = "[   DONE   ]"
+
+# EG_REF:
+#   Keyword used for coding reference bandgap energy.
+EG_REF: str = "EgRef"
 
 # FAILED:
 #   The message to display when a task was successful.
@@ -329,6 +337,10 @@ SOLAR_AZIMUTH: str = "azimuth"
 # SOLAR_ZENITH:
 #   Keyword for apparent zenith.
 SOLAR_ZENITH: str = "apparent_zenith"
+
+# TECHNOLOGY:
+#   Keyword for parsing the technology.
+TECHNOLOGY: str = "Technology"
 
 # TEMPERATURE:
 #   Column header for temperature column.
@@ -548,7 +560,7 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     # Source:
     weather_arguments.add_argument(
         "--source",
-        "-s",
+        "-wds",
         type=str,
         default="ninja",
         help="Weather-data source: 'ninja' as default for data from renewables.ninja.",
@@ -684,55 +696,80 @@ def _parse_pv_modules(
                     )
                     PRE_LOADED_PV_CELLS[cell_type_name] = cell_electrical_parameters
 
-                    # match name:
-                    #     case "CdTe":
-                    #         PRE_LOADED_PV_CELLS[cell_type_name]["EgRef"] = 1.475
+                    module_type: ModuleType = ModuleType(
+                        cell_electrical_parameters.get(TECHNOLOGY)
+                    )
 
-                    #  Crystalline Silicon (Si):
-                    #      * EgRef = 1.121
-                    #      * dEgdT = -0.0002677
+                    match module_type:
+                        # Cadmium Telluride (CdTe):
+                        case ModuleType.CDTE:
+                            PRE_LOADED_PV_CELLS[cell_type_name][EG_REF] = 1.475  # [2]
+                            PRE_LOADED_PV_CELLS[cell_type_name][
+                                D_EG_DT
+                            ] = -0.0003  # [2]
 
-                    #      >>> M = np.polyval([-1.26E-4, 2.816E-3, -0.024459, 0.086257, 0.9181],
-                    #      ...                AMa) # doctest: +SKIP
+                        # Copper Indium Gallium diSelenide (CIGS):
+                        case ModuleType.CIGS:
+                            PRE_LOADED_PV_CELLS[cell_type_name][EG_REF] = 1.15  # [2]
+                            PRE_LOADED_PV_CELLS[cell_type_name][
+                                D_EG_DT
+                            ] = -0.00007  # [3]
 
-                    #      Source: [1]
+                        # Copper Indium diSelenide (CIS):
+                        case ModuleType.CIS:
+                            PRE_LOADED_PV_CELLS[cell_type_name][EG_REF] = 1.010  # [2]
+                            PRE_LOADED_PV_CELLS[cell_type_name][
+                                D_EG_DT
+                            ] = -0.00011  # [2]
 
-                    #  Cadmium Telluride (CdTe):
-                    #      * dEgdT = -0.0003
+                        # 3. Mudryi, A. V. et al. Structural and optical properties of
+                        # thin films of Cu(In,Ga)Se2 semiconductor compounds. J. Appl.
+                        # Spectrosc. 77, 371–377 (2010).
 
-                    #      >>> M = np.polyval([-2.46E-5, 9.607E-4, -0.0134, 0.0716, 0.9196],
-                    #      ...                AMa) # doctest: +SKIP
+                        # Gallium Arsenide (GaAs):
+                        case ModuleType.GAAS:
+                            PRE_LOADED_PV_CELLS[cell_type_name][EG_REF] = 1.424  # [2]
+                            PRE_LOADED_PV_CELLS[cell_type_name][
+                                D_EG_DT
+                            ] = -0.000433  # [2]
 
-                    #      Source: [4]
+                        case ModuleType.MONO_C_SI:
+                            PRE_LOADED_PV_CELLS[cell_type_name][EG_REF] = 1.121  # [2]
+                            PRE_LOADED_PV_CELLS[cell_type_name][
+                                D_EG_DT
+                            ] = -0.0002677  # [2]
 
-                    #  Copper Indium diSelenide (CIS):
-                    #      * EgRef = 1.010
-                    #      * dEgdT = -0.00011
+                        case ModuleType.MULTI_C_SI:
+                            PRE_LOADED_PV_CELLS[cell_type_name][EG_REF] = 1.121  # [2]
+                            PRE_LOADED_PV_CELLS[cell_type_name][
+                                D_EG_DT
+                            ] = -0.0002677  # [2]
 
-                    #      >>> M = np.polyval([-3.74E-5, 0.00125, -0.01462, 0.0718, 0.9210],
-                    #      ...                AMa) # doctest: +SKIP
+                        # Thin-film technologies require individual coding.
+                        case ModuleType.THIN_FILM:
+                            # MIA Sole Flex parameters should follow CIGS.
+                            if "Miasole_FLEX" in cell_type_name:
+                                PRE_LOADED_PV_CELLS[cell_type_name][
+                                    EG_REF
+                                ] = 1.15  # [2]
+                                PRE_LOADED_PV_CELLS[cell_type_name][
+                                    D_EG_DT
+                                ] = -0.00007  # [3]
 
-                    #      Source: [4]
+                            else:
+                                match cell_type_name:
+                                    case _:
+                                        raise Exception(
+                                            "Thin Film module type requires "
+                                            "specification and manually coding. Module "
+                                            f"name requiring coding: {cell_type_name}"
+                                        )
 
-                    #  Copper Indium Gallium diSelenide (CIGS):
-                    #      * EgRef = 1.15
-                    #      * dEgdT = ????
-
-                    #      >>> M = np.polyval([-9.07E-5, 0.0022, -0.0202, 0.0652, 0.9417],
-                    #      ...                AMa) # doctest: +SKIP
-
-                    #      Source: Wikipedia
-
-                    #  Gallium Arsenide (GaAs):
-                    #      * EgRef = 1.424
-                    #      * dEgdT = -0.000433
-                    #      * M = unknown
-
-                    #             except KeyError:
-                    #                 raise Exception(
-                    #                     f"Could not find cell name {cell_type_name} within either local or "
-                    #                     "pvlib-imported scope."
-                    #                 ) from None
+                        case _:
+                            raise Exception(
+                                f"Could not find cell type {module_type} parameters "
+                                "for bandgap information in switch statement."
+                            ) from None
 
                 except KeyError:
                     raise Exception(
