@@ -352,11 +352,15 @@ WEATHER_DATA_DIRECTORY: str = "weather_data"
 
 # WEATHER_DATA_REGEX:
 #   Regex used for parsing location names from weather data.
-WEATHER_DATA_REGEX: Pattern[str] = re.compile(r"ninja_pv_(?P<location_name>.*)\.csv")
+WEATHER_DATA_REGEX: Pattern[str] = re.compile(
+    r"(?P<source>[^_]*)_pv_(?P<location_name>.*)\.csv"
+)
 
 # WIND_DATA_REGEX:
 #   Regex used for parsing location names from weather data.
-WIND_DATA_REGEX: Pattern[str] = re.compile(r"ninja_wind_(?P<location_name>.*)\.csv")
+WIND_DATA_REGEX: Pattern[str] = re.compile(
+    r"(?P<source>[^_]*)_wind_(?P<location_name>.*)\.csv"
+)
 
 # WIND_SPEED:
 #   Column header for wind-speed column.
@@ -530,6 +534,7 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
 
     # Weather-data arguments.
     weather_arguments = parser.add_argument_group("weather-data arguments")
+
     # Regenerate:
     #   Used to re-calculate the solar weather information.
     weather_arguments.add_argument(
@@ -538,6 +543,15 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
         action="store_true",
         default=False,
         help="Recalculate the weather and solar information.",
+    )
+
+    # Source:
+    weather_arguments.add_argument(
+        "--source",
+        "-s",
+        type=str,
+        default="ninja",
+        help="Weather-data source: 'ninja' as default for data from renewables.ninja.",
     )
 
     return parser.parse_args(unparsed_args)

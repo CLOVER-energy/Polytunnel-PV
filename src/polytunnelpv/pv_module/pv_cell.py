@@ -625,7 +625,7 @@ class PVCell:
     def eg_ref(self) -> float:
         """The reference temperature dependence of the bandgap energy."""
 
-        return self.reference_bandgap_energy_temperature_coefficient
+        return self.reference_bandgap_energy
 
     @property
     def j_l_ref(self) -> float:
