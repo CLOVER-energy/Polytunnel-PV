@@ -13,7 +13,7 @@
 #   type:                   parameter used within the PV-module package to
 #                           determine the code pathway.
 #                           Allowed values are
-#                             - `thin_film`.
+#                             - `CIGS`.
 #   cell_breakdown_voltage: the breakdown voltage of the PV cells
 #   cell_length:            the length of each cell within the module
 #   cell_width:             the width of each cell within the module
@@ -31,7 +31,7 @@
 
 - name: mia_sole_flex_03_280nl_morning_and_evening
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -50,7 +50,7 @@
 
 # - name: long_3_thin_film_demo
 #   cell_type: Miasole_FLEX_03_280NL
-#   type: thin_film
+#   type: CIGS
 #   cell_breakdown_voltage: -15
 #   cell_length: 1.2  # [m] - The dimension parallel to the module
 #   cell_spacing: 0.01  # [m] - The spacing between the cells
@@ -62,7 +62,7 @@
 
 - name: thin_film_demo
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -74,7 +74,7 @@
 
 - name: long_1_thin_film_demo
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -86,7 +86,7 @@
 
 - name: long_2_thin_film_demo
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -98,7 +98,7 @@
 
 - name: long_2_thin_film_demo_bypassed
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -123,7 +123,7 @@
 
 - name: mia_sole_flex_03_280nl_unbypassed
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -135,7 +135,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_2
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -346,7 +346,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_10
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -401,7 +401,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_20
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -438,7 +438,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_66
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -457,7 +457,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_30_edges
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -488,7 +488,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_50_edges
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -513,7 +513,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_30_middle
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -568,7 +568,7 @@
 
 - name: mia_sole_flex_03_280nl_bypassed_50_middle
   cell_type: Miasole_FLEX_03_280NL
-  type: thin_film
+  type: CIGS
   cell_breakdown_voltage: -4
   cell_length: 0.04473  # [m] - The dimension parallel to the module
   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -607,7 +607,7 @@
 
 # - name: mia_sole_flex_03_280nl_bypassed_3
 #   cell_type: Miasole_FLEX_03_280NL
-  # type: thin_film
+  # type: CIGS
   # cell_breakdown_voltage: -1
   # cell_length: 0.04473  # [m] - The dimension parallel to the module
   # cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -752,7 +752,7 @@
 
 # - name: mia_sole_flex_03_280nl_bypassed_4
 #   cell_type: Miasole_FLEX_03_280NL
-#   type: thin_film
+#   type: CIGS
 #   cell_breakdown_voltage: -1
 #   cell_length: 0.04473  # [m] - The dimension parallel to the module
 #   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -864,7 +864,7 @@
 
 # - name: mia_sole_flex_03_280nl_bypassed_6
 #   cell_type: Miasole_FLEX_03_280NL
-#   type: thin_film
+#   type: CIGS
 #   cell_breakdown_voltage: -1
 #   cell_length: 0.04473  # [m] - The dimension parallel to the module
 #   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -943,7 +943,7 @@
 
 # - name: mia_sole_flex_03_280nl_bypassed_11
 #   cell_type: Miasole_FLEX_03_280NL
-#   type: thin_film
+#   type: CIGS
 #   cell_breakdown_voltage: -1
 #   cell_length: 0.04473  # [m] - The dimension parallel to the module
 #   cell_spacing: 0.0  # [m] - The spacing between the cells
@@ -992,7 +992,7 @@
 
 # - name: mia_sole_flex_03_280nl_bypassed_11
 # cell_type: Miasole_FLEX_03_280NL
-# type: thin_film
+# type: CIGS
 # cell_breakdown_voltage: -1
 # cell_length: 0.04473  # [m] - The dimension parallel to the module
 # cell_spacing: 0.0  # [m] - The spacing between the cells
