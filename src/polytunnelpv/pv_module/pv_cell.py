@@ -941,7 +941,7 @@ def calculate_cell_iv_curve(
 
     power_series = current_series * voltage_series
 
-    return current_series, power_series, voltage_series
+    return current_series, voltage_series, power_series
 
 
 def get_irradiance(
