@@ -25,9 +25,13 @@ from math import acos, asin, cos, degrees, isnan, radians, pi, sin
 from multiprocessing import Pool
 from numpy import matmul
 from typing import Any, Callable, TypeVar, Type
+from scipy.spatial import cKDTree
+import numpy as np
 
 from .bypass_diode import BypassDiode, BypassedCellString
-from .pv_cell import CellType, PVCell
+from .pv_cell import CellType, PVCell, calculate_cell_iv_curve
+from ..__utils__ import VOLTAGE_RESOLUTION
+
 
 __all__ = (
     "CircularCurve",
@@ -36,6 +40,7 @@ __all__ = (
     "ModuleType",
     "TYPE_TO_CURVE_MAPPING",
 )
+
 
 # BIFACIAL:
 #   String used to parse information about cell bifaciality.
@@ -605,6 +610,155 @@ class CurvedPVModule:
         return {  # type: ignore [return-value]
             ModuleType.THIN_FILM: cls.thin_film_from_cell_number_and_dimensions
         }[module_type]
+
+class AdaptiveSparseArray3D:
+    def __init__(self, pv_cell_used, irrad_threshold=10.0, temp_threshold = 2.0,max_size=1000):
+        self.pv_cell_used = pv_cell_used
+        self.irrad_threshold = irrad_threshold
+        self.temp_threshold = temp_threshold
+        self.max_size = max_size
+        self.data = {}
+        self.access_counts = {}  # Track how often each point is used
+        self.interpolation_usage = {}  # Track how often points are used for interpolation
+        self._tree = None
+        self._needs_tree_update = True
+    
+    def _update_tree(self):
+        if not self._needs_tree_update or len(self.data) < 2:
+            return
+        points = np.array(list(self.data.keys()))
+        self._tree = cKDTree(points)
+        self._needs_tree_update = False
+        
+    def _touch_item(self, key):
+        """Enhanced touch with usage tracking"""
+        if key in self.data:
+            # Update access count
+            self.access_counts[key] = self.access_counts.get(key, 0) + 1
+            
+            # Move to end (most recently used)
+            value = self.data.pop(key)
+            self.data[key] = value
+            return value
+        return None
+    
+    def _touch_interpolation_points(self, keys, weights=None):
+        """Touch points used for interpolation with optional weighting"""
+        for i, key in enumerate(keys):
+            if key in self.data:
+                # Weight the touch by interpolation contribution
+                touch_weight = weights[i] if weights is not None else 1.0
+                
+                # Update interpolation usage tracking
+                self.interpolation_usage[key] = (
+                    self.interpolation_usage.get(key, 0) + touch_weight
+                )
+                
+                # Touch the item (move to recent)
+                self._touch_item(key)
+
+    def get_or_interpolate(self, x, y):
+        key = (x, y)
+        
+        # 1. Exact match - mark as recently used
+        if key in self.data:
+            return self._touch_item(key)
+        
+        # 2. Try interpolation
+        self._update_tree()
+        
+        if self._tree is not None and len(self.data) >= 3:
+            distance, i = self._tree.query([x, y], k=1)
+            # Check for distance to other points
+            if (abs(list(self.data.keys())[i][0]-x) <= self.irrad_threshold
+                and abs(list(self.data.keys())[i][1]-y) <= self.temp_threshold):
+                # Interpolate and touch the items used
+                return self._interpolate_with_touch(x, y)
+        
+        new_value = self.pvlib_call(x, y)
+        self.data[key] = new_value
+        self._lfu_cleanup()
+        self._needs_tree_update = True
+        return new_value
+    
+    def _interpolate_with_touch(self, x, y, k=4):
+        """Enhanced interpolation with weighted touching"""
+        distances, indices = self._tree.query([x, y], k=min(k, len(self.data)))
+        
+        data_keys = list(self.data.keys())
+        used_keys = [data_keys[idx] for idx in indices]
+        
+        if distances[0] < 1e-10:  # Exact match
+            return self._touch_item(used_keys[0])
+        
+        # Calculate interpolation weights
+        weights = 1 / (distances + 1e-8)
+        weights /= weights.sum()
+        
+        # Touch points with their interpolation weights
+        x = self._touch_interpolation_points(used_keys)
+        
+        # Perform interpolation
+        values = np.array([self.data[key] for key in used_keys])
+        return np.average(values, weights=weights, axis=0)
+    
+    def _lfu_cleanup(self):
+        """Simple Least Frequently Used cleanup"""
+        if len(self.data) <= self.max_size:
+            return
+        
+        items_to_remove = len(self.data) - self.max_size
+        
+        # Get access counts for all items (default to 0 for never accessed)
+        access_frequency = [(self.access_counts.get(key, 0), key) for key in self.data.keys()]
+        
+        # Sort by frequency (lowest first)
+        access_frequency.sort()
+        
+        # Remove least frequently accessed items
+        for i in range(items_to_remove):
+            _, key_to_remove = access_frequency[i]
+            del self.data[key_to_remove]
+            self.access_counts.pop(key_to_remove, None)
+            self.interpolation_usage.pop(key_to_remove, None)
+        
+        self._needs_tree_update = True
+    
+    def get_usage_stats(self):
+        """Get detailed usage statistics"""
+        # if not self.data:
+        #     return {}
+        total_accesses = sum(self.access_counts.values())
+        total_interp_usage = sum(self.interpolation_usage.values())
+        
+        return {
+            'total_direct_accesses': total_accesses,
+            'total_interpolation_usage': total_interp_usage,
+            'avg_accesses_per_point': total_accesses / len(self.data) if self.data else 0,
+            'most_accessed_points': sorted(self.access_counts.items(), 
+                                         key=lambda x: x[1], reverse=True)[:5],
+            'most_interpolated_points': sorted(self.interpolation_usage.items(), 
+                                             key=lambda x: x[1], reverse=True)[:5]
+        }
+    
+    def pvlib_call(
+        self,
+        irrad_point: float,
+        temp_point: float,
+    ):
+        current_series = np.linspace(
+                0,
+                1.1
+                *self.pv_cell_used.short_circuit_current
+                ,
+                VOLTAGE_RESOLUTION,
+            )
+        
+        current_series, voltage_series, power_series = calculate_cell_iv_curve(
+                                                        temp_point, irrad_point,
+                                                        self.pv_cell_used, current_series=current_series
+                                                        )
+        return voltage_series
 
 
 # import numpy as np

@@ -553,50 +553,52 @@ class PVCell:
 
         """
 
-        # Calculate variable values which remain constant throughout the iteration
-        sky_temperature: float = _sky_temperature(ambient_temperature)
+        # # Calculate variable values which remain constant throughout the iteration
+        # sky_temperature: float = _sky_temperature(ambient_temperature)
 
-        # Setup inputs for the iterative loop
-        best_guess_average_temperature: float = ambient_temperature
-        solution_found: bool = False
+        # # Setup inputs for the iterative loop
+        # best_guess_average_temperature: float = ambient_temperature
+        # solution_found: bool = False
 
-        # Loop through until a solution is found
-        while not solution_found:
-            # Compute the necessary coefficients
-            radiation_to_sky_coefficient = _radiation_to_sky_coefficient(
-                self.emissivity, best_guess_average_temperature, sky_temperature
-            )
+        # # Loop through until a solution is found
+        # while not solution_found:
+        #     # Compute the necessary coefficients
+        #     radiation_to_sky_coefficient = _radiation_to_sky_coefficient(
+        #         self.emissivity, best_guess_average_temperature, sky_temperature
+        #     )
 
-            # Calculate the average temperature of the collector
-            average_temperature: float = (
-                (self.absorptivity * solar_irradiance)
-                * (
-                    1
-                    - self.reference_efficiency
-                    * (1 + self.mpp_thermal_coefficient * self.reference_temperature)
-                )
-                + _conductive_air_heat_transfer_coefficient(wind_speed)
-                * ambient_temperature
-                + radiation_to_sky_coefficient * sky_temperature
-            ) / (
-                radiation_to_sky_coefficient
-                + _conductive_air_heat_transfer_coefficient(wind_speed)
-                - self.absorptivity
-                * self.mpp_thermal_coefficient
-                * self.reference_efficiency
-                * solar_irradiance
-            )
+        #     # Calculate the average temperature of the collector
+        #     average_temperature: float = (
+        #         (self.absorptivity * solar_irradiance)
+        #         * (
+        #             1
+        #             - self.reference_efficiency
+        #             * (1 + self.mpp_thermal_coefficient * self.reference_temperature)
+        #         )
+        #         + _conductive_air_heat_transfer_coefficient(wind_speed)
+        #         * ambient_temperature
+        #         + radiation_to_sky_coefficient * sky_temperature
+        #     ) / (
+        #         radiation_to_sky_coefficient
+        #         + _conductive_air_heat_transfer_coefficient(wind_speed)
+        #         - self.absorptivity
+        #         * self.mpp_thermal_coefficient
+        #         * self.reference_efficiency
+        #         * solar_irradiance
+        #     )
 
-            # Break if this average temperature is within the required precision.
-            if (
-                abs(best_guess_average_temperature - average_temperature)
-                < TEMPERATURE_PRECISION
-            ):
-                solution_found = True
+        #     # Break if this average temperature is within the required precision.
+        #     if (
+        #         abs(best_guess_average_temperature - average_temperature)
+        #         < TEMPERATURE_PRECISION
+        #     ):
+        #         solution_found = True
 
-            best_guess_average_temperature = average_temperature
+        #     best_guess_average_temperature = average_temperature
 
-        return average_temperature
+        # return average_temperature
+        NOCT = 48
+        return ambient_temperature + solar_irradiance/800 * (NOCT-20)
 
     @property
     def azimuth_in_radians(self) -> float:
@@ -625,7 +627,7 @@ class PVCell:
     def eg_ref(self) -> float:
         """The reference temperature dependence of the bandgap energy."""
 
-        return self.reference_bandgap_energy_temperature_coefficient
+        return self.reference_bandgap_energy
 
     @property
     def j_l_ref(self) -> float:
@@ -723,7 +725,7 @@ class PVCell:
             If the cell has broken down, this is returned.
 
         """
-
+        
         cell_temperature = (
             self.average_cell_temperature(
                 ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
@@ -732,6 +734,7 @@ class PVCell:
             )
             - ZERO_CELSIUS_OFFSET
         )
+        #print(solar_irradiance,cell_temperature)
 
         current_series, voltage_series, power_series = calculate_cell_iv_curve(
             cell_temperature,
@@ -741,18 +744,150 @@ class PVCell:
             current_series=current_series,
             voltage_series=voltage_series,
         )
-
+        
         return (
             current_series,
             voltage_series,
             power_series,
             list(voltage_series >= self.breakdown_voltage),
         )
+        
+        
+    def calculate_iv_curve_interpolation(
+        self,
+        ambient_celsius_temperature: float,
+        irradiance_array: np.ndarray,
+        wind_speed: float,
+        *,
+        current_density_series: np.ndarray | None = None,
+        current_series: np.ndarray | None = None,
+        voltage_series: np.ndarray | None = None,
+        interpolation_array = None,
+        voltage_interp_array = None,
+        param_grid = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Calculate the IV curve for the cell.
+
+        Inputs:
+            - ambient_celsius_temperature:
+                The ambient temperature, in degrees Celsius.
+            - irradiance_array:
+                The irradiance, in W/m^2, striking all the cells in the module.
+            - current_density_series:
+                If provided, the current-density series---the series of opints over which to
+                calculate the current an power output from the cell.
+            - current_series:
+                The series of current points over which to calculate the current and power
+                output from the cell.
+            - voltage_series:
+                The series of voltage points over which to calculate the current and power
+                output from the cell.
+
+        Returns:
+            - current_series:
+                The current values.
+            - power_series:
+                The power values.
+            - voltage_series:
+                The voltage series.
+
+        """
+        cell_temperature = (
+            self.average_cell_temperature(
+                ambient_celsius_temperature + ZERO_CELSIUS_OFFSET,
+                (solar_irradiance := irradiance_array.iloc[self.cell_id]),
+                wind_speed,
+            )
+            - ZERO_CELSIUS_OFFSET
+        )
+        
+        #voltage_series = interpolation_array.get_or_interpolate(solar_irradiance,cell_temperature)
+        
+        if not isinstance(voltage_interp_array,np.ndarray) or not isinstance(param_grid,np.ndarray):
+            return calculate_cell_iv_curve(
+            cell_temperature,
+            solar_irradiance,
+            self,
+            current_density_series=current_density_series,
+            current_series=current_series,
+            voltage_series=voltage_series,
+        )
+        
+        #print(np.shape(current_series))
+        
+        voltage_series = interpolate_voltage_curve(
+            voltage_interp_array,
+            param_grid,
+            [solar_irradiance,cell_temperature]
+        )
+        
+        power_series = current_series * voltage_series
+        
+        return (
+            current_series,
+            voltage_series,
+            power_series,
+            list(voltage_series >= self.breakdown_voltage),
+        )
+            
+        
+def interpolate_voltage_curve(
+    voltage_curves: np.ndarray,
+    param_grid: np.ndarray,
+    target_point: np.ndarray | list,
+) -> np.ndarray:
+    """_summary_
+
+    Args:
+        voltage_curves (np.ndarray): 
+            array of shape (irrad,temp,voltage_res) for interpolation
+        param_grid (np.ndarray):
+            array of data points used to create the curves of shape(irrad,temp,2) (:,:,0) is irrad
+        target_point (np.ndarray | list): 
+            point to be interpolated for in format [irrad,temp]
+
+    Returns:
+        np.ndarray: 
+            voltage curve for specified point
+    """
+    # Find surrounding indices
+    irrad_idx = np.searchsorted(param_grid[:,0,0], target_point[0],side='right') - 1
+    temp_idx = np.searchsorted(param_grid[0,:,1], target_point[1],side='right') - 1
+    
+    try:
+        # Get the 4 surrounding curves
+        v00 = voltage_curves[irrad_idx, temp_idx, :]
+        v01 = voltage_curves[irrad_idx, temp_idx + 1, :]
+        v10 = voltage_curves[irrad_idx + 1, temp_idx, :]
+        v11 = voltage_curves[irrad_idx + 1, temp_idx + 1, :]
+    except IndexError:
+        try:
+            voltage_curves[irrad_idx+1,0,0]
+        except IndexError:
+            raise IndexError("Irrad point out of interpolating range")
+        else:
+            try:
+                voltage_curves[0,temp_idx + 1,0]
+            except IndexError:
+                raise IndexError("Temp point out of interpolating range")
+        # Add run of pvlib if point doesn't exist?
+    else:
+        w_irrad = (target_point[0] - param_grid[irrad_idx,0,0]) / (param_grid[irrad_idx+1,0,0] - param_grid[irrad_idx,0,0])
+        w_temp = (target_point[1] - param_grid[0,temp_idx,1]) / (param_grid[0,temp_idx+1,1] - param_grid[0,temp_idx,1])
+        
+        # Bilinear interpolation
+        v0 = v00 * (1 - w_temp) + v01 * w_temp
+        v1 = v10 * (1 - w_temp) + v11 * w_temp
+        return v0 * (1 - w_irrad) + v1 * w_irrad
+
+
+        
 
 
 def calculate_cell_iv_curve(
-    cell_temperature: float,
-    irradiance: float,
+    cell_temperature: np.ndarray | float,
+    irradiance: np.ndarray | float,
     pv_cell: PVCell,
     *,
     current_density_series: np.ndarray | None = None,
@@ -941,7 +1076,7 @@ def calculate_cell_iv_curve(
 
     power_series = current_series * voltage_series
 
-    return current_series, power_series, voltage_series
+    return current_series, voltage_series, power_series
 
 
 def get_irradiance(

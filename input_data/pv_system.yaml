@@ -13,5 +13,5 @@
 #
 
 module_strings:
-  - n_modules: 4
-  - n_modules: 4
+  - n_modules: 8
+#  - n_modules: 2
