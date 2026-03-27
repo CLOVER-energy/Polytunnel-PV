@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from tqdm import tqdm
+from rich.progress import track
 
 from ..__utils__ import BOLTZMAN_CONSTANT, ELECTRON_CHARGE, VOLTAGE_RESOLUTION
 from .pv_cell import PVCell, ZERO_CELSIUS_OFFSET
@@ -238,7 +238,9 @@ class BypassedCellString:
                 current_series=current_series,
                 # voltage_series=voltage_series,
             )
-            for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False)
+            for pv_cell in track(
+                self.pv_cells, description="Bypassed IV curves", transient=True
+            )
         }
 
         # Add up the voltage for each cell
@@ -342,7 +344,9 @@ class BypassedCellString:
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False):
+        for pv_cell in track(
+            self.pv_cells, description="Bypassed IV curves", transient=True
+        ):
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,

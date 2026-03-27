@@ -9,7 +9,7 @@ import os
 import json
 import pandas as pd
 
-from tqdm import tqdm
+from rich.progress import track
 
 
 def main() -> None:
@@ -32,8 +32,10 @@ def main() -> None:
     # at each time.
     filename_to_july_1st_data_map: dict[str, list[float]] = {}
     filename_to_july_2nd_data_map: dict[str, list[float]] = {}
-    for filename in tqdm(
-        os.listdir(output_dirname), desc="Parsing files", leave=True, unit="file"
+    for filename in track(
+        os.listdir(output_dirname),
+        description="Parsing files",
+        transient=False,  # , unit="file"
     ):
         with open(
             os.path.join(output_dirname, filename), "r", encoding="UTF-8"
