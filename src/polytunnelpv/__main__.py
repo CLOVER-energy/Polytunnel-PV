@@ -1792,16 +1792,22 @@ def main(unparsed_arguments) -> None:
 
     cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
 
-    start_year: int = int(
-        (
-            initial_time := datetime.strptime(
-                locations_to_weather_and_solar_map[modelling_scenario.location][0][
-                    TIME
-                ],
-                "%Y-%m-%d %H:%M",
-            )
-        ).year
-    )
+    try:
+        start_year: int = int(
+            (
+                initial_time := datetime.strptime(
+                    locations_to_weather_and_solar_map[modelling_scenario.location][0][
+                        TIME
+                    ],
+                    "%Y-%m-%d %H:%M",
+                )
+            ).year
+        )
+    except KeyError:
+        raise KeyError(
+            "Failed to find location data. Check that your weather-data source "
+            f"matches: {str(e)}."
+        ) from None
     year_start_datetime = datetime(start_year, 1, 1)
 
     if (
