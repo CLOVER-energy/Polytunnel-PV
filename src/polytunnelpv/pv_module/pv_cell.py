@@ -744,8 +744,8 @@ class PVCell:
 
         return (
             current_series,
-            voltage_series,
             power_series,
+            voltage_series,
             list(voltage_series >= self.breakdown_voltage),
         )
 
