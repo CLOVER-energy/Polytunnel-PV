@@ -489,7 +489,9 @@ def _find_zero_crossing(numbers: list[float | int]) -> tuple[int, float | int] |
         if numbers[index - 1] > 0 and numbers[index] <= 0:
             return index, numbers[index]
 
-    return None
+    # If no cut off occurs, return the length of the list.
+    print("No cut off.")
+    return len(numbers), None
 
 
 def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
@@ -1850,12 +1852,22 @@ def main(unparsed_arguments) -> None:
             int(entry.split(" ")[1].split(":")[0])
             for entry in hourly_frame.index.to_series()
         ]
+        combined_frame["start_time"] = [
+            (
+                timedelta := (
+                    datetime.strptime(entry, "%Y-%m-%d %H:%M") - year_start_datetime
+                )
+            ).seconds
+            // 3600
+            + timedelta.days * 24
+            for entry in combined_frame.index
+        ]
 
         # Use the cell angle from the axis as the column header
         combined_frame.columns = [
             f"{'-' if pv_cell.cell_id / len(modelling_scenario.pv_module.pv_cells) < 0.5 else ''}{str(round(pv_cell.tilt, 3))}"
             for pv_cell in modelling_scenario.pv_module.pv_cells
-        ] + ["hour"]
+        ] + ["hour", "start_time"]
 
         with open(
             cellwise_filename,
@@ -1944,44 +1956,60 @@ def main(unparsed_arguments) -> None:
                 + " ",
                 end="",
             )
-            with track(
-                description="MPP computation",
-                total=parsed_args.iteration_length,  # , unit="hour"
-            ) as pbar:
-                # with ThreadPool(8) as mpool:
-                #     results_map = mpool.map(
-                #         functools.partial(
-                #             process_single_mpp_calculation,
-                #             irradiance_frame=irradiance_frame,
-                #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-                #             pbar=pbar,
-                #             pv_system=pv_system,
-                #             scenario=modelling_scenario,
-                #         ),
-                #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
-                #     )
+            # with track(
+            #     description="MPP computation",
+            #     total=parsed_args.iteration_length,  # , unit="hour"
+            # ):
+            # with ThreadPool(8) as mpool:
+            #     results_map = mpool.map(
+            #         functools.partial(
+            #             process_single_mpp_calculation,
+            #             irradiance_frame=irradiance_frame,
+            #             locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
+            #             pbar=pbar,
+            #             pv_system=pv_system,
+            #             scenario=modelling_scenario,
+            #         ),
+            #         range(parsed_args.start_day_index, parsed_args.start_day_index + parsed_args.iteration_length),
+            #     )
 
-                start_hour = (
-                    parsed_args.start_day_index
-                    if parsed_args.start_day_index is not None
-                    else 0
+            start_hour = (
+                parsed_args.start_day_index
+                if parsed_args.start_day_index is not None
+                else 0
+            )
+
+            # Setup weather data
+            weather_frame = pd.DataFrame(
+                locations_to_weather_and_solar_map[modelling_scenario.location]
+            )
+
+            if (
+                _start_time_column_name := "start_time"
+            ) not in irradiance_frame.columns:
+                irradiance_frame[_start_time_column_name] = list(
+                    range(start_hour, start_hour + parsed_args.iteration_length)
                 )
 
-                results = Parallel(n_jobs=8)(
-                    delayed(
-                        functools.partial(
-                            process_single_mpp_calculation_without_pbar,
-                            irradiance_frame=irradiance_frame,
-                            locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-                            pv_system=pv_system,
-                            scenario=modelling_scenario,
-                        )
-                    )(time_of_day)
-                    for time_of_day in range(
-                        start_hour,
-                        start_hour + parsed_args.iteration_length,
+            weather_frame[_start_time_column_name] = irradiance_frame[
+                _start_time_column_name
+            ].values
+
+            results = Parallel(n_jobs=8)(
+                delayed(
+                    functools.partial(
+                        process_single_mpp_calculation_without_pbar,
+                        irradiance_frame=irradiance_frame,
+                        pv_system=pv_system,
+                        scenario=modelling_scenario,
+                        weather_frame=weather_frame,
                     )
+                )(time_of_day)
+                for time_of_day in range(
+                    start_hour,
+                    start_hour + parsed_args.iteration_length,
                 )
+            )
 
             end_time = time.time()
             print(DONE)
@@ -2881,7 +2909,8 @@ def main(unparsed_arguments) -> None:
             # unless the file for validation already exists with these times in.
             # If a start-day index was specified, use this as the start time.
             if os.path.isfile(
-                validation_filename := "validation_file_{timestamps_filename}_{start_time}_{end_time}.json".format(
+                validation_filename := "validation_file_{timestamps_filename}_"
+                "{start_time}_{end_time}.json".format(
                     timestamps_filename=parsed_args.timestamps_file,
                     start_time=(
                         start_hour := (
