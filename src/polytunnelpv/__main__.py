@@ -545,6 +545,7 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     #   The operation to carry out.
     parser.add_argument(
         "--operating-mode",
+        "-o",
         choices=[entry.value for entry in OperatingMode],
         help="Specify the operating mode.",
     )
@@ -1803,7 +1804,7 @@ def main(unparsed_arguments) -> None:
                 )
             ).year
         )
-    except KeyError:
+    except KeyError as e:
         raise KeyError(
             "Failed to find location data. Check that your weather-data source "
             f"matches: {str(e)}."
@@ -2948,7 +2949,7 @@ def main(unparsed_arguments) -> None:
 
                 # Set up inputs correctly to process.
                 weather_frame = pd.DataFrame(
-                    locations_to_weather_and_solar_map[scenario.location]
+                    locations_to_weather_and_solar_map[modelling_scenario.location]
                 )
                 sliced_timestamps_data = timestamps_data[
                     timestamps_data.index.isin(
@@ -3114,7 +3115,7 @@ def main(unparsed_arguments) -> None:
             timestamps_data["Max PV to batt"] *= 100
             timestamps_data["Min PV to batt"] *= 100
 
-            timestamps_data["full_date"] = timestamps_data["date"]
+            timestamps_data[_full_date_column_name:="full_date"] = timestamps_data["date_x"]
             try:
                 timestamps_data["date"] = [
                     int(entry.split("/")[0]) for entry in timestamps_data["date"]
@@ -3152,10 +3153,6 @@ def main(unparsed_arguments) -> None:
             )
 
             date_adjustment_factor: float = 1 / len(set(timestamps_data["date"]))
-
-            import pdb
-
-            pdb.set_trace()
 
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.set_palette(sns.cubehelix_palette(start=0.2, rot=-0.4, n_colors=31))
@@ -3294,55 +3291,58 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Open and parse the diffuse data on the diffusive fraction
-            try:
-                with open("december_diffuse_fraction.csv", "r") as diffuse_data_file:
-                    diffuse_data = pd.read_csv(diffuse_data_file)
-            except FileNotFoundError:
-                raise FileNotFoundError(
-                    "Could not find difffuse-fraction information."
-                ) from None
+            import pdb
 
-            diffuse_data.columns = pd.Index(["time"] + list(diffuse_data.columns)[1:])
-            diffuse_data["full_date"] = [
-                entry.split(" ")[0] for entry in diffuse_data["time"]
-            ]
-            diffuse_data["date"] = [
-                int(entry.split("/")[0]) for entry in diffuse_data["full_date"]
-            ]
-            diffuse_data["hour"] = [
-                int(entry.split(" ")[1].split(":")[0]) for entry in diffuse_data["time"]
-            ]
+            pdb.set_trace()
+            # try:
+            #     with open("december_diffuse_fraction.csv", "r") as diffuse_data_file:
+            #         diffuse_data = pd.read_csv(diffuse_data_file)
+            # except FileNotFoundError:
+            #     raise FileNotFoundError(
+            #         "Could not find difffuse-fraction information."
+            #     ) from None
 
-            def _parse_diffusive_fraction(entry: str) -> float | None:
-                try:
-                    return float(entry)
-                except ValueError:
-                    return None
+            # diffuse_data.columns = pd.Index(["time"] + list(diffuse_data.columns)[1:])
+            # diffuse_data["full_date"] = [
+            #     entry.split(" ")[0] for entry in diffuse_data["time"]
+            # ]
+            # diffuse_data["date"] = [
+            #     int(entry.split("/")[0]) for entry in diffuse_data["full_date"]
+            # ]
+            # diffuse_data["hour"] = [
+            #     int(entry.split(" ")[1].split(":")[0]) for entry in diffuse_data["time"]
+            # ]
 
-            diffuse_data["Diffusive fraction"] = [
-                _parse_diffusive_fraction(entry)
-                for entry in diffuse_data["Diffusive fraction"]
-            ]
+            # def _parse_diffusive_fraction(entry: str) -> float | None:
+            #     try:
+            #         return float(entry)
+            #     except ValueError:
+            #         return None
+
+            diffuse_data = weather_frame.copy()
+            diffuse_data[(_diffusive_fraction_column_header:="Diffusive fraction")] = diffuse_data[IRRADIANCE_DIFFUSE] / (diffuse_data[IRRADIANCE_DIFFUSE] + diffuse_data[IRRADIANCE_DIRECT])
+            diffuse_data[DATE] = timestamps_data[DATE]
+            diffuse_data[_full_date_column_name] = timestamps_data[_full_date_column_name]
 
             mean_diffuse = {
-                date: diffuse_data[diffuse_data["date"] == date][
-                    "Diffusive fraction"
+                date: diffuse_data[diffuse_data[_full_date_column_name] == date][
+                    _diffusive_fraction_column_header
                 ].mean()
-                for date in set(diffuse_data["date"])
+                for date in set(diffuse_data[_full_date_column_name])
             }
             std_diffuse = {
-                date: diffuse_data[diffuse_data["date"] == date][
-                    "Diffusive fraction"
+                date: diffuse_data[diffuse_data[_full_date_column_name] == date][
+                    _diffusive_fraction_column_header
                 ].std()
-                for date in set(diffuse_data["date"])
+                for date in set(diffuse_data[_full_date_column_name])
             }
             diffuse_frame = pd.DataFrame(
-                {"date": mean_diffuse.keys(), "mean": mean_diffuse.values()}
+                {_full_date_column_name: mean_diffuse.keys(), "mean": mean_diffuse.values()}
             )
             std_frame = pd.DataFrame(
-                {"date": std_diffuse.keys(), "std": std_diffuse.values()}
+                {_full_date_column_name: std_diffuse.keys(), "std": std_diffuse.values()}
             )
-            diffuse_frame = diffuse_frame.merge(std_frame)
+            diffuse_frame = diffuse_frame.merge(std_frame).dropna()
 
             # Categorise the days based on whether they're consistently cloudy, sunny,
             # etc.
@@ -3378,12 +3378,12 @@ def main(unparsed_arguments) -> None:
                 list(reversed(["#423252", "#4A688B", "#779FB1", "#36C7B8", "#FBC412"]))
             )
 
-            timestamps_data = timestamps_data.merge(diffuse_frame, on="date")
+            timestamps_data = timestamps_data.merge(diffuse_frame, on=_full_date_column_name)
 
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.violinplot(
                 timestamps_data,
-                x="date",
+                x=DATE,
                 y="Delta prediction vs model",
                 hue="category",
                 hue_order=[
@@ -3399,7 +3399,7 @@ def main(unparsed_arguments) -> None:
             )
             sns.swarmplot(
                 timestamps_data,
-                x="date",
+                x=DATE,
                 y="Delta prediction vs model",
                 marker="D",
                 hue="category",
@@ -3414,7 +3414,7 @@ def main(unparsed_arguments) -> None:
             plt.axhline(0, color="grey")
 
             sns.despine()
-            plt.xlabel("Hour of the day")
+            plt.xlabel("Day of the month")
             plt.ylabel("P-PV model over/under prediction / kW")
             handles, labels = plt.gca().get_legend_handles_labels()
 
@@ -3437,7 +3437,7 @@ def main(unparsed_arguments) -> None:
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.scatterplot(
                 diffuse_frame,
-                x="date",
+                x=_full_date_column_name,
                 y="mean",
                 hue="category",
                 marker="h",
@@ -3454,7 +3454,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Consistently sunny"
                     ]
-                )["date"],
+                )[_full_date_column_name],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3465,7 +3465,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Intermittently sunny"
                     ]
-                )["date"],
+                )[_full_date_column_name],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3476,7 +3476,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Intermittently cloudy"
                     ]
-                )["date"],
+                )[_full_date_column_name],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3487,7 +3487,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Consistently cloudy"
                     ]
-                )["date"],
+                )[_full_date_column_name],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3495,16 +3495,17 @@ def main(unparsed_arguments) -> None:
             )
 
             plt.legend(title="Day category")
-            plt.xlabel("Day of the month")
+            plt.xlabel("Date")
             plt.ylabel("Diffusive fraction ($D$)")
 
             # sns.despine()
             plt.savefig(
-                "december_diffusive_fraction.pdf", bbox_inches="tight", pad_inches=0
+                "april_diffusive_fraction_{INDEX}.pdf", bbox_inches="tight", pad_inches=0
             )
 
             plt.show()
 
+            # FIXME: Run with predicted upper-bound and lowerbound errors.
             timestamps_data["Predicted PV error"] = (
                 0.181 * timestamps_data["Predicted PV to batt"]
             )
@@ -3516,8 +3517,8 @@ def main(unparsed_arguments) -> None:
             index: int = 0
 
             for date_index in set(timestamps_data["date"]):
-                if date_index not in (11, 15):
-                    continue
+                # if date_index not in (11, 15):
+                #     continue
                 plt.figure(figsize=(171 * MM, 120 * MM))
                 ax1 = plt.gca()
                 plotting_data = timestamps_data[timestamps_data["date"] == date_index]
@@ -3573,7 +3574,7 @@ def main(unparsed_arguments) -> None:
                     (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                         "hour"
                     ],
-                    diffuse_slice["Diffusive fraction"],
+                    diffuse_slice[_diffusive_fraction_column_header],
                     "--",
                     color="black",
                     label="Diffuse fraction estimate",
@@ -3655,7 +3656,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -3729,7 +3730,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -3829,7 +3830,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -3903,7 +3904,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -3978,7 +3979,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4055,7 +4056,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4129,7 +4130,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4204,7 +4205,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4314,7 +4315,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4388,7 +4389,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4484,7 +4485,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4557,7 +4558,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4630,7 +4631,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4703,7 +4704,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4808,7 +4809,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4881,7 +4882,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -4954,7 +4955,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5027,7 +5028,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5133,7 +5134,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5206,7 +5207,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5284,7 +5285,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5357,7 +5358,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5430,7 +5431,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
@@ -5503,7 +5504,7 @@ def main(unparsed_arguments) -> None:
                 (diffuse_slice := diffuse_data[diffuse_data["date"] == date_index])[
                     "hour"
                 ],
-                diffuse_slice["Diffusive fraction"],
+                diffuse_slice[_diffusive_fraction_column_header],
                 "--",
                 color="black",
                 label="Diffuse fraction estimate",
