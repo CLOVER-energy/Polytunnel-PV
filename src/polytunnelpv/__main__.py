@@ -167,6 +167,10 @@ CELL_TYPE: str = "cell_type"
 #    Rate used to sample current data for ease of calculation.
 CURRENT_SAMPLING_RATE: int = 20
 
+# DATE:
+#   Keyword used for decoding date information.
+DATE: str = "date"
+
 # D_EG_DT:
 #   Keyword used for coding reference bandgap energy temperature dependence.
 D_EG_DT: str = "dEgdT"
@@ -193,7 +197,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 3
+INDEX: int = 5
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -380,7 +384,7 @@ WIND_SPEED: str = "wind_speed"
 # WEATHER_FILE_WITH_SOLAR:
 #   The name of the weather file with the solar data.
 WEATHER_FILE_WITH_SOLAR: str = os.path.join(
-    "auto_generated", "weather_with_solar_{location_name}.csv"
+    "auto_generated", "weather_with_solar_{location_name}_{data_source}.csv"
 )
 
 
@@ -558,7 +562,7 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
 
     # Source:
     weather_arguments.add_argument(
-        "--source",
+        "--weather-data-source",
         "-wds",
         type=str,
         default="ninja",
@@ -858,16 +862,16 @@ def _parse_scenarios(
     ]
 
 
-def _parse_weather() -> dict[str, pd.DataFrame]:
+def _parse_weather() -> dict[tuple[str, str], pd.DataFrame]:
     """
     Parse the downloaded solar data that's in the weather data directory.
 
-    :returns: A `dict` mapping the location name, as a `str`, to a
-        :class:`pandas.DataFrame` instance containing the solar and wind data.
+    :returns: A `dict` mapping the location name, as a `str`, along with the name of the
+        data source to a :class:`pandas.DataFrame` instance containing the solar and wind data.
 
     """
 
-    location_name_to_data_map: dict[str, pd.DataFrame] = {}
+    location_name_and_source_to_data_map: dict[str, pd.DataFrame] = {}
 
     # Parse the solar data
     for filename in track(
@@ -877,14 +881,19 @@ def _parse_weather() -> dict[str, pd.DataFrame]:
     ):
         # Skip the file if it's not in the expected format.
         try:
-            location_name = WEATHER_DATA_REGEX.match(filename).group("location_name")  # type: ignore [union-attr]
+            location_name = (match := WEATHER_DATA_REGEX.match(filename)).group("location_name")  # type: ignore [union-attr]
         except AttributeError:
             continue
 
+        # Determine the data source.
+        data_source = match.group("source")
+
         with open(
             os.path.join(WEATHER_DATA_DIRECTORY, filename), "r", encoding=FILE_ENCODING
-        ) as f:
-            location_name_to_data_map[location_name] = pd.read_csv(f, comment="#")
+        ) as file_handler:
+            location_name_and_source_to_data_map[(location_name, data_source)] = (
+                pd.read_csv(file_handler, comment="#")
+            )
 
     for filename in track(
         os.listdir(WEATHER_DATA_DIRECTORY),
@@ -893,18 +902,29 @@ def _parse_weather() -> dict[str, pd.DataFrame]:
     ):
         # Skip the file if it's not in the expected format.
         try:
-            location_name = WIND_DATA_REGEX.match(filename).group("location_name")  # type: ignore [union-attr]
+            location_name = (match := WIND_DATA_REGEX.match(filename)).group("location_name")  # type: ignore [union-attr]
         except AttributeError:
             continue
+
+        # Determine the data source.
+        data_source = match.group("source")
 
         with open(
             os.path.join(WEATHER_DATA_DIRECTORY, filename), "r", encoding=FILE_ENCODING
         ) as f:
             wind_data = pd.read_csv(f, comment="#")
 
-        location_name_to_data_map[location_name][WIND_SPEED] = wind_data[WIND_SPEED]
+        try:
+            location_name_and_source_to_data_map[(location_name, data_source)][
+                WIND_SPEED
+            ] = wind_data[WIND_SPEED]
+        except KeyError:
+            print(
+                f"Warning: wind data for {location_name} from {data_source} has no matching solar data: skipping."
+            )
+            continue
 
-    return location_name_to_data_map
+    return location_name_and_source_to_data_map
 
 
 def _sanitise_time(hours: int, formatter: str, initial_time: datetime) -> str:
@@ -1038,11 +1058,9 @@ def process_single_mpp_calculation_without_pbar(
     time_of_day: int,
     *,
     irradiance_frame: pd.DataFrame,
-    locations_to_weather_and_solar_map: dict[
-        pvlib.location.Location, list[dict[str, Any]]
-    ],
     pv_system: PVSystem,
     scenario: Scenario,
+    weather_frame: pd.DataFrame,
 ) -> tuple[
     int,
     float,
@@ -1058,15 +1076,14 @@ def process_single_mpp_calculation_without_pbar(
     :param: irradiance_frame
         The irradiance data, as a :class:`pd.DataFrame`.
 
-    :param: locations_to_weather_and_solar_map
-        A `dict` mapping the location, as a :class:`pvlib.location.Location`, to the
-        weather and solar data.
-
     :param: pv_system
         The :class:`PVSystem` instance representing the solar polytunnel system.
 
     :param: scenario
         The current :class:`Scenario` being modelled.
+
+    :param: weather_frame
+        The weather data at the location.
 
     :returns: The hour of the day,
 
@@ -1084,14 +1101,13 @@ def process_single_mpp_calculation_without_pbar(
         print(f"Hour {time_of_day} processed successfully.")
 
     try:
-        hour = time_of_day % 24
         max_irradiance = np.max(
-            irradiance_frame.set_index("hour").iloc[time_of_day][1:]
+            irradiance_frame.set_index("start_time").loc[time_of_day][:-1]
         )
         if max_irradiance == 0:
             _print_success()
             return (
-                hour,
+                time_of_day,
                 0,
                 {
                     cell_or_string: 0
@@ -1123,27 +1139,30 @@ def process_single_mpp_calculation_without_pbar(
 
         pid = multiprocessing.current_process().pid
         individual_power_extreme = 0
+
+        _temperature: float = (
+            weather_map := weather_frame.set_index("start_time").loc[time_of_day]
+        )[TEMPERATURE]
+        _wind_speed: float = weather_map[WIND_SPEED]
+
         for pv_cell in track(
             scenario.pv_module.pv_cells_and_cell_strings,
             description=f"IV calculation #{pid}",
             transient=True,
         ):
+            # for pv_cell in scenario.pv_module.pv_cells_and_cell_strings:
             (
                 current_series,
                 power_series,
                 voltage_series,
                 pv_cells_bypassed,
             ) = pv_cell.calculate_iv_curve(
-                (
-                    weather_map := locations_to_weather_and_solar_map[
-                        scenario.location
-                    ][time_of_day]
-                )[TEMPERATURE],
+                _temperature,
                 1000
-                * irradiance_frame.set_index("hour")
-                .iloc[time_of_day]
+                * irradiance_frame.set_index("start_time")
+                .loc[time_of_day][:-1]
                 .reset_index(drop=True),
-                weather_map[WIND_SPEED],
+                _wind_speed,
                 current_series=current_series,
             )
             cell_to_current_map[pv_cell] = current_series
@@ -1153,6 +1172,7 @@ def process_single_mpp_calculation_without_pbar(
             individual_power_extreme = max(
                 individual_power_extreme, max(abs(power_series))
             )
+            # pbar.update(task, advance=1)
 
         # Compute the total power produced
         cell_voltage_interpreters = {
@@ -1246,7 +1266,9 @@ def process_single_mpp_calculation_without_pbar(
 
         _print_success()
 
-        return hour, mpp_power, bypassing_cell_strings, cellwise_mpp
+        import pdb
+
+        return time_of_day, mpp_power, bypassing_cell_strings, cellwise_mpp
 
     except Exception as e:
         print(f"Error processing time_of_day {time_of_day}: {str(e)}")
@@ -1677,9 +1699,9 @@ def main(unparsed_arguments) -> None:
         end="",
     )
     locations_with_weather: dict[pvlib.location.Location, pd.DataFrame] = {
-        location: weather_data[location.name]
+        location: weather_data[(location.name, parsed_args.weather_data_source)]
         for location in locations
-        if location.name in weather_data
+        if (location.name, parsed_args.weather_data_source) in weather_data
     }
 
     # Map of locations to weather data with solar angles.
@@ -1691,7 +1713,8 @@ def main(unparsed_arguments) -> None:
             os.path.isfile(
                 (
                     weather_with_solar_filename := WEATHER_FILE_WITH_SOLAR.format(
-                        location_name=location.name
+                        location_name=location.name,
+                        data_source=parsed_args.weather_data_source,
                     )
                 )
             )
@@ -1767,12 +1790,25 @@ def main(unparsed_arguments) -> None:
 
     cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
 
+    start_year: int = int(
+        (
+            initial_time := datetime.strptime(
+                locations_to_weather_and_solar_map[modelling_scenario.location][0][
+                    TIME
+                ],
+                "%Y-%m-%d %H:%M",
+            )
+        ).year
+    )
+    year_start_datetime = datetime(start_year, 1, 1)
+
     if (
         not os.path.isfile(
             (
                 cellwise_filename := os.path.join(
                     "auto_generated",
-                    f"{modelling_scenario.name}_cellwise_irradiance.csv",
+                    f"{modelling_scenario.name}_{parsed_args.weather_data_source}_"
+                    f"{start_year}_cellwise_irradiance.csv",
                 )
             )
         )
@@ -1789,9 +1825,7 @@ def main(unparsed_arguments) -> None:
                     direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
                 )
                 for entry in track(
-                    locations_to_weather_and_solar_map[modelling_scenario.location][
-                        :8760
-                    ],
+                    locations_to_weather_and_solar_map[modelling_scenario.location],
                     description="Performing hourly calculation",
                     transient=True,
                 )
@@ -1840,9 +1874,7 @@ def main(unparsed_arguments) -> None:
             transient=False,
         ):
             with open(
-                os.path.join(
-                    "auto_generated", f"{scenario.name}_cellwise_irradiance.csv"
-                ),
+                cellwise_filename,
                 "r",
             ) as f:
                 combined_frame = pd.read_csv(f, index_col=None)
@@ -1877,9 +1909,6 @@ def main(unparsed_arguments) -> None:
     )
 
     # Fix nan errors:
-    initial_time = datetime.strptime(
-        weather_data[location.name][TIME][0], "%Y-%m-%d %H:%M"
-    )
     irradiance_frame = irradiance_frame.fillna(0)
     os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
 
@@ -1976,7 +2005,7 @@ def main(unparsed_arguments) -> None:
                         daily_data[
                             (
                                 date_str := (
-                                    initial_time + timedelta(hours=hour)
+                                    year_start_datetime + timedelta(hours=hour)
                                 ).strftime("%d/%m/%Y")
                             )
                         ].append((hour, mpp_power))
@@ -2160,7 +2189,7 @@ def main(unparsed_arguments) -> None:
                         daily_data[
                             (
                                 date_str := (
-                                    initial_time + timedelta(hours=hour)
+                                    year_start_datetime + timedelta(hours=hour)
                                 ).strftime("%d/%m/%Y")
                             )
                         ].append((hour, mpp_power))
@@ -2881,52 +2910,106 @@ def main(unparsed_arguments) -> None:
                     or end_hour not in timestamps_data[_start_time_column_name].values
                 ):
                     raise Exception("Times specified are not in timestamps file.")
-                results = Parallel(n_jobs=8)(
-                    delayed(
-                        functools.partial(
-                            process_single_mpp_calculation_without_pbar,
-                            irradiance_frame=irradiance_frame,
-                            locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
-                            pv_system=pv_system,
-                            scenario=modelling_scenario,
-                        )
-                    )(int(time_of_day))
-                    for time_of_day in track(
-                        range(start_hour, end_hour), description="Computing IV curves"
-                    )
+
+                # Set up inputs correctly to process.
+                weather_frame = pd.DataFrame(
+                    locations_to_weather_and_solar_map[scenario.location]
                 )
-
-                # Format the data correctly.
-                all_mpp_data: list[
-                    tuple[
-                        str,
-                        int,
-                        dict[BypassedCellString | PVCell, bool],
-                        dict[BypassedCellString | PVCell, float],
-                    ]
-                ] = []
-
-                daily_data = defaultdict(list)
-                for result in results:
-                    if result is not None:
-                        hour, mpp_power, bypassed_cell_strings, cellwise_mpp = result
-                        if mpp_power is not None:
-                            daily_data[
-                                (
-                                    date_str := (
-                                        initial_time + timedelta(hours=hour)
-                                    ).strftime("%d/%m/%Y")
-                                )
-                            ].append((hour, mpp_power))
-                            all_mpp_data.append(
-                                (
-                                    date_str,
-                                    hour,
-                                    mpp_power,
-                                    bypassed_cell_strings,
-                                    cellwise_mpp,
-                                )
+                sliced_timestamps_data = timestamps_data[
+                    timestamps_data.index.isin(
+                        [
+                            datetime.strptime(entry, "%Y-%m-%d %H:%M").strftime(
+                                "%d/%m/%Y %H:%M"
                             )
+                            for entry in weather_frame.time
+                        ]
+                    )
+                ]
+                irradiance_frame[_start_time_column_name] = sliced_timestamps_data[
+                    _start_time_column_name
+                ].values
+                weather_frame[_start_time_column_name] = sliced_timestamps_data[
+                    _start_time_column_name
+                ].values
+
+                ##############
+                # DEBUG code #
+                ##############
+                # my_func = functools.partial(
+                #     process_single_mpp_calculation_without_pbar,
+                #     irradiance_frame=irradiance_frame,
+                #     pv_system=pv_system,
+                #     scenario=modelling_scenario,
+                #     weather_frame=weather_frame,
+                # )
+                #
+                # my_func(start_hour + 12)
+                #
+
+                # Run the queued jobs in parallel.
+                with Progress() as progress:
+                    task = progress.add_task(
+                        f"[green]IV calculations",
+                        total=len(range(start_hour, end_hour)),
+                    )
+                    results = Parallel(n_jobs=8)(
+                        delayed(
+                            functools.partial(
+                                process_single_mpp_calculation_without_pbar,
+                                irradiance_frame=irradiance_frame,
+                                pv_system=pv_system,
+                                scenario=modelling_scenario,
+                                weather_frame=weather_frame,
+                                # pbar=tasks[index],
+                            )
+                        )(int(time_of_day))
+                        # for index, time_of_day in track(
+                        #     enumerate(range(start_hour, end_hour)),
+                        #     description="Computing IV curves",
+                        # )
+                        for index, time_of_day in enumerate(range(start_hour, end_hour))
+                    )
+
+                    # Format the data correctly.
+                    all_mpp_data: list[
+                        tuple[
+                            str,
+                            int,
+                            dict[BypassedCellString | PVCell, bool],
+                            dict[BypassedCellString | PVCell, float],
+                        ]
+                    ] = []
+
+                    # Determine the initial time based on the information in the timestamps
+                    # file.
+                    initial_time = datetime.strptime(
+                        timestamps_data[DATE][0], "%d/%m/%Y"
+                    )  # + timedelta(hours=int(timestamps_data[_start_time_column_name][0]))
+
+                    daily_data = defaultdict(list)
+                    for result in results:
+                        progress.update(task, advance=1)
+                        if result is not None:
+                            hour, mpp_power, bypassed_cell_strings, cellwise_mpp = (
+                                result
+                            )
+                            if mpp_power is not None:
+                                daily_data[
+                                    (
+                                        date_str := (
+                                            year_start_datetime + timedelta(hours=hour)
+                                        ).strftime("%d/%m/%Y")
+                                    )
+                                ].append((hour, mpp_power))
+                                all_mpp_data.append(
+                                    (
+                                        date_str,
+                                        hour,
+                                        mpp_power,
+                                        bypassed_cell_strings,
+                                        cellwise_mpp,
+                                    )
+                                )
 
                 all_mpp_data = [
                     [
@@ -2947,7 +3030,7 @@ def main(unparsed_arguments) -> None:
             all_mpp_frame = pd.DataFrame(
                 {
                     "date": [entry[0] for entry in all_mpp_data],
-                    "hour": [entry[1] for entry in all_mpp_data],
+                    "start_time": [entry[1] for entry in all_mpp_data],
                     "Predicted PV to batt": [entry[2] for entry in all_mpp_data],
                 }
             )
@@ -2985,7 +3068,7 @@ def main(unparsed_arguments) -> None:
             #     + ["31/12/2023"] * 9
             # )
             timestamps_data = pd.merge(
-                timestamps_data, all_mpp_frame, how="left", on=["date", "hour"]
+                timestamps_data, all_mpp_frame, how="right", on=["start_time"]
             )
 
             # timestamps_data["Predicted PV to batt"] = [
@@ -3000,6 +3083,10 @@ def main(unparsed_arguments) -> None:
             try:
                 timestamps_data["date"] = [
                     int(entry.split("/")[0]) for entry in timestamps_data["date"]
+                ]
+            except KeyError:
+                timestamps_data["date"] = [
+                    int(entry.split("/")[0]) for entry in timestamps_data["date_x"]
                 ]
             except AttributeError:
                 try:

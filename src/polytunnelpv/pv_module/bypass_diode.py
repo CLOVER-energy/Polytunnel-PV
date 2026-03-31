@@ -238,9 +238,10 @@ class BypassedCellString:
                 current_series=current_series,
                 # voltage_series=voltage_series,
             )
-            for pv_cell in track(
-                self.pv_cells, description="Bypassed IV curves", transient=True
-            )
+            for pv_cell in self.pv_cells
+            # for pv_cell in track(
+            #     self.pv_cells, description="Bypassed IV curves", transient=True
+            # )
         }
 
         # Add up the voltage for each cell
@@ -344,9 +345,10 @@ class BypassedCellString:
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in track(
-            self.pv_cells, description="Bypassed IV curves", transient=True
-        ):
+        # for pv_cell in track(
+        #     self.pv_cells, description="Bypassed IV curves", transient=True
+        # ):
+        for pv_cell in self.pv_cells:
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,
