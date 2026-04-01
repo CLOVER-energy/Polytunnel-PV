@@ -3115,7 +3115,9 @@ def main(unparsed_arguments) -> None:
             timestamps_data["Max PV to batt"] *= 100
             timestamps_data["Min PV to batt"] *= 100
 
-            timestamps_data[_full_date_column_name:="full_date"] = timestamps_data["date_x"]
+            timestamps_data[_full_date_column_name := "full_date"] = timestamps_data[
+                "date_x"
+            ]
             try:
                 timestamps_data["date"] = [
                     int(entry.split("/")[0]) for entry in timestamps_data["date"]
@@ -3291,9 +3293,6 @@ def main(unparsed_arguments) -> None:
             plt.show()
 
             # Open and parse the diffuse data on the diffusive fraction
-            import pdb
-
-            pdb.set_trace()
             # try:
             #     with open("december_diffuse_fraction.csv", "r") as diffuse_data_file:
             #         diffuse_data = pd.read_csv(diffuse_data_file)
@@ -3320,9 +3319,15 @@ def main(unparsed_arguments) -> None:
             #         return None
 
             diffuse_data = weather_frame.copy()
-            diffuse_data[(_diffusive_fraction_column_header:="Diffusive fraction")] = diffuse_data[IRRADIANCE_DIFFUSE] / (diffuse_data[IRRADIANCE_DIFFUSE] + diffuse_data[IRRADIANCE_DIRECT])
+            diffuse_data[
+                (_diffusive_fraction_column_header := "Diffusive fraction")
+            ] = diffuse_data[IRRADIANCE_DIFFUSE] / (
+                diffuse_data[IRRADIANCE_DIFFUSE] + diffuse_data[IRRADIANCE_DIRECT]
+            )
             diffuse_data[DATE] = timestamps_data[DATE]
-            diffuse_data[_full_date_column_name] = timestamps_data[_full_date_column_name]
+            diffuse_data[_full_date_column_name] = timestamps_data[
+                _full_date_column_name
+            ]
 
             mean_diffuse = {
                 date: diffuse_data[diffuse_data[_full_date_column_name] == date][
@@ -3337,10 +3342,16 @@ def main(unparsed_arguments) -> None:
                 for date in set(diffuse_data[_full_date_column_name])
             }
             diffuse_frame = pd.DataFrame(
-                {_full_date_column_name: mean_diffuse.keys(), "mean": mean_diffuse.values()}
+                {
+                    _full_date_column_name: mean_diffuse.keys(),
+                    "mean": mean_diffuse.values(),
+                }
             )
             std_frame = pd.DataFrame(
-                {_full_date_column_name: std_diffuse.keys(), "std": std_diffuse.values()}
+                {
+                    _full_date_column_name: std_diffuse.keys(),
+                    "std": std_diffuse.values(),
+                }
             )
             diffuse_frame = diffuse_frame.merge(std_frame).dropna()
 
@@ -3378,7 +3389,9 @@ def main(unparsed_arguments) -> None:
                 list(reversed(["#423252", "#4A688B", "#779FB1", "#36C7B8", "#FBC412"]))
             )
 
-            timestamps_data = timestamps_data.merge(diffuse_frame, on=_full_date_column_name)
+            timestamps_data = timestamps_data.merge(
+                diffuse_frame, on=_full_date_column_name
+            )
 
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.violinplot(
@@ -3433,6 +3446,12 @@ def main(unparsed_arguments) -> None:
             )
 
             plt.show()
+
+            # FIXME: Run with predicted upper-bound and lowerbound errors.
+            return
+            import pdb
+
+            pdb.set_trace()
 
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.scatterplot(
@@ -3500,12 +3519,13 @@ def main(unparsed_arguments) -> None:
 
             # sns.despine()
             plt.savefig(
-                "april_diffusive_fraction_{INDEX}.pdf", bbox_inches="tight", pad_inches=0
+                "april_diffusive_fraction_{INDEX}.pdf",
+                bbox_inches="tight",
+                pad_inches=0,
             )
 
             plt.show()
 
-            # FIXME: Run with predicted upper-bound and lowerbound errors.
             timestamps_data["Predicted PV error"] = (
                 0.181 * timestamps_data["Predicted PV to batt"]
             )
