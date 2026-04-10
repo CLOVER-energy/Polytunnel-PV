@@ -49,7 +49,7 @@ def main() -> None:
 
         # Run the file, then remove.
         try:
-            subprocess.run(f"qsub _temp_launchscript".split(" "))
+            subprocess.run(f"qsub {_temp_launchscript}".split(" "))
         except Exception:
             print("Failed to launch script.")
             raise
