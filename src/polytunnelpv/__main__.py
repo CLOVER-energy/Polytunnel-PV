@@ -241,7 +241,7 @@ N_MODULES: str = "n_modules"
 
 # OUTPUT_DIRECTORY:
 #   The name of the outputs directory to use.
-OUTPUT_DIRECTORY: str = "outputs"
+OUTPUT_DIRECTORY: str = "outputs_4"
 
 # POLYTUNNEL_CURVE@
 #   Keyword used for parsing the information about the curve on which a solar panel
