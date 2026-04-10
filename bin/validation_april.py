@@ -20,39 +20,48 @@ START_TIME: int = 2184
 #   The name of the validation script to use.
 VALIDATION_FILENAME: str = "validation_april.sh"
 
+
 def main() -> None:
     """
     Main script that will loop through the hours and qsub.
 
     """
 
-    with open(os.path.join(SCRIPTS_DIR, VALIDATION_FILENAME), "r"), encoding="UTF-8") as validation_file:
+    with open(
+        os.path.join(SCRIPTS_DIR, VALIDATION_FILENAME), "r", encoding="UTF-8"
+    ) as validation_file:
         base_validation_data: str = validation_file.read()
 
     for start_date in range(31):
-        start_time = START_TIME + start_date * hours_per_day
+        start_time = START_TIME + start_date * HOURS_PER_DAY
 
         # Update the script information and write to a file.
-        with open(_temp_launchscript:=os.path.join(SCRIPTS_DIR, f"temp_april_{start_date+1}_{VALIDATION_FILENAME}"), "w", encoding="UTF-8") as temp_validation_file:
-            temp_validation_file.write(base_validation_data.format(START_TIME=start_time))
+        with open(
+            _temp_launchscript := os.path.join(
+                SCRIPTS_DIR, f"temp_april_{start_date+1}_{VALIDATION_FILENAME}"
+            ),
+            "w",
+            encoding="UTF-8",
+        ) as temp_validation_file:
+            temp_validation_file.write(
+                base_validation_data.format(START_TIME=start_time)
+            )
 
         # Run the file, then remove.
         try:
             subprocess.run(f"qsub _temp_launchscript".split(" "))
-        except:
+        except Exception:
             print("Failed to launch script.")
             raise
-        else:
-            print("Launch script successfully launched.")
+        print("Launch script successfully launched.")
 
         try:
             os.remove(_temp_launchscript)
-        except:
+        except Exception:
             pass
-        else:
-            print("Temp launchscript removed")
+
+        print("Temp launchscript removed")
 
 
 if __name__ == "__main__":
     main()
-
