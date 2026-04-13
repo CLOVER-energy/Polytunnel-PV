@@ -52,7 +52,7 @@ from typing import Any, Callable, Generator, Hashable, Match, Pattern
 import numpy as np
 import pandas as pd
 
-from rich.progress import Progress, track
+from tqdm import tqdm
 
 from .__utils__ import NAME, VOLTAGE_RESOLUTION
 from .pv_module.bypass_diode import BypassDiode, BypassedCellString
@@ -804,8 +804,8 @@ def _parse_pv_modules(
 
     return [
         _construct_pv_module(pv_module_entry)
-        for pv_module_entry in track(
-            pv_module_data, description="Parsing PV modules", transient=False
+        for pv_module_entry in tqdm(
+            pv_module_data, desc="Parsing PV modules", leave=True
         )
     ]
 
@@ -877,10 +877,10 @@ def _parse_weather() -> dict[tuple[str, str], pd.DataFrame]:
     location_name_and_source_to_data_map: dict[str, pd.DataFrame] = {}
 
     # Parse the solar data
-    for filename in track(
+    for filename in tqdm(
         os.listdir(WEATHER_DATA_DIRECTORY),
-        description="Parsing weather data files",
-        transient=True,
+        desc="Parsing weather data files",
+        leave=False,
     ):
         # Skip the file if it's not in the expected format.
         try:
@@ -898,10 +898,10 @@ def _parse_weather() -> dict[tuple[str, str], pd.DataFrame]:
                 pd.read_csv(file_handler, comment="#")
             )
 
-    for filename in track(
+    for filename in tqdm(
         os.listdir(WEATHER_DATA_DIRECTORY),
-        description="Parsing wind data files",
-        transient=True,
+        desc="Parsing wind data files",
+        leave=False,
     ):
         # Skip the file if it's not in the expected format.
         try:
@@ -971,7 +971,7 @@ def process_single_mpp_calculation(
     locations_to_weather_and_solar_map: dict[
         pvlib.location.Location, list[dict[str, Any]]
     ],
-    pbar: Progress,
+    pbar: Any,
     pv_system: PVSystem,
     scenario: Scenario,
 ) -> tuple[int, float, str]:
@@ -1008,10 +1008,10 @@ def process_single_mpp_calculation(
         )
 
         individual_power_extreme = 0
-        for pv_cell in track(
+        for pv_cell in tqdm(
             scenario.pv_module.pv_cells_and_cell_strings,
-            description="IV calculation",
-            transient=True,
+            desc="IV calculation",
+            leave=False,
         ):
             (
                 current_series,
@@ -1148,10 +1148,10 @@ def process_single_mpp_calculation_without_pbar(
         )[TEMPERATURE]
         _wind_speed: float = weather_map[WIND_SPEED]
 
-        for pv_cell in track(
+        for pv_cell in tqdm(
             scenario.pv_module.pv_cells_and_cell_strings,
-            description=f"IV calculation #{pid}",
-            transient=True,
+            desc=f"IV calculation #{pid}",
+            leave=False,
         ):
             # for pv_cell in scenario.pv_module.pv_cells_and_cell_strings:
             (
@@ -1200,16 +1200,16 @@ def process_single_mpp_calculation_without_pbar(
         cellwise_voltage = {
             pv_cell: [
                 interpreter(current)
-                for current in track(
+                for current in tqdm(
                     sampling_current_series,
-                    description="Interpolation calculation",
-                    transient=True,
+                    desc="Interpolation calculation",
+                    leave=False,
                 )
             ]
-            for pv_cell, interpreter in track(
+            for pv_cell, interpreter in tqdm(
                 cell_voltage_interpreters.items(),
-                description="Cell-wise calculation",
-                transient=True,
+                desc="Cell-wise calculation",
+                leave=False,
             )
         }
         module_voltage = [sum(sublist) for sublist in zip(*cellwise_voltage.values())]
@@ -1326,9 +1326,7 @@ def plot_irradiance_with_marginal_means(
         data_to_plot.fillna(0).iloc[start_index : start_index + 24].set_index("hour")
     )
 
-    with track(
-        description="Plotting", transient=True, total=3  # , unit="steps"
-    ) as pbar:
+    with tqdm(desc="Plotting", leave=False, total=3) as pbar:  # , unit="steps"
         # Create a dummy plot and surrounding axes.
         joint_plot_grid = sns.jointplot(
             data=frame_slice,
@@ -1498,14 +1496,14 @@ def plot_temperature_with_marginal_means(
             - ZERO_CELSIUS_OFFSET
             for time_of_day in rack(
                 range(24),
-                description="Daily computation",
-                transient=True,  # , unit="hour"
+                desc="Daily computation",
+                leave=False,  # , unit="hour"
             )
         ]
-        for pv_cell in track(
+        for pv_cell in tqdm(
             scenario.pv_module.pv_cells,
-            description="Cell-wise computation",
-            transient=True,
+            desc="Cell-wise computation",
+            leave=False,
             # unit="cell",
         )
     }
@@ -1520,9 +1518,7 @@ def plot_temperature_with_marginal_means(
             )
         )
 
-    with track(
-        description="Plotting", transient=True, total=3  # , unit="steps"
-    ) as pbar:
+    with tqdm(desc="Plotting", leave=False, total=3) as pbar:  # , unit="steps"
         # Create a dummy plot and surrounding axes.
         joint_plot_grid = sns.jointplot(
             data=temperature_frame,
@@ -1733,7 +1729,7 @@ def main(unparsed_arguments) -> None:
             solar_frame = pd.concat(
                 [
                     _solar_angles_from_weather_row(row, location)
-                    for row in track(
+                    for row in tqdm(
                         weather_frame.iterrows(),
                         description=location.name.capitalize(),
                         total=len(weather_frame),
@@ -1833,16 +1829,16 @@ def main(unparsed_arguments) -> None:
                     entry[SOLAR_ZENITH],
                     direct_normal_irradiance=entry[IRRADIANCE_DIRECT_NORMAL],
                 )
-                for entry in track(
+                for entry in tqdm(
                     locations_to_weather_and_solar_map[modelling_scenario.location],
-                    description="Performing hourly calculation",
-                    transient=True,
+                    desc="Performing hourly calculation",
+                    leave=False,
                 )
             }
-            for pv_cell in track(
+            for pv_cell in tqdm(
                 modelling_scenario.pv_module.pv_cells,
-                description="Cell-wise irradiance",
-                transient=True,
+                desc="Cell-wise irradiance",
+                leave=False,
             )
         ]
 
@@ -1887,10 +1883,10 @@ def main(unparsed_arguments) -> None:
         print(DONE)
 
     else:
-        for scenario in track(
+        for scenario in tqdm(
             [scenario for scenario in scenarios if scenario == modelling_scenario],
-            description="Loading irradiance data",
-            transient=False,
+            desc="Loading irradiance data",
+            leave=True,
         ):
             with open(
                 cellwise_filename,
@@ -1963,8 +1959,8 @@ def main(unparsed_arguments) -> None:
                 + " ",
                 end="",
             )
-            # with track(
-            #     description="MPP computation",
+            # with tqdm(
+            #     desc="MPP computation",
             #     total=parsed_args.iteration_length,  # , unit="hour"
             # ):
             # with ThreadPool(8) as mpool:
@@ -2163,8 +2159,8 @@ def main(unparsed_arguments) -> None:
                 + " ",
                 end="",
             )
-            with track(
-                description="MPP computation",
+            with tqdm(
+                desc="MPP computation",
                 total=parsed_args.iteration_length,  # , unit="hour"
             ) as pbar:
                 # with ThreadPool(8) as mpool:
@@ -2322,7 +2318,7 @@ def main(unparsed_arguments) -> None:
             plt.figure(figsize=(171 * MM, 120 * MM))
             dashes = Dashes()
 
-            for time_of_day in track(
+            for time_of_day in tqdm(
                 range(
                     (
                         start_hour := (
@@ -2333,7 +2329,7 @@ def main(unparsed_arguments) -> None:
                     ),
                     (end_hour := start_hour + parsed_args.iteration_length),
                 ),
-                description="Plotting irradiance series",
+                desc="Plotting irradiance series",
             ):
                 sns.lineplot(
                     x=[
@@ -2390,9 +2386,9 @@ def main(unparsed_arguments) -> None:
             plt.figure(figsize=(171 * MM, 120 * MM))
             dashes = Dashes()
 
-            for time_of_day in track(
+            for time_of_day in tqdm(
                 range(start_hour, end_hour),
-                description="Plotting temperature series",
+                desc="Plotting temperature series",
             ):
                 plt.plot(
                     [
@@ -2577,10 +2573,10 @@ def main(unparsed_arguments) -> None:
                 BypassedCellString | PVCell, np.ndarray
             ] = {}
 
-            for pv_cell in track(
+            for pv_cell in tqdm(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings,
-                description="IV calculation",
-                transient=True,
+                desc="IV calculation",
+                leave=False,
             ):
                 (
                     current_series,
@@ -2697,16 +2693,16 @@ def main(unparsed_arguments) -> None:
             cellwise_voltage = {
                 pv_cell: [
                     interpreter(current)
-                    for current in track(
+                    for current in tqdm(
                         sampling_current_series,
-                        description="Interpolation calculation",
-                        transient=True,
+                        desc="Interpolation calculation",
+                        leave=False,
                     )
                 ]
-                for pv_cell, interpreter in track(
+                for pv_cell, interpreter in tqdm(
                     cell_voltage_interpreters.items(),
-                    description="Cell-wise calculation",
-                    transient=True,
+                    desc="Cell-wise calculation",
+                    leave=False,
                 )
             }
 
@@ -2983,69 +2979,61 @@ def main(unparsed_arguments) -> None:
                 #
 
                 # Run the queued jobs in parallel.
-                with Progress() as progress:
-                    task = progress.add_task(
-                        f"[green]IV calculations",
-                        total=len(range(start_hour, end_hour)),
-                    )
-                    results = Parallel(n_jobs=8)(
-                        delayed(
-                            functools.partial(
-                                process_single_mpp_calculation_without_pbar,
-                                irradiance_frame=irradiance_frame,
-                                pv_system=pv_system,
-                                scenario=modelling_scenario,
-                                weather_frame=weather_frame,
-                                # pbar=tasks[index],
-                            )
-                        )(int(time_of_day))
-                        # for index, time_of_day in track(
-                        #     enumerate(range(start_hour, end_hour)),
-                        #     description="Computing IV curves",
-                        # )
-                        for index, time_of_day in enumerate(range(start_hour, end_hour))
-                    )
+                results = Parallel(n_jobs=8)(
+                    delayed(
+                        functools.partial(
+                            process_single_mpp_calculation_without_pbar,
+                            irradiance_frame=irradiance_frame,
+                            pv_system=pv_system,
+                            scenario=modelling_scenario,
+                            weather_frame=weather_frame,
+                            # pbar=tasks[index],
+                        )
+                    )(int(time_of_day))
+                    # for index, time_of_day in tqdm(
+                    #     enumerate(range(start_hour, end_hour)),
+                    #     desc="Computing IV curves",
+                    # )
+                    for index, time_of_day in enumerate(range(start_hour, end_hour))
+                )
 
-                    # Format the data correctly.
-                    all_mpp_data: list[
-                        tuple[
-                            str,
-                            int,
-                            dict[BypassedCellString | PVCell, bool],
-                            dict[BypassedCellString | PVCell, float],
-                        ]
-                    ] = []
+                # Format the data correctly.
+                all_mpp_data: list[
+                    tuple[
+                        str,
+                        int,
+                        dict[BypassedCellString | PVCell, bool],
+                        dict[BypassedCellString | PVCell, float],
+                    ]
+                ] = []
 
-                    # Determine the initial time based on the information in the timestamps
-                    # file.
-                    initial_time = datetime.strptime(
-                        timestamps_data[DATE][0], "%d/%m/%Y"
-                    )  # + timedelta(hours=int(timestamps_data[_start_time_column_name][0]))
+                # Determine the initial time based on the information in the timestamps
+                # file.
+                initial_time = datetime.strptime(
+                    timestamps_data[DATE][0], "%d/%m/%Y"
+                )  # + timedelta(hours=int(timestamps_data[_start_time_column_name][0]))
 
-                    daily_data = defaultdict(list)
-                    for result in results:
-                        progress.update(task, advance=1)
-                        if result is not None:
-                            hour, mpp_power, bypassed_cell_strings, cellwise_mpp = (
-                                result
-                            )
-                            if mpp_power is not None:
-                                daily_data[
-                                    (
-                                        date_str := (
-                                            year_start_datetime + timedelta(hours=hour)
-                                        ).strftime("%d/%m/%Y")
-                                    )
-                                ].append((hour, mpp_power))
-                                all_mpp_data.append(
-                                    (
-                                        date_str,
-                                        hour,
-                                        mpp_power,
-                                        bypassed_cell_strings,
-                                        cellwise_mpp,
-                                    )
+                daily_data = defaultdict(list)
+                for result in results:
+                    if result is not None:
+                        hour, mpp_power, bypassed_cell_strings, cellwise_mpp = result
+                        if mpp_power is not None:
+                            daily_data[
+                                (
+                                    date_str := (
+                                        year_start_datetime + timedelta(hours=hour)
+                                    ).strftime("%d/%m/%Y")
                                 )
+                            ].append((hour, mpp_power))
+                            all_mpp_data.append(
+                                (
+                                    date_str,
+                                    hour,
+                                    mpp_power,
+                                    bypassed_cell_strings,
+                                    cellwise_mpp,
+                                )
+                            )
 
                 all_mpp_data = [
                     [
