@@ -1857,12 +1857,12 @@ def main(unparsed_arguments) -> None:
         ]
         combined_frame["start_time"] = [
             (
-                timedelta := (
+                _timedelta := (
                     datetime.strptime(entry, "%Y-%m-%d %H:%M") - year_start_datetime
                 )
             ).seconds
             // 3600
-            + timedelta.days * 24
+            + _timedelta.days * 24
             for entry in combined_frame.index
         ]
 
