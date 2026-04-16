@@ -215,7 +215,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 5
+INDEX: int = 6
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
