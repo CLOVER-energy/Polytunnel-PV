@@ -341,6 +341,10 @@ SOLAR_AZIMUTH: str = "azimuth"
 #   Keyword for apparent zenith.
 SOLAR_ZENITH: str = "apparent_zenith"
 
+# STAGGER:
+#   Parameter used for staggering outputs.
+STAGGER: float = 0.05
+
 # TECHNOLOGY:
 #   Keyword for parsing the technology.
 TECHNOLOGY: str = "Technology"
@@ -3203,7 +3207,7 @@ def main(unparsed_arguments) -> None:
             plt.xlabel("Hour of the day")
             plt.ylabel("Power produced / kW")
             plt.savefig(
-                "validation_figure_{INDEX}.pdf",
+                f"validation_figure_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0,
@@ -3273,7 +3277,7 @@ def main(unparsed_arguments) -> None:
             plt.xlabel("Hour of the day")
             plt.ylabel("P-PV model over/under prediction / kW")
             plt.savefig(
-                "validation_figure_delta_{INDEX}.pdf",
+                f"validation_figure_delta_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0,
@@ -3368,9 +3372,32 @@ def main(unparsed_arguments) -> None:
                     return "Intermittently sunny"
                 return "Intermittently cloudy"
 
+            def _category_value(category: str) -> int:
+                """
+                Return an integer value based on the category.
+
+                :param: category:
+                    The category to use.
+
+                :returns: An `int` for the category.
+
+                """
+                match category:
+                    case "Consistently sunny":
+                        return 0
+                    case "Intermittently sunny":
+                        return 1
+                    case "Intermittently cloudy":
+                        return 2
+                    case "Consistently cloudy":
+                        return 3
+
             diffuse_frame["category"] = [
                 _category(row["mean"], row["std"])
                 for _, row in diffuse_frame.iterrows()
+            ]
+            diffuse_frame["category_value"] = [
+                _category_value(row["category"]) for _, row in diffuse_frame.iterrows()
             ]
 
             sns.set_palette(
@@ -3435,16 +3462,20 @@ def main(unparsed_arguments) -> None:
 
             plt.show()
 
-            # FIXME: Run with predicted upper-bound and lowerbound errors.
-            return
-            import pdb
-
-            pdb.set_trace()
-
+            # Plot the diffusivity of the various days.
+            diffuse_frame[DATE] = [
+                int(entry.split("/")[0])
+                for entry in diffuse_frame[_full_date_column_name]
+            ]
+            diffuse_frame[_date_index := "date_index"] = [
+                int(entry.split("/")[0]) + int(entry.split("/")[1]) * 31
+                for entry in diffuse_frame[_full_date_column_name]
+            ]
+            diffuse_frame = diffuse_frame.sort_values(_date_index)
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.scatterplot(
                 diffuse_frame,
-                x=_full_date_column_name,
+                x=DATE,
                 y="mean",
                 hue="category",
                 marker="h",
@@ -3461,7 +3492,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Consistently sunny"
                     ]
-                )[_full_date_column_name],
+                )[DATE],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3472,7 +3503,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Intermittently sunny"
                     ]
-                )[_full_date_column_name],
+                )[DATE],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3483,7 +3514,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Intermittently cloudy"
                     ]
-                )[_full_date_column_name],
+                )[DATE],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3494,7 +3525,7 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice := diffuse_frame[
                         diffuse_frame["category"] == "Consistently cloudy"
                     ]
-                )[_full_date_column_name],
+                )[DATE],
                 diffuse_slice["mean"],
                 yerr=diffuse_slice["std"],
                 ls="none",
@@ -3507,12 +3538,119 @@ def main(unparsed_arguments) -> None:
 
             # sns.despine()
             plt.savefig(
-                "april_diffusive_fraction_{INDEX}.pdf",
+                f"april_diffusive_fraction_{INDEX}.pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
+
+            import pdb
+
+            pdb.set_trace()
+
+            # Compute the weather-data error.
+            weather_frame[_date_and_hour:="date_and_hour"] = [datetime.strptime(entry, "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H") for entry in weather_frame["time"]]
+            timestamps_data[_date_and_hour] = [datetime.strptime(entry, "%d/%m/%Y %H").strftime("%d/%m/%Y %H") for entry in  (timestamps_data["full_date"] + " " + timestamps_data["hour"].astype(str))]
+            timestamps_data = pd.merge(timestamps_data, weather_frame, on=[_date_and_hour])
+
+            BOLOMETER_ERROR: float = 0.03  # [kWh/m2]
+            timestamps_data["Predicted PV error"] = (BOLOMETER_ERROR / (timestamps_data["irradiance_direct"] + timestamps_data["irradiance_diffuse"])) * timestamps_data["Predicted PV to batt"]
+
+
+            # Loop through the days and plot the predicted and measured output,
+            # colouring the days based on their diffusivity from renewables.ninja.
+            diffuse_data[HOUR] = [
+                int(entry.split(" ")[1].split(":")[0]) for entry in diffuse_data[TIME]
+            ]
+            for full_date, row in timestamps_data.groupby(_full_date_column_name):
+                plt.figure(figsize=(171 * MM, 120 * MM))
+                ax1 = plt.gca()
+                # Plot the predicted output
+                ax1.plot(
+                    row[_hour := HOUR.lower()],
+                    row["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="C4",
+                )
+                ax1.errorbar(
+                    [entry - STAGGER for entry in row[_hour]],
+                    row["Predicted PV to batt"],
+                    capsize=3,
+                    color="C4",
+                    ls="none",
+                    yerr=row.get("Predicted PV error", [np.nan] * len(row)),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Predicted PV to batt"],
+                    color="C4",
+                    alpha=0.15,
+                )
+                # Plot the measured output
+                _colour_index: int = int(row["category_value"].mean())
+                ax1.plot(
+                    row[_hour],
+                    row["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax1.errorbar(
+                    [entry + STAGGER for entry in row[_hour]],
+                    row["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(row["Combined hourly PV to batt"] - row["Min PV to batt"]),
+                        abs(row["Max PV to batt"] - row["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.15,
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                plt.xlabel("Hour of the day")
+                ax1.set_ylabel("Power produced / kW")
+                ax2.set_ylabel("Diffuse fraction")
+                ax1.set_ylim(0, 850)
+                ax1.set_xlim(4, 20)
+                ax2.set_ylim(0, 1)
+                handles_1, labels_1 = ax1.get_legend_handles_labels()
+                handles_2, labels_2 = ax2.get_legend_handles_labels()
+                ax1.legend(handles_1 + handles_2, labels_1 + labels_2, loc="upper left")
+                ax2.legend().remove()
+                sns.despine(right=False)
+                plt.savefig(
+                    f"april_power_prediction_comparison_{full_date.replace("/", "_")}_{INDEX}.pdf",
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
+
+            plt.show()
+
+            import pdb
+
+            pdb.set_trace()
+
+            # FIXME: Run with predicted upper-bound and lowerbound errors.
+            return
 
             timestamps_data["Predicted PV error"] = (
                 0.181 * timestamps_data["Predicted PV to batt"]
@@ -5611,7 +5749,7 @@ def main(unparsed_arguments) -> None:
             plt.xlabel("Hour of the day")
             plt.ylabel("Power produced / kW")
             plt.savefig(
-                "validation_figure_{INDEX}.pdf",
+                f"validation_figure_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0,
