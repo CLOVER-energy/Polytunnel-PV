@@ -113,8 +113,17 @@ MONTHS: list[str] = [
 
 TOTEX_HEADER: str = "Other TOTEX"
 
-rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"]})
-sns.set_style("whitegrid")
+# Plotting context
+rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 7})
+sns.set_context("paper", rc={"font.size": 7, "axes.titlesize": 7, "axes.labelsize": 7})
+sns.set_style("ticks")
+
+plt.rcParams["pdf.fonttype"] = 42
+plt.rcParams["ps.fonttype"] = 42
+rcParams["pdf.fonttype"] = 42
+rcParams["ps.fonttype"] = 42
+
+plt.rcParams["font.size"] = 7
 
 # Set custom color-blind colormap
 colorblind_palette = sns.color_palette(
@@ -150,6 +159,15 @@ thesis_palette = sns.color_palette(
 # fig, axes = plt.subplots(2, 2, figsize=(48 / 5, 32 / 5))
 
 # fig = plt.figure(figsize=(48 / 5, 32 / 5))
+
+# BOLOMETER_ERROR:
+#   The absolute error, in kWh/m2, in the bolometer data.
+BOLOMETER_ERROR: float = 0.03  # [kWh/m2]
+
+# BOLOMETER_PERCENTAGE_ERROR:
+#   The percentage error in the readings from the bolometer, expressed as a fractional
+# error defined between 0 and 1.
+BOLOMETER_PERCENTAGE_ERROR: float = 0.1
 
 # BYPASS_DIODES:
 #   Keyword for the bypass-diode parameters.
@@ -1418,7 +1436,7 @@ def plot_irradiance_with_marginal_means(
             f"{figname}.{fig_format}",
             format=fig_format,
             bbox_inches="tight",
-            pad_inches=0,
+            pad_inches=0.05,
         )
 
         if show_figure:
@@ -1607,7 +1625,7 @@ def plot_temperature_with_marginal_means(
             f"{figname}.{fig_format}",
             format=fig_format,
             bbox_inches="tight",
-            pad_inches=0,
+            pad_inches=0.05,
         )
 
         if show_figure:
@@ -2100,12 +2118,13 @@ def main(unparsed_arguments) -> None:
                 square=True,
                 vmin=0,
             )
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
             plt.savefig(
                 f"cellwise_mpp_{modelling_scenario.name}_{start_hour}_{end_hour}."
                 f"{(fig_format:='pdf')}",
                 format=fig_format,
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             # plt.show()
 
@@ -2129,7 +2148,7 @@ def main(unparsed_arguments) -> None:
                 f"{end_hour}.{(fig_format:='pdf')}",
                 format=fig_format,
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             # plt.show()
 
@@ -2358,7 +2377,8 @@ def main(unparsed_arguments) -> None:
             plt.xlabel("Cell ID")
             plt.ylabel("Irradiance / W/m$^2$")
             # plt.legend().remove()
-            plt.legend()
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
+            plt.legend(fontsize=7)
 
             # norm = plt.Normalize(
             #     int(_sanitise_time(start_hour, "%H", initial_time)),
@@ -2383,7 +2403,7 @@ def main(unparsed_arguments) -> None:
                 f"{(fig_format:='pdf')}",
                 format=fig_format,
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -2424,7 +2444,8 @@ def main(unparsed_arguments) -> None:
 
             plt.xlabel("Cell ID")
             plt.ylabel("Temperature / Degrees Celsius")
-            plt.legend()
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
+            plt.legend(fontsize=7)
             # plt.legend().remove()
 
             # norm = plt.Normalize(
@@ -2450,7 +2471,7 @@ def main(unparsed_arguments) -> None:
                 f"{(fig_format:='pdf')}",
                 format=fig_format,
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -2635,16 +2656,23 @@ def main(unparsed_arguments) -> None:
 
             left_axis.set_ylim(bottom=-2.5, top=10)
             right_axis.set_ylim(bottom=-10, top=40)
-            left_axis.legend(title="Initial index of cell in string", ncol=4)
+            left_axis.legend(
+                title="Initial index of cell in string",
+                ncol=4,
+                fontsize=7,
+                title_fontsize=7,
+            )
             plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
             left_axis.set_ylabel("Module current / A")
             right_axis.set_ylabel("Cell-wise, or cell-string-wise, power / W")
+            left_axis.tick_params(axis="both", which="major", labelsize=7)
+            right_axis.tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
                 f"iv_curves_with_power_{time_string}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -2662,15 +2690,21 @@ def main(unparsed_arguments) -> None:
                 )
 
             plt.ylim(bottom=0, top=10)
-            plt.legend(title="Initial index of cell in string", ncol=4)
+            plt.legend(
+                title="Initial index of cell in string",
+                ncol=4,
+                fontsize=7,
+                title_fontsize=7,
+            )
             plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
             plt.ylabel("Module current / A")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
                 f"iv_curves_{time_string}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -2746,9 +2780,15 @@ def main(unparsed_arguments) -> None:
             )
 
             plt.ylim(bottom=0, top=10)
-            plt.legend(title="Initial index of cell in string", ncol=4)
+            plt.legend(
+                title="Initial index of cell in string",
+                ncol=4,
+                fontsize=7,
+                title_fontsize=7,
+            )
             plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
             plt.ylabel("Module current / A")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
 
             plt.xlim(-1.25, 1.5)
 
@@ -2778,7 +2818,7 @@ def main(unparsed_arguments) -> None:
                 f"iv_curves_with_module_{time_string}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -2830,6 +2870,8 @@ def main(unparsed_arguments) -> None:
                 l_labels + ["Power"] + r_labels,
                 #  title="Initial index of cell in string",
                 ncol=4,
+                fontsize=7,
+                title_fontsize=7,
             )
             left_axis.set_xlabel("Module current / A")
             left_axis.set_ylabel("Cell-wise, or cell-string-wise, power / W")
@@ -2859,12 +2901,14 @@ def main(unparsed_arguments) -> None:
 
             left_axis.legend().remove()
             right_axis.legend().remove()
+            left_axis.tick_params(axis="both", which="major", labelsize=7)
+            right_axis.tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
                 f"ip_curves_{time_string}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -2971,16 +3015,14 @@ def main(unparsed_arguments) -> None:
                 ##############
                 # DEBUG code #
                 ##############
-                # my_func = functools.partial(
-                #     process_single_mpp_calculation_without_pbar,
-                #     irradiance_frame=irradiance_frame,
-                #     pv_system=pv_system,
-                #     scenario=modelling_scenario,
-                #     weather_frame=weather_frame,
-                # )
-                #
-                # my_func(start_hour + 12)
-                #
+                my_func = functools.partial(
+                    process_single_mpp_calculation_without_pbar,
+                    irradiance_frame=irradiance_frame,
+                    pv_system=pv_system,
+                    scenario=modelling_scenario,
+                    weather_frame=weather_frame,
+                )
+                my_func(start_hour + 12)
 
                 # Run the queued jobs in parallel.
                 results = Parallel(n_jobs=8)(
@@ -3059,7 +3101,9 @@ def main(unparsed_arguments) -> None:
                 {
                     "date": [entry[0] for entry in all_mpp_data],
                     "start_time": [entry[1] for entry in all_mpp_data],
-                    "Predicted PV to batt": [entry[2] for entry in all_mpp_data],
+                    "Predicted PV to batt": pv_system.combine_powers(
+                        [entry[2] / 1000 for entry in all_mpp_data]
+                    ),
                 }
             )
             # all_mpp_frame["date"] = (
@@ -3103,9 +3147,9 @@ def main(unparsed_arguments) -> None:
             #     entry[2] for entry in all_mpp_data
             # ]
 
-            timestamps_data["Combined hourly PV to batt"] *= 100
-            timestamps_data["Max PV to batt"] *= 100
-            timestamps_data["Min PV to batt"] *= 100
+            timestamps_data["Combined hourly PV to batt"]
+            timestamps_data["Max PV to batt"]
+            timestamps_data["Min PV to batt"]
 
             timestamps_data[_full_date_column_name := "full_date"] = timestamps_data[
                 "date_x"
@@ -3206,11 +3250,12 @@ def main(unparsed_arguments) -> None:
             sns.despine()
             plt.xlabel("Hour of the day")
             plt.ylabel("Power produced / kW")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
             plt.savefig(
                 f"validation_figure_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -3276,11 +3321,12 @@ def main(unparsed_arguments) -> None:
             sns.despine()
             plt.xlabel("Hour of the day")
             plt.ylabel("P-PV model over/under prediction / kW")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
             plt.savefig(
                 f"validation_figure_delta_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -3354,10 +3400,10 @@ def main(unparsed_arguments) -> None:
                 Categorise days based on whether they're consistently cloudy or sunny.
 
                 :param: mean:
-                    The mean value
+                    The mean value for the diffusivity.
 
                 :param: std:
-                    The std value
+                    The std value for the diffusivity.
 
                 :returns: A `str` which categorises the day.
 
@@ -3391,7 +3437,61 @@ def main(unparsed_arguments) -> None:
                         return 2
                     case "Consistently cloudy":
                         return 3
+                    case _:
+                        raise Exception("Not defined weather condition.")
 
+            def _clearness(clearness: float) -> str:
+                """
+                Categorise days based on the clearness index.
+
+                :param: mean:
+                    The mean value for the diffusivity.
+
+                :param: std:
+                    The std value for the diffusivity.
+
+                :returns: A `str` which categorises the day.
+
+                """
+                if clearness >= 7 / 8:
+                    return "Consistently sunny"
+                if clearness >= 6 / 8:
+                    return "Mostly sunny"
+                if clearness >= 4 / 8:
+                    return "Partly sunny"
+                if clearness >= 3 / 8:
+                    return "Partly cloudy"
+                if clearness >= 1 / 8:
+                    return "Mostly cloudy"
+                return "Overcast"
+
+            def _clearness_value(category: str) -> int:
+                """
+                Return an integer value based on the category.
+
+                :param: category:
+                    The category to use.
+
+                :returns: An `int` for the category.
+
+                """
+                match category:
+                    case "Consistently sunny":
+                        return 0
+                    case "Mostly sunny":
+                        return 1
+                    case "Partly sunny":
+                        return 2
+                    case "Partly cloudy":
+                        return 3
+                    case "Mostly cloudy":
+                        return 4
+                    case "Overcast":
+                        return 5
+                    case _:
+                        raise Exception("Not defined weather condition.")
+
+            # Categorise the days.
             diffuse_frame["category"] = [
                 _category(row["mean"], row["std"])
                 for _, row in diffuse_frame.iterrows()
@@ -3407,6 +3507,96 @@ def main(unparsed_arguments) -> None:
             timestamps_data = timestamps_data.merge(
                 diffuse_frame, on=_full_date_column_name
             )
+
+            # Compute the weather-data error.
+            weather_frame[_date_and_hour := "date_and_hour"] = [
+                datetime.strptime(entry, "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H")
+                for entry in weather_frame["time"]
+            ]
+            timestamps_data[_date_and_hour] = [
+                datetime.strptime(entry, "%d/%m/%Y %H").strftime("%d/%m/%Y %H")
+                for entry in (
+                    timestamps_data["full_date"]
+                    + " "
+                    + timestamps_data["hour"].astype(str)
+                )
+            ]
+            timestamps_data = pd.merge(
+                timestamps_data, weather_frame, on=[_date_and_hour]
+            )
+
+            timestamps_data["Predicted PV error"] = np.maximum(
+                BOLOMETER_PERCENTAGE_ERROR * timestamps_data["Predicted PV to batt"],
+                (
+                    BOLOMETER_ERROR
+                    / (
+                        timestamps_data["irradiance_direct"]
+                        + timestamps_data["irradiance_diffuse"]
+                    )
+                ),
+            )
+
+            # Compute and add the clearness index
+            clearsky_weather = (
+                location.get_clearsky(
+                    pd.DatetimeIndex(weather_frame["time"], yearfirst=True)
+                )
+                / 1000
+            )
+            clearness_index = (
+                (
+                    weather_frame.set_index(
+                        pd.DatetimeIndex(weather_frame["time"], yearfirst=True)
+                    )["irradiance_direct"]
+                    / clearsky_weather["dni"]
+                )
+                .fillna(0)
+                .replace(np.inf, 0)
+            )
+            clearness_index = clearness_index[clearness_index <= 1]
+
+            timestamps_data.index = pd.DatetimeIndex(
+                [
+                    datetime.strptime(entry, "%d/%m/%Y %H").strftime("%d/%m/%Y %H")
+                    for entry in (
+                        timestamps_data["full_date"]
+                        + " "
+                        + timestamps_data["hour"].astype(str)
+                    )
+                ],
+                dayfirst=True,
+            )
+            timestamps_data["clearness"] = clearness_index
+            timestamps_data["clearness_label"] = [
+                _clearness(entry) for entry in timestamps_data["clearness"]
+            ]
+            timestamps_data["clearness_value"] = [
+                _clearness_value(entry) for entry in timestamps_data["clearness_label"]
+            ]
+
+            # Compute a daily average clearness.
+            clearsky_weather["date"] = [
+                entry.date() for entry in clearsky_weather.index
+            ]
+            clearsky_weather["dni_measured"] = weather_frame.set_index(
+                pd.DatetimeIndex(weather_frame["time"], yearfirst=True)
+            )["irradiance_direct"]
+            daily_clearness = {
+                date: daily_clearsky_weather["dni_measured"].sum()
+                / daily_clearsky_weather["dni"].sum()
+                for date, daily_clearsky_weather in clearsky_weather.groupby("date")
+            }
+            timestamps_data["date"] = [entry.date() for entry in timestamps_data.index]
+            timestamps_data["daily_clearness"] = [
+                daily_clearness[entry] for entry in timestamps_data["date"]
+            ]
+            timestamps_data["daily_clearness_label"] = [
+                _clearness(entry) for entry in timestamps_data["daily_clearness"]
+            ]
+            timestamps_data["daily_clearness_value"] = [
+                _clearness_value(entry)
+                for entry in timestamps_data["daily_clearness_label"]
+            ]
 
             plt.figure(figsize=(171 * MM, 120 * MM))
             sns.violinplot(
@@ -3446,7 +3636,14 @@ def main(unparsed_arguments) -> None:
             plt.ylabel("P-PV model over/under prediction / kW")
             handles, labels = plt.gca().get_legend_handles_labels()
 
-            plt.legend(handles[:4], labels[:4], title="Day category")
+            plt.legend(
+                handles[:4],
+                labels[:4],
+                title="Day category",
+                fontsize=7,
+                title_fontsize=7,
+            )
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
                 f"validation_figure_by_diffusivity_{INDEX}.png",
@@ -3532,9 +3729,10 @@ def main(unparsed_arguments) -> None:
                 color="C3",
             )
 
-            plt.legend(title="Day category")
+            plt.legend(title="Day category", fontsize=7, title_fontsize=7)
             plt.xlabel("Date")
             plt.ylabel("Diffusive fraction ($D$)")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
 
             # sns.despine()
             plt.savefig(
@@ -3545,18 +3743,10 @@ def main(unparsed_arguments) -> None:
 
             plt.show()
 
-            import pdb
-
-            pdb.set_trace()
-
-            # Compute the weather-data error.
-            weather_frame[_date_and_hour:="date_and_hour"] = [datetime.strptime(entry, "%Y-%m-%d %H:%M").strftime("%d/%m/%Y %H") for entry in weather_frame["time"]]
-            timestamps_data[_date_and_hour] = [datetime.strptime(entry, "%d/%m/%Y %H").strftime("%d/%m/%Y %H") for entry in  (timestamps_data["full_date"] + " " + timestamps_data["hour"].astype(str))]
-            timestamps_data = pd.merge(timestamps_data, weather_frame, on=[_date_and_hour])
-
-            BOLOMETER_ERROR: float = 0.03  # [kWh/m2]
-            timestamps_data["Predicted PV error"] = (BOLOMETER_ERROR / (timestamps_data["irradiance_direct"] + timestamps_data["irradiance_diffuse"])) * timestamps_data["Predicted PV to batt"]
-
+            # Plot coloured based on diffusivity.
+            sns.set_palette(
+                list(reversed(["#423252", "#4A688B", "#779FB1", "#36C7B8", "#FBC412"]))
+            )
 
             # Loop through the days and plot the predicted and measured output,
             # colouring the days based on their diffusivity from renewables.ninja.
@@ -3629,16 +3819,566 @@ def main(unparsed_arguments) -> None:
                 plt.xlabel("Hour of the day")
                 ax1.set_ylabel("Power produced / kW")
                 ax2.set_ylabel("Diffuse fraction")
-                ax1.set_ylim(0, 850)
+                ax1.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
                 ax1.set_xlim(4, 20)
                 ax2.set_ylim(0, 1)
                 handles_1, labels_1 = ax1.get_legend_handles_labels()
                 handles_2, labels_2 = ax2.get_legend_handles_labels()
-                ax1.legend(handles_1 + handles_2, labels_1 + labels_2, loc="upper left")
+                ax1.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
                 ax2.legend().remove()
+                ax1.tick_params(axis="both", which="major", labelsize=7)
+                ax2.tick_params(axis="both", which="major", labelsize=7)
                 sns.despine(right=False)
                 plt.savefig(
                     f"april_power_prediction_comparison_{full_date.replace("/", "_")}_{INDEX}.pdf",
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
+
+            for full_date, row in timestamps_data.groupby(_full_date_column_name):
+                plt.figure(figsize=(83 * MM, 70 * MM))
+                ax1 = plt.gca()
+                # Plot the predicted output
+                ax1.plot(
+                    row[_hour := HOUR.lower()],
+                    row["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="C4",
+                )
+                ax1.errorbar(
+                    [entry - STAGGER for entry in row[_hour]],
+                    row["Predicted PV to batt"],
+                    capsize=3,
+                    color="C4",
+                    ls="none",
+                    yerr=row.get("Predicted PV error", [np.nan] * len(row)),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Predicted PV to batt"],
+                    color="C4",
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(row["category_value"].mean()) + 1
+                ax1.plot(
+                    row[_hour],
+                    row["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax1.errorbar(
+                    [entry + STAGGER for entry in row[_hour]],
+                    row["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(row["Combined hourly PV to batt"] - row["Min PV to batt"]),
+                        abs(row["Max PV to batt"] - row["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=1,
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                plt.xlabel("Hour of the day")
+                ax1.set_ylabel("Power produced / kW")
+                ax2.set_ylabel("Diffuse fraction")
+                ax1.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax1.set_xlim(4, 20)
+                ax2.set_ylim(0, 1)
+                handles_1, labels_1 = ax1.get_legend_handles_labels()
+                handles_2, labels_2 = ax2.get_legend_handles_labels()
+                ax1.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax2.legend().remove()
+                ax1.tick_params(axis="both", which="major", labelsize=7)
+                ax2.tick_params(axis="both", which="major", labelsize=7)
+                sns.despine(right=False)
+                plt.savefig(
+                    f"april_power_prediction_comparison_small_{full_date.replace("/", "_")}_{INDEX}.pdf",
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
+
+            plt.show()
+
+            # Plot coloured based on diffusivity.
+            sns.set_palette(
+                list(
+                    reversed(
+                        [
+                            "#423252",
+                            "#4A688B",
+                            "#779FB1",
+                            "#36C7B8",
+                            "#FBC412",
+                            "#FE8224",
+                            "#E03944",
+                        ]
+                    )
+                )
+            )
+
+            # Plot the clearness
+            daily_clearness_data: pd.DataFrame = pd.DataFrame(
+                [
+                    {
+                        "clearness": sub_frame["daily_clearness"].mean(),
+                        "clearness_value": sub_frame["daily_clearness_value"].mean(),
+                        "clearness_label": list(sub_frame["daily_clearness_label"])[0],
+                        "clearness_mean": sub_frame["clearness"].mean(),
+                        "clearness_std": sub_frame["clearness"].std(),
+                        "date": list(sub_frame[DATE])[0].strftime("%d/%m"),
+                    }
+                    for _, sub_frame in timestamps_data.groupby(DATE)
+                ]
+            )
+
+            plt.figure(figsize=(171 * MM, 120 * MM))
+            sns.scatterplot(
+                daily_clearness_data,
+                x=DATE,
+                y="clearness_mean",
+                hue="clearness_label",
+                marker="h",
+                s=140,
+                hue_order=[
+                    "Consistently sunny",
+                    "Mostly sunny",
+                    "Partly sunny",
+                    "Partly cloudy",
+                    "Mostly cloudy",
+                    "Overcast",
+                ],
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Consistently sunny"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C0",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Mostly sunny"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C1",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Partly sunny"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C2",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Partly cloudy"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C3",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Mostly cloudy"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C4",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Overcast"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C5",
+            )
+
+            plt.legend(title="Day category", fontsize=7, title_fontsize=7)
+            plt.xlabel("Date")
+            xtick_labels, xticks = plt.xticks()
+            plt.xticks(xtick_labels[::3], xticks[::3])
+            plt.ylabel("Clearness ($C$)")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
+
+            # sns.despine()
+            plt.savefig(
+                f"april_clearness_{INDEX}.pdf",
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+
+            plt.show()
+
+            plt.figure(figsize=(83 * MM, 75 * MM))
+            sns.scatterplot(
+                daily_clearness_data,
+                x=DATE,
+                y="clearness_mean",
+                hue="clearness_label",
+                marker="h",
+                s=85,
+                hue_order=[
+                    "Consistently sunny",
+                    "Mostly sunny",
+                    "Partly sunny",
+                    "Partly cloudy",
+                    "Mostly cloudy",
+                    "Overcast",
+                ],
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Consistently sunny"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C0",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Mostly sunny"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C1",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Partly sunny"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C2",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Partly cloudy"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C3",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Mostly cloudy"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C4",
+            )
+            plt.errorbar(
+                (
+                    clearness_slice := daily_clearness_data[
+                        daily_clearness_data["clearness_label"] == "Overcast"
+                    ]
+                )[DATE],
+                clearness_slice["clearness_mean"],
+                yerr=clearness_slice["clearness_std"],
+                ls="none",
+                color="C5",
+            )
+
+            plt.legend(title="Day category", fontsize=7, title_fontsize=7)
+            plt.xlabel("Date")
+            xtick_labels, xticks = plt.xticks()
+            plt.xticks(xtick_labels[::5], xticks[::5])
+            plt.ylabel("Clearness ($C$)")
+            plt.gca().tick_params(axis="both", which="major", labelsize=7)
+
+            # sns.despine()
+            plt.savefig(
+                f"april_clearness_small_{INDEX}.pdf",
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+
+            plt.show()
+
+            # Loop through the days and plot the predicted and measured output,
+            # colouring the days based on their clearness value compared to realworld data.
+            for full_date, row in timestamps_data.groupby(_full_date_column_name):
+                plt.figure(figsize=(171 * MM, 120 * MM))
+                ax1 = plt.gca()
+                # Plot the predicted output
+                ax1.plot(
+                    row[_hour := HOUR.lower()],
+                    row["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color=(_max_color := f"C{len(sns.color_palette()) - 1}"),
+                )
+                ax1.errorbar(
+                    [entry - STAGGER for entry in row[_hour]],
+                    row["Predicted PV to batt"],
+                    capsize=3,
+                    color=_max_color,
+                    ls="none",
+                    yerr=row.get("Predicted PV error", [np.nan] * len(row)),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Predicted PV to batt"],
+                    color=_max_color,
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(row["daily_clearness_value"].mean())
+                ax1.plot(
+                    row[_hour],
+                    row["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax1.errorbar(
+                    [entry + STAGGER for entry in row[_hour]],
+                    row["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(row["Combined hourly PV to batt"] - row["Min PV to batt"]),
+                        abs(row["Max PV to batt"] - row["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=2,
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                plt.xlabel("Hour of the day")
+                ax1.set_ylabel("Power produced / kW")
+                ax2.set_ylabel("Diffuse fraction")
+                ax1.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax1.set_xlim(4, 20)
+                ax2.set_ylim(0, 1)
+                handles_1, labels_1 = ax1.get_legend_handles_labels()
+                handles_2, labels_2 = ax2.get_legend_handles_labels()
+                ax1.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax2.legend().remove()
+                ax1.tick_params(axis="both", which="major", labelsize=7)
+                ax2.tick_params(axis="both", which="major", labelsize=7)
+                sns.despine(right=False)
+                plt.savefig(
+                    f"april_power_prediction_comparison_clearness_{full_date.replace("/", "_")}_{INDEX}.pdf",
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
+
+            for full_date, row in timestamps_data.groupby(_full_date_column_name):
+                plt.figure(figsize=(83 * MM, 70 * MM))
+                ax1 = plt.gca()
+                # Plot the predicted output
+                ax1.plot(
+                    row[_hour := HOUR.lower()],
+                    row["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color=_max_color,
+                )
+                ax1.errorbar(
+                    [entry - STAGGER for entry in row[_hour]],
+                    row["Predicted PV to batt"],
+                    capsize=3,
+                    color=_max_color,
+                    ls="none",
+                    yerr=row.get("Predicted PV error", [np.nan] * len(row)),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Predicted PV to batt"],
+                    color=_max_color,
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(row["daily_clearness_value"].mean())
+                ax1.plot(
+                    row[_hour],
+                    row["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax1.errorbar(
+                    [entry + STAGGER for entry in row[_hour]],
+                    row["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(row["Combined hourly PV to batt"] - row["Min PV to batt"]),
+                        abs(row["Max PV to batt"] - row["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax1.fill_between(
+                    row[_hour],
+                    [0] * len(row),
+                    row["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=1,
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                plt.xlabel("Hour of the day")
+                ax1.set_ylabel("Power produced / kW")
+                ax2.set_ylabel("Diffuse fraction")
+                ax1.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax1.set_xlim(4, 20)
+                ax2.set_ylim(0, 1)
+                handles_1, labels_1 = ax1.get_legend_handles_labels()
+                handles_2, labels_2 = ax2.get_legend_handles_labels()
+                ax1.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax2.legend().remove()
+                ax1.tick_params(axis="both", which="major", labelsize=7)
+                ax2.tick_params(axis="both", which="major", labelsize=7)
+                sns.despine(right=False)
+                plt.savefig(
+                    f"april_power_prediction_comparison_clearness_small_{full_date.replace("/", "_")}_{INDEX}.pdf",
                     bbox_inches="tight",
                     pad_inches=0.05,
                 )
@@ -3909,7 +4649,7 @@ def main(unparsed_arguments) -> None:
             plt.savefig(
                 f"december_sunny_days_output_validation_{INDEX}.pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
@@ -4391,7 +5131,7 @@ def main(unparsed_arguments) -> None:
             plt.savefig(
                 f"december_eupvsec_validation_{INDEX}.pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
@@ -4568,7 +5308,7 @@ def main(unparsed_arguments) -> None:
             plt.savefig(
                 f"december_sunny_days_output_validation_ef_{INDEX}.pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
@@ -4892,7 +5632,7 @@ def main(unparsed_arguments) -> None:
             plt.savefig(
                 f"december_partly_sunny_days_output_validation_{INDEX}.pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
@@ -5217,7 +5957,7 @@ def main(unparsed_arguments) -> None:
             plt.savefig(
                 f"december_cloudy_days_output_validation_{INDEX}.pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
@@ -5752,7 +6492,7 @@ def main(unparsed_arguments) -> None:
                 f"validation_figure_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
             plt.show()
 
@@ -5913,7 +6653,7 @@ def main(unparsed_arguments) -> None:
                 f"variation_scatter_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
-                pad_inches=0,
+                pad_inches=0.05,
             )
 
             plt.show()
@@ -6028,7 +6768,7 @@ def main(unparsed_arguments) -> None:
                     f"validation_for_day_{date}_{INDEX}.pdf",
                     format="pdf",
                     bbox_inches="tight",
-                    pad_inches=0,
+                    pad_inches=0.05,
                 )
 
             plt.show()

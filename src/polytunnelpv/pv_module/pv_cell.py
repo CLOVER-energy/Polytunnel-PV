@@ -873,6 +873,10 @@ def calculate_cell_iv_curve(
 
         """
 
+        import pdb
+
+        pdb.set_trace()
+
         with warnings.catch_warnings():
             warnings.filterwarnings("error")
             try:
