@@ -215,7 +215,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 6
+INDEX: int = 7
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -1305,10 +1305,10 @@ def plot_irradiance_with_marginal_means(
     data_to_plot: pd.DataFrame,
     start_index: int = 0,
     *,
-    figname: str = "output_figure",
+    figname: str = f"irradiance_heatmap_output_figure_{INDEX}",
     fig_format: str = "pdf",
     heatmap_vmax: float | None = None,
-    initial_date: datetime = datetime(2015, 1, 1),
+    initial_date: datetime = datetime(2025, 1, 1),
     irradiance_bar_vmax: float | None = None,
     irradiance_scatter_vmax: float | None = None,
     irradiance_scatter_vmin: float | None = None,
@@ -1345,10 +1345,13 @@ def plot_irradiance_with_marginal_means(
 
     sns.set_style("ticks")
     frame_slice = (
-        data_to_plot.fillna(0).iloc[start_index : start_index + 24].set_index("hour")
+        data_to_plot.fillna(0)
+        .set_index("start_time")
+        .loc[start_index : start_index + 23]
+        .set_index("hour")
     )
 
-    with tqdm(desc="Plotting", leave=False, total=3) as pbar:  # , unit="steps"
+    with tqdm(desc="Plotting", leave=False, total=6) as pbar:  # , unit="steps"
         # Create a dummy plot and surrounding axes.
         joint_plot_grid = sns.jointplot(
             data=frame_slice,
@@ -1359,10 +1362,11 @@ def plot_irradiance_with_marginal_means(
         )
         joint_plot_grid.ax_marg_y.cla()
         joint_plot_grid.ax_marg_x.cla()
+        joint_plot_grid.figure.set_size_inches(171 * MM, 171 * MM)
         pbar.update(1)
 
         # Generate the central heatmap.
-        sns.heatmap(
+        heatmap = sns.heatmap(
             frame_slice,
             ax=joint_plot_grid.ax_joint,
             cmap=sns.blend_palette(
@@ -1371,8 +1375,11 @@ def plot_irradiance_with_marginal_means(
             vmin=0,
             vmax=heatmap_vmax,
             cbar=True,
-            cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
+            cbar_kws={"label": "Temperature / $^\circ$C"},
         )
+        cbar_axes = heatmap.figure.axes[-1]
+        cbar_axes.figure.axes[-1].yaxis.label.set_size(7)
+        cbar_axes.figure.axes[-1].yaxis.set_tick_params(labelsize=7, size=7)
         pbar.update(1)
 
         # Plot the irradiance bars on the RHS of the plot.
@@ -1399,13 +1406,19 @@ def plot_irradiance_with_marginal_means(
         joint_plot_grid.ax_joint.set_title(
             (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
             fontweight="bold",
+            fontsize=7,
         )
         joint_plot_grid.ax_joint.legend().remove()
 
         # Remove ticks from axes
+        joint_plot_grid.ax_marg_x.tick_params(axis="both", labelsize=7, size=7)
         joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
-        joint_plot_grid.ax_marg_x.set_xlabel("Average irradiance / kWm$^{-2}$")
-        joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
+        joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance / kWm$^{-2}$")
+        joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance\n/ kWm$^{-2}$")
+        joint_plot_grid.ax_marg_y.tick_params(axis="both", labelsize=7, size=7)
+        joint_plot_grid.ax_marg_y.tick_params(
+            axis="y", left=False, labelleft=False, labelsize=7, size=7
+        )
         # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
         # remove ticks showing the heights of the histograms
         # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
@@ -1431,9 +1444,115 @@ def plot_irradiance_with_marginal_means(
             [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
         )
 
+        for ax in joint_plot_grid.figure.axes:
+            ax.tick_params(axis="both", labelsize=7)
+
         # Save the figure in high- and low-resolution formats.
         plt.savefig(
             f"{figname}.{fig_format}",
+            format=fig_format,
+            bbox_inches="tight",
+            pad_inches=0.05,
+        )
+
+        # Create a dummy plot and surrounding axes.
+        joint_plot_grid = sns.jointplot(
+            data=frame_slice,
+            kind="hist",
+            bins=(len(frame_slice.columns), 24),
+            marginal_ticks=True,
+            ratio=3,
+        )
+        joint_plot_grid.ax_marg_y.cla()
+        joint_plot_grid.ax_marg_x.cla()
+        joint_plot_grid.figure.set_size_inches(83 * MM, 83 * MM)
+        pbar.update(1)
+
+        # Generate the central heatmap.
+        heatmap = sns.heatmap(
+            frame_slice,
+            ax=joint_plot_grid.ax_joint,
+            cmap=sns.blend_palette(
+                ["#144E56", "teal", "#94B49F", "orange", "#E04606"], as_cmap=True
+            ),
+            vmin=0,
+            vmax=heatmap_vmax,
+            cbar=True,
+            cbar_kws={"label": "Temperature / $^\circ$C"},
+        )
+        cbar_axes = heatmap.figure.axes[-1]
+        cbar_axes.figure.axes[-1].yaxis.label.set_size(7)
+        cbar_axes.figure.axes[-1].yaxis.set_tick_params(labelsize=7, size=7)
+        pbar.update(1)
+
+        # Plot the irradiance bars on the RHS of the plot.
+        joint_plot_grid.ax_marg_y.barh(
+            np.arange(0.5, 24.5), frame_slice.mean(axis=1).to_numpy(), color="#E04606"
+        )
+        joint_plot_grid.ax_marg_y.set_xlim(0, math.ceil(10 * irradiance_bar_vmax) / 10)
+
+        # Plot the scatter at the top of the plot.
+        joint_plot_grid.ax_marg_x.scatter(
+            np.arange(0.5, len(frame_slice.columns) + 0.5),
+            (cellwise_means := frame_slice.mean(axis=0).to_numpy()),
+            color="#144E56",
+            marker="D",
+            s=60,
+            alpha=0.7,
+        )
+        joint_plot_grid.ax_marg_x.set_ylim(
+            irradiance_scatter_vmin, irradiance_scatter_vmax
+        )
+
+        joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
+        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_title(
+            (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
+            fontweight="bold",
+            fontsize=7,
+        )
+        joint_plot_grid.ax_joint.legend().remove()
+
+        # Remove ticks from axes
+        joint_plot_grid.ax_marg_x.tick_params(axis="both", labelsize=7, size=7)
+        joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
+        joint_plot_grid.ax_marg_x.set_ylabel("$\\bar{G}$ / kWhm$^{-2}$")
+        joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance\n/ kWhm$^{-2}$")
+        joint_plot_grid.ax_marg_y.tick_params(axis="both", labelsize=7, size=7)
+        joint_plot_grid.ax_marg_y.tick_params(
+            axis="y", left=False, labelleft=False, labelsize=7, size=7
+        )
+        # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
+        # remove ticks showing the heights of the histograms
+        # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
+        # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
+
+        joint_plot_grid.ax_marg_x.grid("on")
+        # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
+
+        joint_plot_grid.figure.tight_layout()
+
+        # Adjust the plot such that the colourbar appears to the RHS.
+        # Solution from JohanC (https://stackoverflow.com/users/12046409/johanc)
+        # Obtained with permission from stackoverflow:
+        # https://stackoverflow.com/questions/60845764/how-to-add-a-colorbar-to-the-side-of-a-kde-jointplot
+        #
+        plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
+        pos_joint_ax = joint_plot_grid.ax_joint.get_position()
+        pos_marg_x_ax = joint_plot_grid.ax_marg_x.get_position()
+        joint_plot_grid.ax_joint.set_position(
+            [pos_joint_ax.x0, pos_joint_ax.y0, pos_marg_x_ax.width, pos_joint_ax.height]
+        )
+        joint_plot_grid.figure.axes[-1].set_position(
+            [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
+        )
+
+        for ax in joint_plot_grid.figure.axes:
+            ax.tick_params(axis="both", labelsize=7)
+
+        # Save the figure in high- and low-resolution formats.
+        plt.savefig(
+            f"{figname}_narrow.{fig_format}",
             format=fig_format,
             bbox_inches="tight",
             pad_inches=0.05,
@@ -1449,7 +1568,7 @@ def plot_temperature_with_marginal_means(
     data_to_plot: pd.DataFrame,
     start_index: int = 0,
     *,
-    figname: str = "output_figure",
+    figname: str = f"temperature_heatmap_output_figure_{INDEX}",
     fig_format: str = "pdf",
     heatmap_vmax: float | None = None,
     initial_date: datetime = datetime(2015, 1, 1),
@@ -1502,7 +1621,10 @@ def plot_temperature_with_marginal_means(
 
     sns.set_style("ticks")
     frame_slice = (
-        data_to_plot.fillna(0).iloc[start_index : start_index + 24].set_index("hour")
+        data_to_plot.fillna(0)
+        .set_index("start_time")
+        .loc[start_index : start_index + 23]
+        .set_index("hour")
     )
 
     cell_to_temperature_profile_map: dict[float | int, list[float]] = {
@@ -1512,11 +1634,11 @@ def plot_temperature_with_marginal_means(
                     TEMPERATURE
                 ]
                 + ZERO_CELSIUS_OFFSET,
-                1000 * frame_slice.iloc[time_of_day].iloc[pv_cell.cell_id],
+                1000 * frame_slice.loc[time_of_day].iloc[pv_cell.cell_id],
                 0,
             )
             - ZERO_CELSIUS_OFFSET
-            for time_of_day in rack(
+            for time_of_day in tqdm(
                 range(24),
                 desc="Daily computation",
                 leave=False,  # , unit="hour"
@@ -1540,7 +1662,7 @@ def plot_temperature_with_marginal_means(
             )
         )
 
-    with tqdm(desc="Plotting", leave=False, total=3) as pbar:  # , unit="steps"
+    with tqdm(desc="Plotting", leave=False, total=6) as pbar:  # , unit="steps"
         # Create a dummy plot and surrounding axes.
         joint_plot_grid = sns.jointplot(
             data=temperature_frame,
@@ -1550,10 +1672,11 @@ def plot_temperature_with_marginal_means(
         )
         joint_plot_grid.ax_marg_y.cla()
         joint_plot_grid.ax_marg_x.cla()
+        joint_plot_grid.figure.set_size_inches(171 * MM, 171 * MM)
         pbar.update(1)
 
         # Generate the central heatmap.
-        sns.heatmap(
+        heatmap = sns.heatmap(
             temperature_frame,
             ax=joint_plot_grid.ax_joint,
             cmap="coolwarm",
@@ -1562,13 +1685,18 @@ def plot_temperature_with_marginal_means(
             cbar=True,
             cbar_kws={"label": "Temperature / $^\circ$C"},
         )
+        cbar_axes = heatmap.figure.axes[-1]
+        cbar_axes.figure.axes[-1].yaxis.label.set_size(7)
+        cbar_axes.figure.axes[-1].yaxis.set_tick_params(labelsize=7, size=7)
         pbar.update(1)
 
         # Plot the irradiance bars on the RHS of the plot.
         joint_plot_grid.ax_marg_y.barh(
             np.arange(0.5, 24.5), temperature_frame.mean(axis=1).to_numpy(), color="red"
         )
-        joint_plot_grid.ax_marg_y.set_xlim(0, temperature_bar_vmax)
+        joint_plot_grid.ax_marg_y.set_xlim(
+            0, (temperature_bar_vmax if temperature_bar_vmax is not None else 100)
+        )
 
         # Plot the scatter at the top of the plot.
         joint_plot_grid.ax_marg_x.scatter(
@@ -1592,9 +1720,14 @@ def plot_temperature_with_marginal_means(
         joint_plot_grid.ax_joint.legend().remove()
 
         # Remove ticks from axes
+        joint_plot_grid.ax_marg_x.tick_params(axis="both", labelsize=7, size=7)
         joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
-        joint_plot_grid.ax_marg_x.set_xlabel("Average temperature / $^\circ$C")
-        joint_plot_grid.ax_marg_y.tick_params(axis="y", left=False, labelleft=False)
+        joint_plot_grid.ax_marg_x.set_ylabel("Average temperature / $^\circ$C")
+        joint_plot_grid.ax_marg_y.tick_params(axis="both", labelsize=7, size=7)
+        joint_plot_grid.ax_marg_y.tick_params(
+            axis="y", left=False, labelleft=False, labelsize=7, size=7
+        )
+        joint_plot_grid.ax_marg_y.set_xlabel("Average temperature\n/ $^\circ$C")
         # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
         # remove ticks showing the heights of the histograms
         # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
@@ -1623,6 +1756,105 @@ def plot_temperature_with_marginal_means(
         # Save the figure in high- and low-resolution formats.
         plt.savefig(
             f"{figname}.{fig_format}",
+            format=fig_format,
+            bbox_inches="tight",
+            pad_inches=0.05,
+        )
+
+        # Create a dummy plot and surrounding axes.
+        joint_plot_grid = sns.jointplot(
+            data=temperature_frame,
+            kind="hist",
+            bins=(len(temperature_frame.columns), 24),
+            marginal_ticks=True,
+            ratio=3,
+        )
+        joint_plot_grid.ax_marg_y.cla()
+        joint_plot_grid.ax_marg_x.cla()
+        joint_plot_grid.figure.set_size_inches(83 * MM, 83 * MM)
+        pbar.update(1)
+
+        # Generate the central heatmap.
+        heatmap = sns.heatmap(
+            temperature_frame,
+            ax=joint_plot_grid.ax_joint,
+            cmap="coolwarm",
+            vmin=0,
+            vmax=heatmap_vmax,
+            cbar=True,
+            cbar_kws={"label": "Temperature / $^\circ$C"},
+        )
+        cbar_axes = heatmap.figure.axes[-1]
+        cbar_axes.figure.axes[-1].yaxis.label.set_size(7)
+        cbar_axes.figure.axes[-1].yaxis.set_tick_params(labelsize=7, size=7)
+        pbar.update(1)
+
+        # Plot the irradiance bars on the RHS of the plot.
+        joint_plot_grid.ax_marg_y.barh(
+            np.arange(0.5, 24.5), temperature_frame.mean(axis=1).to_numpy(), color="red"
+        )
+        joint_plot_grid.ax_marg_y.set_xlim(
+            0, (temperature_bar_vmax if temperature_bar_vmax is not None else 100)
+        )
+
+        # Plot the scatter at the top of the plot.
+        joint_plot_grid.ax_marg_x.scatter(
+            np.arange(0.5, len(temperature_frame.columns) + 0.5),
+            (cellwise_means := temperature_frame.mean(axis=0).to_numpy()),
+            color="red",
+            marker="D",
+            s=60,
+            alpha=0.7,
+        )
+        joint_plot_grid.ax_marg_x.set_ylim(
+            temperature_scatter_vmin, temperature_scatter_vmax
+        )
+
+        joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
+        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_title(
+            (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
+            fontweight="bold",
+        )
+        joint_plot_grid.ax_joint.legend().remove()
+
+        # Remove ticks from axes
+        joint_plot_grid.ax_marg_x.tick_params(axis="both", labelsize=7, size=7)
+        joint_plot_grid.ax_marg_x.tick_params(axis="x", bottom=False, labelbottom=False)
+        joint_plot_grid.ax_marg_x.set_ylabel("$\\bar{T}$ / $^\circ$C")
+        joint_plot_grid.ax_marg_y.tick_params(axis="both", labelsize=7, size=7)
+        joint_plot_grid.ax_marg_y.tick_params(
+            axis="y", left=False, labelleft=False, labelsize=7, size=7
+        )
+        joint_plot_grid.ax_marg_y.set_xlabel("Average temperature\n/ $^\circ$C")
+        # joint_plot_grid.ax_marg_y.set_xlabel("Average irradiance / kWm$^{-2}$")
+        # remove ticks showing the heights of the histograms
+        # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
+        # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
+
+        joint_plot_grid.ax_marg_x.grid("on")
+        # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
+
+        joint_plot_grid.figure.tight_layout()
+
+        # Adjust the plot such that the colourbar appears to the RHS.
+        # Solution from JohanC (https://stackoverflow.com/users/12046409/johanc)
+        # Obtained with permission from stackoverflow:
+        # https://stackoverflow.com/questions/60845764/how-to-add-a-colorbar-to-the-side-of-a-kde-jointplot
+        #
+        plt.subplots_adjust(left=0.1, right=0.8, top=0.9, bottom=0.1)
+        pos_joint_ax = joint_plot_grid.ax_joint.get_position()
+        pos_marg_x_ax = joint_plot_grid.ax_marg_x.get_position()
+        joint_plot_grid.ax_joint.set_position(
+            [pos_joint_ax.x0, pos_joint_ax.y0, pos_marg_x_ax.width, pos_joint_ax.height]
+        )
+        joint_plot_grid.figure.axes[-1].set_position(
+            [0.83, pos_joint_ax.y0, 0.07, pos_joint_ax.height]
+        )
+
+        # Save the figure in high- and low-resolution formats.
+        plt.savefig(
+            f"{figname}_narrow.{fig_format}",
             format=fig_format,
             bbox_inches="tight",
             pad_inches=0.05,
@@ -1753,7 +1985,7 @@ def main(unparsed_arguments) -> None:
                     _solar_angles_from_weather_row(row, location)
                     for row in tqdm(
                         weather_frame.iterrows(),
-                        description=location.name.capitalize(),
+                        desc=location.name.capitalize(),
                         total=len(weather_frame),
                     )
                 ]
@@ -2320,24 +2552,25 @@ def main(unparsed_arguments) -> None:
             ################################
 
             # Line plot of the irradiance throughout the day.
-            sns.set_palette(
-                sns.color_palette(
-                    [
-                        "#8F1838",
-                        "#C11F33",
-                        "#EA1D2D",
-                        "#F36E24",
-                        "#F99D25",
-                        "#FDB714",
-                        "#00ACD7",
-                        "#007DBB",
-                        "#00558A",
-                        "#1A3668",
-                        "#48773C",
-                        "#40AE49",
-                    ]
-                )
-            )
+            # sns.set_palette(
+            #     sns.color_palette(
+            #         [
+            #             "#8F1838",
+            #             "#C11F33",
+            #             "#EA1D2D",
+            #             "#F36E24",
+            #             "#F99D25",
+            #             "#FDB714",
+            #             "#00ACD7",
+            #             "#007DBB",
+            #             "#00558A",
+            #             "#1A3668",
+            #             "#48773C",
+            #             "#40AE49",
+            #         ]
+            #     )
+            # )
+            sns.set_palette(sns.cubehelix_palette(start=0.4, rot=-1.2, n_colors=24))
             plt.figure(figsize=(171 * MM, 120 * MM))
             dashes = Dashes()
 
@@ -2361,8 +2594,8 @@ def main(unparsed_arguments) -> None:
                     ],
                     y=[
                         1000
-                        * irradiance_frame.set_index("hour")
-                        .iloc[time_of_day]
+                        * irradiance_frame.set_index("start_time")
+                        .loc[time_of_day]
                         .values[pv_cell.cell_id]
                         for pv_cell in modelling_scenario.pv_module.pv_cells
                     ],
@@ -2411,7 +2644,7 @@ def main(unparsed_arguments) -> None:
             dashes = Dashes()
 
             for time_of_day in tqdm(
-                range(start_hour, end_hour),
+                range(0, parsed_args.iteration_length),
                 desc="Plotting temperature series",
             ):
                 plt.plot(
@@ -2546,12 +2779,12 @@ def main(unparsed_arguments) -> None:
                     )
                 ),
                 figname=f"{scenario.name}_{start_hour}_temperature",
-                heatmap_vmax=80,
+                heatmap_vmax=120,
                 initial_date=initial_time,
                 locations_to_weather_and_solar_map=locations_to_weather_and_solar_map,
                 scenario=scenario,
                 show_figure=True,
-                temperature_bar_vmax=80,
+                temperature_bar_vmax=120,
                 temperature_scatter_vmax=80,
             )
 
@@ -2559,6 +2792,15 @@ def main(unparsed_arguments) -> None:
             ##############################################
             # Plot IV curves for the cells in the module #
             ##############################################
+
+            sns.set_palette(
+                sns.color_palette(
+                    "PiYG",
+                    n_colors=len(
+                        modelling_scenario.pv_module.pv_cells_and_cell_strings
+                    ),
+                )
+            )
 
             time_of_day = (
                 start_hour := (
@@ -2621,7 +2863,6 @@ def main(unparsed_arguments) -> None:
                     weather_map[WIND_SPEED],
                     current_series=current_series,
                 )
-
                 mpp_cell_to_current_map[pv_cell] = current_series
                 mpp_cell_to_voltage_map[pv_cell] = voltage_series
                 mpp_cell_to_power_map[pv_cell] = power_series
@@ -2644,6 +2885,7 @@ def main(unparsed_arguments) -> None:
                     mpp_cell_to_voltage_map[pv_cell],
                     mpp_cell_to_current_map[pv_cell],
                     label=pv_cell.cell_id,
+                    alpha=0.5,
                     color=f"C{index}",
                 )
                 right_axis.plot(
@@ -2651,6 +2893,7 @@ def main(unparsed_arguments) -> None:
                     mpp_cell_to_power_map[pv_cell],
                     "--",
                     label=pv_cell.cell_id,
+                    alpha=0.5,
                     color=f"C{index}",
                 )
 
@@ -2669,12 +2912,12 @@ def main(unparsed_arguments) -> None:
             right_axis.tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
-                f"iv_curves_with_power_{time_string}.pdf",
+                f"iv_curves_with_power_{time_string}_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
-            plt.show()
+            # plt.show()
 
             # Plot the IV curves across the module as current and power only.
             plt.figure(figsize=(171 * MM, 120 * MM))
@@ -2687,9 +2930,11 @@ def main(unparsed_arguments) -> None:
                     mpp_cell_to_current_map[pv_cell],
                     label=pv_cell.cell_id,
                     color=f"C{index}",
+                    alpha=0.5,
                 )
 
-            plt.ylim(bottom=0, top=10)
+            plt.ylim(bottom=0, top=5)
+            plt.xlim(0, None)
             plt.legend(
                 title="Initial index of cell in string",
                 ncol=4,
@@ -2698,15 +2943,89 @@ def main(unparsed_arguments) -> None:
             )
             plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
             plt.ylabel("Module current / A")
-            plt.gca().tick_params(axis="both", which="major", labelsize=7)
+            (axis := plt.gca()).tick_params(axis="both", which="major", labelsize=7)
+
+            norm = plt.Normalize(
+                0,
+                len(modelling_scenario.pv_module.pv_cells_and_cell_strings),
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), parsed_args.iteration_length
+                ),
+                norm=norm,
+            )
+
+            colorbar = (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Cell index",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
 
             plt.savefig(
-                f"iv_curves_{time_string}.pdf",
+                f"iv_curves_{time_string}_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
-            plt.show()
+            # plt.show()
+
+            # Plot the IV curves across the module as current and power only.
+            plt.figure(figsize=(83 * MM, 60 * MM))
+
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                plt.plot(
+                    mpp_cell_to_voltage_map[pv_cell],
+                    mpp_cell_to_current_map[pv_cell],
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                    alpha=0.5,
+                )
+
+            plt.ylim(bottom=0, top=5)
+            plt.xlim(0, None)
+            plt.legend(
+                title="Initial index of cell in string",
+                ncol=4,
+                fontsize=7,
+                title_fontsize=7,
+            )
+            plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
+            plt.ylabel("Module current / A")
+            (axis := plt.gca()).tick_params(axis="both", which="major", labelsize=7)
+
+            norm = plt.Normalize(
+                0,
+                len(modelling_scenario.pv_module.pv_cells_and_cell_strings),
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom", sns.color_palette().as_hex(), parsed_args.iteration_length
+                ),
+                norm=norm,
+            )
+
+            colorbar = (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Cell index",
+                pad=(_pad := 0.025),
+            )
+
+            plt.legend().remove()
+
+            plt.savefig(
+                f"iv_curves_narrow_{time_string}_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+            # plt.show()
 
             # Compute the total power produced
             cell_voltage_interpreters = {
@@ -2758,10 +3077,6 @@ def main(unparsed_arguments) -> None:
 
             mpp_index: int = list(module_power).index(np.max(module_power))
 
-            import pdb
-
-            pdb.set_trace()
-
             plt.figure(figsize=(171 * MM, 120 * MM))
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
@@ -2771,12 +3086,14 @@ def main(unparsed_arguments) -> None:
                     mpp_cell_to_current_map[pv_cell],
                     label=pv_cell.cell_id,
                     color=f"C{index}",
+                    alpha=0.5,
                 )
 
             plt.axhline(
                 sampling_current_series[mpp_index],
                 dashes=(2, 2),
                 color="orange",
+                label="MPP current",
             )
 
             plt.ylim(bottom=0, top=10)
@@ -2788,9 +3105,10 @@ def main(unparsed_arguments) -> None:
             )
             plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
             plt.ylabel("Module current / A")
-            plt.gca().tick_params(axis="both", which="major", labelsize=7)
+            (axis := plt.gca()).tick_params(axis="both", which="major", labelsize=7)
 
-            plt.xlim(-1.25, 1.5)
+            plt.ylim(bottom=0, top=5)
+            plt.xlim(0, None)
 
             norm = plt.Normalize(
                 0.5, len(modelling_scenario.pv_module.pv_cells_and_cell_strings) + 0.5
@@ -2805,22 +3123,87 @@ def main(unparsed_arguments) -> None:
                 norm=norm,
             )
 
-            colorbar = (axis := plt.gca()).figure.colorbar(
+            colorbar = axis.figure.colorbar(
                 scalar_mappable,
                 ax=axis,
                 label="Index of PV cell or bypassed string of PV cells",
                 pad=(_pad := 0.025),
             )
+            handles, labels = axis.get_legend_handles_labels()
 
-            plt.legend().remove()
+            plt.legend(handles[-1:], labels[-1:])
 
             plt.savefig(
-                f"iv_curves_with_module_{time_string}.pdf",
+                f"iv_curves_with_module_{time_string}_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
-            plt.show()
+            # plt.show()
+
+            plt.figure(figsize=(83 * MM, 60 * MM))
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                plt.plot(
+                    mpp_cell_to_voltage_map[pv_cell],
+                    mpp_cell_to_current_map[pv_cell],
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                    alpha=0.5,
+                )
+
+            plt.axhline(
+                sampling_current_series[mpp_index],
+                dashes=(2, 2),
+                color="orange",
+                label="MPP current",
+            )
+
+            plt.ylim(bottom=0, top=10)
+            plt.legend(
+                title="Initial index of cell in string",
+                ncol=4,
+                fontsize=7,
+                title_fontsize=7,
+            )
+            plt.xlabel("Cell-wise, or cell-string-wise, voltage / V")
+            plt.ylabel("Module current / A")
+            (axis := plt.gca()).tick_params(axis="both", which="major", labelsize=7)
+
+            plt.ylim(bottom=0, top=5)
+            plt.xlim(0, None)
+
+            norm = plt.Normalize(
+                0.5, len(modelling_scenario.pv_module.pv_cells_and_cell_strings) + 0.5
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom",
+                    sns.color_palette().as_hex(),
+                    len(set(modelling_scenario.pv_module.pv_cells_and_cell_strings))
+                    + 1,
+                ),
+                norm=norm,
+            )
+
+            colorbar = axis.figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Index of PV cell or bypassed string of PV cells",
+                pad=(_pad := 0.025),
+            )
+            handles, labels = axis.get_legend_handles_labels()
+
+            plt.legend(handles[-1:], labels[-1:])
+
+            plt.savefig(
+                f"iv_curves_with_module_narrow_{time_string}_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+            # plt.show()
 
             plt.figure(figsize=(171 * MM, 120 * MM))
             left_axis = plt.gca()
@@ -2829,11 +3212,20 @@ def main(unparsed_arguments) -> None:
             for index, pv_cell in enumerate(
                 modelling_scenario.pv_module.pv_cells_and_cell_strings
             ):
+                _current, _power = zip(
+                    *sorted(
+                        zip(
+                            mpp_cell_to_current_map[pv_cell],
+                            mpp_cell_to_power_map[pv_cell],
+                        )
+                    )
+                )
                 left_axis.plot(
-                    mpp_cell_to_current_map[pv_cell],
-                    mpp_cell_to_power_map[pv_cell],
+                    _current,
+                    _power,
                     label=pv_cell.cell_id,
                     color=f"C{index}",
+                    alpha=0.5,
                 )
 
             right_axis.plot(
@@ -2852,12 +3244,20 @@ def main(unparsed_arguments) -> None:
                 label="Maximum power point (MPP)",
             )
 
-            left_axis.set_ylim(bottom=-(cellwise_limit := 1.1 * np.max()), top=5)
-            right_axis.set_ylim(
-                bottom=-(power_limit := 1.1 * np.max(module_power)), top=power_limit
-            )
-            left_axis.set_xlim(0, sampling_current_series[cut_off_index])
-            right_axis.set_xlim(0, sampling_current_series[cut_off_index])
+            # left_axis.set_ylim(
+            #     bottom=-0,
+            #     top=(
+            #         cellwise_limit := 1.1
+            #         * max([max(entry) for entry in mpp_cell_to_power_map.values()])
+            #     ),
+            # )
+            # right_axis.set_ylim(
+            #     bottom=-0, top=(power_limit := 1.1 * np.max(module_power))
+            # )
+            left_axis.set_ylim(0, 3.5)
+            right_axis.set_ylim(0, 230)
+            left_axis.set_xlim(0, 5.5)
+            right_axis.set_xlim(0, 5.5)
 
             left_axis.axhline(0, dashes=(2, 2), color="grey")
             right_axis.axhline(0, dashes=(2, 2), color="grey")
@@ -2905,13 +3305,121 @@ def main(unparsed_arguments) -> None:
             right_axis.tick_params(axis="both", which="major", labelsize=7)
 
             plt.savefig(
-                f"ip_curves_{time_string}.pdf",
+                f"ip_curves_{time_string}_{INDEX}.pdf",
                 format="pdf",
                 bbox_inches="tight",
                 pad_inches=0.05,
             )
-            plt.show()
+            # plt.show()
 
+            plt.figure(figsize=(83 * MM, 60 * MM))
+            left_axis = plt.gca()
+            right_axis = left_axis.twinx()
+
+            for index, pv_cell in enumerate(
+                modelling_scenario.pv_module.pv_cells_and_cell_strings
+            ):
+                _current, _power = zip(
+                    *sorted(
+                        zip(
+                            mpp_cell_to_current_map[pv_cell],
+                            mpp_cell_to_power_map[pv_cell],
+                        )
+                    )
+                )
+                left_axis.plot(
+                    _current,
+                    _power,
+                    label=pv_cell.cell_id,
+                    color=f"C{index}",
+                    alpha=0.5,
+                )
+
+            right_axis.plot(
+                sampling_current_series,
+                module_power,
+                "--",
+                color="orange",
+                label="Module power",
+            )
+            right_axis.scatter(
+                sampling_current_series[mpp_index],
+                module_power[mpp_index],
+                marker="H",
+                color="orange",
+                s=200,
+                label="Maximum power point (MPP)",
+            )
+
+            # left_axis.set_ylim(
+            #     bottom=-0,
+            #     top=(
+            #         cellwise_limit := 1.1
+            #         * max([max(entry) for entry in mpp_cell_to_power_map.values()])
+            #     ),
+            # )
+            # right_axis.set_ylim(
+            #     bottom=-0, top=(power_limit := 1.1 * np.max(module_power))
+            # )
+            left_axis.set_ylim(0, 3.5)
+            right_axis.set_ylim(0, 230)
+            left_axis.set_xlim(0, 5.5)
+            right_axis.set_xlim(0, 5.5)
+
+            left_axis.axhline(0, dashes=(2, 2), color="grey")
+            right_axis.axhline(0, dashes=(2, 2), color="grey")
+
+            l_handles, l_labels = left_axis.get_legend_handles_labels()
+            r_handles, r_labels = right_axis.get_legend_handles_labels()
+
+            left_axis.legend(
+                l_handles + [None] + r_handles,
+                l_labels + ["Power"] + r_labels,
+                #  title="Initial index of cell in string",
+                ncol=4,
+                fontsize=7,
+                title_fontsize=7,
+            )
+            left_axis.set_xlabel("Module current / A")
+            left_axis.set_ylabel("Cell-wise, or cell-string-wise, power / W")
+            right_axis.set_ylabel("Module power / W")
+
+            norm = plt.Normalize(
+                0.5, len(modelling_scenario.pv_module.pv_cells_and_cell_strings) + 0.5
+            )
+            scalar_mappable = plt.cm.ScalarMappable(
+                cmap=mcolors.LinearSegmentedColormap.from_list(
+                    "Custom",
+                    sns.color_palette().as_hex(),
+                    len(set(modelling_scenario.pv_module.pv_cells_and_cell_strings))
+                    + 1,
+                ),
+                norm=norm,
+            )
+
+            colorbar = (axis := plt.gca()).figure.colorbar(
+                scalar_mappable,
+                ax=axis,
+                label="Index of PV cell or bypassed string of PV cells",
+                pad=(_pad := 0.125),
+            )
+
+            plt.legend().remove()
+
+            left_axis.legend().remove()
+            right_axis.legend().remove()
+            left_axis.tick_params(axis="both", which="major", labelsize=7)
+            right_axis.tick_params(axis="both", which="major", labelsize=7)
+
+            plt.savefig(
+                f"ip_curves_narrow_{time_string}_{INDEX}.pdf",
+                format="pdf",
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+
+            return
+            plt.show()
             import pdb
 
             pdb.set_trace()
@@ -2961,7 +3469,7 @@ def main(unparsed_arguments) -> None:
             # If a start-day index was specified, use this as the start time.
             if os.path.isfile(
                 validation_filename := "validation_file_{timestamps_filename}_"
-                "{start_time}_{end_time}.json".format(
+                "{start_time}_{end_time}_{scenario}.json".format(
                     timestamps_filename=parsed_args.timestamps_file,
                     start_time=(
                         start_hour := (
@@ -2977,6 +3485,7 @@ def main(unparsed_arguments) -> None:
                             else int(timestamps_data[_start_time_column_name][-1])
                         )
                     ),
+                    scenario=modelling_scenario.name,
                 )
             ):
                 with open(
