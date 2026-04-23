@@ -594,6 +594,15 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
         help="Weather-data source: 'ninja' as default for data from renewables.ninja.",
     )
 
+    # HPC arguments.
+    parser.add_argument(
+        "--on-hpc",
+        type=bool,
+        action="store_true",
+        default=False,
+        help=argparse.SUPPRESS,
+    )
+
     return parser.parse_args(unparsed_args)
 
 
@@ -3605,6 +3614,9 @@ def main(unparsed_arguments) -> None:
                     validation_filename, "w", encoding="UTF-8"
                 ) as validation_file:
                     json.dump(all_mpp_data, validation_file, indent=4)
+
+            if parsed_args.on_hpc:
+                return
 
             all_mpp_frame = pd.DataFrame(
                 {
