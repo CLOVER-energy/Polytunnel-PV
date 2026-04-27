@@ -597,7 +597,6 @@ def _parse_args(unparsed_args: list[str]) -> argparse.Namespace:
     # HPC arguments.
     parser.add_argument(
         "--on-hpc",
-        type=bool,
         action="store_true",
         default=False,
         help=argparse.SUPPRESS,
