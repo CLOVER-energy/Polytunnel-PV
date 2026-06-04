@@ -14,7 +14,7 @@ import sys
 
 from typing import Any
 
-from tqdm import tqdm
+from rich.progress import track
 
 # ALLOWED_DIODE_LENGTHS:
 #    Allowed lengths of diode.
@@ -114,13 +114,13 @@ def _recursive_bypassing(
     # for diode_start in tqdm(range(
     #     min_diode_start := min(remaining_cells),
     #     max_diode_end := ,
-    # ), desc="diode start", leave=False):
+    # ), description="diode start", transient=True):
 
     # Iterate through all possible diode lengths.
-    for diode_end in tqdm(
+    for diode_end in track(
         range(min_diode_start + MIN_DIODE_LENGTH, max_diode_end),
-        desc="diode end",
-        leave=False,
+        description="diode end",
+        transient=True,
     ):
         # Skip configurations which are too short.
         if (diode_length := diode_end - min_diode_start) not in ALLOWED_DIODE_LENGTHS:
@@ -169,8 +169,8 @@ def main(args: list[Any]) -> None:
     bypass_diode_configurations: list[list[BypassDiode]] = []
 
     try:
-        for num_diodes in tqdm(
-            range(1, 67), desc="number of bypass dioes", unit="dioes"
+        for num_diodes in track(
+            range(1, 67), description="number of bypass dioes"  # , unit="dioes"
         ):
             _recursive_bypassing(
                 list(range(67)), num_diodes, [], bypass_diode_configurations
@@ -196,8 +196,8 @@ def main(args: list[Any]) -> None:
     # Generate a set of output panels and matching scenarios.
     output_panels: list[dict[str, Any]] = []
     scenarios: list[dict[str, str]] = []
-    for index, configuration in tqdm(
-        enumerate(combined_configurations), desc="generating output panels"
+    for index, configuration in track(
+        enumerate(combined_configurations), description="generating output panels"
     ):
 
         # Generate the panel data
@@ -346,13 +346,13 @@ def _recursive_bypassing(
     # for diode_start in tqdm(range(
     #     min_diode_start := min(remaining_cells),
     #     max_diode_end := ,
-    # ), desc="diode start", leave=False):
+    # ), description="diode start", transient=True):
 
     # Iterate through all possible diode lengths.
-    for diode_end in tqdm(
+    for diode_end in track(
         range(min_diode_start + MIN_DIODE_LENGTH, max_diode_end),
-        desc="diode end",
-        leave=False,
+        description="diode end",
+        transient=True,
     ):
         # Skip configurations which are too short.
         if (diode_length := diode_end - min_diode_start) not in ALLOWED_DIODE_LENGTHS:
@@ -401,8 +401,8 @@ def main(args: list[Any]) -> None:
     bypass_diode_configurations: list[list[BypassDiode]] = []
 
     try:
-        for num_diodes in tqdm(
-            range(1, 67), desc="number of bypass dioes", unit="dioes"
+        for num_diodes in track(
+            range(1, 67), description="number of bypass dioes"  # , unit="dioes"
         ):
             _recursive_bypassing(
                 list(range(67)), num_diodes, [], bypass_diode_configurations
@@ -428,8 +428,8 @@ def main(args: list[Any]) -> None:
     # Generate a set of output panels and matching scenarios.
     output_panels: list[dict[str, Any]] = []
     scenarios: list[dict[str, str]] = []
-    for index, configuration in tqdm(
-        enumerate(combined_configurations), desc="generating output panels"
+    for index, configuration in track(
+        enumerate(combined_configurations), description="generating output panels"
     ):
 
         # Generate the panel data

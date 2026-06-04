@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from tqdm import tqdm
 
 from .pv_cell import PVCell, ZERO_CELSIUS_OFFSET
 
@@ -58,6 +57,15 @@ class BypassDiode:
 def calculate_total_current(voltage_series, total_resistance):
     """
     Calculate the total current through the parallel combination of cell and diode.
+
+    :param: voltage_series:
+        The voltage series data.
+
+    :param: total_resistance:
+        The total resistance.
+
+    :returns: The current series.
+
     """
     voltage_series = np.array(voltage_series)
     total_resistance = np.array(total_resistance)
@@ -185,7 +193,7 @@ class BypassedCellString:
 
         # Calculate the curves for each cell
         cell_to_iv_series: dict[PVCell, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
-        for pv_cell in tqdm(self.pv_cells, desc="Bypassed IV curves", leave=False):
+        for pv_cell in self.pv_cells:
             cell_to_iv_series[pv_cell] = pv_cell.calculate_iv_curve(
                 ambient_celsius_temperature,
                 irradiance_array,

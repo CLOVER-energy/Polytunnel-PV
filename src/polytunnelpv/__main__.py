@@ -46,6 +46,7 @@ from collections.abc import Iterator
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 from matplotlib import rc, rcParams
+from matplotlib.ticker import MaxNLocator
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, Callable, Generator, Hashable, Match, Pattern
 
@@ -1410,7 +1411,7 @@ def plot_irradiance_with_marginal_means(
         )
 
         joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
-        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_ylabel("Time / h", fontsize=7)
         joint_plot_grid.ax_joint.set_title(
             (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
             fontweight="bold",
@@ -1432,7 +1433,7 @@ def plot_irradiance_with_marginal_means(
         # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
         # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
 
-        joint_plot_grid.ax_marg_x.grid("on")
+        joint_plot_grid.ax_marg_x.grid("on", fontsize=7)
         # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
 
         joint_plot_grid.figure.tight_layout()
@@ -1513,7 +1514,7 @@ def plot_irradiance_with_marginal_means(
         )
 
         joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
-        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_ylabel("Time / h", fontsize=7)
         joint_plot_grid.ax_joint.set_title(
             (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
             fontweight="bold",
@@ -1535,7 +1536,7 @@ def plot_irradiance_with_marginal_means(
         # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
         # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
 
-        joint_plot_grid.ax_marg_x.grid("on")
+        joint_plot_grid.ax_marg_x.grid("on", fontsize=7)
         # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
 
         joint_plot_grid.figure.tight_layout()
@@ -1720,7 +1721,7 @@ def plot_temperature_with_marginal_means(
         )
 
         joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
-        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_ylabel("Time / h", fontsize=7)
         joint_plot_grid.ax_joint.set_title(
             (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
             fontweight="bold",
@@ -1741,7 +1742,7 @@ def plot_temperature_with_marginal_means(
         # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
         # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
 
-        joint_plot_grid.ax_marg_x.grid("on")
+        joint_plot_grid.ax_marg_x.grid("on", fontsize=7)
         # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
 
         joint_plot_grid.figure.tight_layout()
@@ -1819,7 +1820,7 @@ def plot_temperature_with_marginal_means(
         )
 
         joint_plot_grid.ax_joint.set_xlabel("Mean angle from polytunnel axis")
-        joint_plot_grid.ax_joint.set_ylabel("Hour of the day")
+        joint_plot_grid.ax_joint.set_ylabel("Time / h", fontsize=7)
         joint_plot_grid.ax_joint.set_title(
             (initial_date + timedelta(hours=start_index)).strftime("%d/%m/%Y"),
             fontweight="bold",
@@ -1840,7 +1841,7 @@ def plot_temperature_with_marginal_means(
         # joint_plot_grid.ax_marg_x.tick_params(axis='y', left=False, labelleft=False)
         # joint_plot_grid.ax_marg_y.tick_params(axis='frame_slice', bottom=False, labelbottom=False)
 
-        joint_plot_grid.ax_marg_x.grid("on")
+        joint_plot_grid.ax_marg_x.grid("on", fontsize=7)
         # joint_plot_grid.ax_marg_x.set_ylabel("Average irradiance")  #
 
         joint_plot_grid.figure.tight_layout()
@@ -2216,7 +2217,7 @@ def main(unparsed_arguments) -> None:
             # Use joblib to parallelize the for loop
             start_time = time.time()
             print(
-                (this_string := "Parallel MPP computation")
+                (this_string := "Parallel MPP computation", fontsize=7)
                 + "." * (88 - (len(this_string) + len(DONE)))
                 + " ",
                 end="",
@@ -2417,7 +2418,7 @@ def main(unparsed_arguments) -> None:
             # Use joblib to parallelize the for loop
             start_time = time.time()
             print(
-                (this_string := "Parallel MPP computation")
+                (this_string := "Parallel MPP computation", fontsize=7)
                 + "." * (88 - (len(this_string) + len(DONE)))
                 + " ",
                 end="",
@@ -2635,7 +2636,7 @@ def main(unparsed_arguments) -> None:
             # colorbar = (axis := plt.gca()).figure.colorbar(
             #     scalar_mappable,
             #     ax=axis,
-            #     label="Hour of the day",
+            #     label="Time / h",
             #     pad=(_pad := 0.025),
             # )
             # plt.title((initial_time + timedelta(hours=plotting_time_of_day)).strftime("%H:%M on %d/%m/%Y"))
@@ -2703,7 +2704,7 @@ def main(unparsed_arguments) -> None:
             # (axis := plt.gca()).figure.colorbar(
             #     scalar_mappable,
             #     ax=axis,
-            #     label="Hour of the day",
+            #     label="Time / h",
             #     pad=(_pad := 0.025),
             # )
             # plt.title((initial_time + timedelta(hours=plotting_time_of_day)).strftime("%H:%M on %d/%m/%Y"))
@@ -3768,8 +3769,8 @@ def main(unparsed_arguments) -> None:
 
             plt.xlim(7, 17)
             sns.despine()
-            plt.xlabel("Hour of the day")
-            plt.ylabel("Power produced / kW")
+            plt.xlabel("Time / h", fontsize=7)
+            plt.ylabel("Power produced / kW", fontsize=7)
             plt.gca().tick_params(axis="both", which="major", labelsize=7)
             plt.savefig(
                 f"validation_figure_{INDEX}.pdf",
@@ -3839,8 +3840,8 @@ def main(unparsed_arguments) -> None:
 
             plt.xlim(7, 17)
             sns.despine()
-            plt.xlabel("Hour of the day")
-            plt.ylabel("P-PV model over/under prediction / kW")
+            plt.xlabel("Time / h", fontsize=7)
+            plt.ylabel("P-PV model over/under prediction / kW", fontsize=7)
             plt.gca().tick_params(axis="both", which="major", labelsize=7)
             plt.savefig(
                 f"validation_figure_delta_{INDEX}.pdf",
@@ -3878,7 +3879,7 @@ def main(unparsed_arguments) -> None:
 
             diffuse_data = weather_frame.copy()
             diffuse_data[
-                (_diffusive_fraction_column_header := "Diffusive fraction")
+                (_diffusive_fraction_column_header := "Diffusive fraction", fontsize=7)
             ] = diffuse_data[IRRADIANCE_DIFFUSE] / (
                 diffuse_data[IRRADIANCE_DIFFUSE] + diffuse_data[IRRADIANCE_DIRECT]
             )
@@ -4153,7 +4154,7 @@ def main(unparsed_arguments) -> None:
 
             sns.despine()
             plt.xlabel("Day of the month")
-            plt.ylabel("P-PV model over/under prediction / kW")
+            plt.ylabel("P-PV model over/under prediction / kW", fontsize=7)
             handles, labels = plt.gca().get_legend_handles_labels()
 
             plt.legend(
@@ -4336,9 +4337,9 @@ def main(unparsed_arguments) -> None:
                     color="black",
                     label="Diffuse fraction estimate",
                 )
-                plt.xlabel("Hour of the day")
-                ax1.set_ylabel("Power produced / kW")
-                ax2.set_ylabel("Diffuse fraction")
+                plt.xlabel("Time / h", fontsize=7)
+                ax1.set_ylabel("Power produced / kW", fontsize=7)
+                ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(
                     0,
                     round(
@@ -4435,9 +4436,9 @@ def main(unparsed_arguments) -> None:
                     color="black",
                     label="Diffuse fraction estimate",
                 )
-                plt.xlabel("Hour of the day")
-                ax1.set_ylabel("Power produced / kW")
-                ax2.set_ylabel("Diffuse fraction")
+                plt.xlabel("Time / h", fontsize=7)
+                ax1.set_ylabel("Power produced / kW", fontsize=7)
+                ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(
                     0,
                     round(
@@ -4470,6 +4471,431 @@ def main(unparsed_arguments) -> None:
                 )
 
             plt.show()
+
+            # Try to create the plot for select days.
+            try:
+                sns.set_palette(
+                    list(
+                        reversed(
+                            [
+                                "#4A688B",
+                                "#779FB1",
+                                "#36C7B8",
+                                "#FBC412",
+                                "#FE8224",
+                                "#E03944",
+                            ]
+                        )
+                    )
+                )
+
+                partly_sunny_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_sunny_date:="29/04/2025")]
+                partly_cloudy_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_partly_cloudy_date:="16/04/2025")]
+                mostly_cloudy_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_mostly_cloudy_date:="24/04/2025")]
+                overcast_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_overcast_date:="09/04/2025")]
+
+                fig, axes = plt.subplots(2, 2, figsize=(171 * MM, 171 * MM))
+                plt.subplots_adjust(wspace=0.40, hspace=0.275)
+
+                ax1 = axes[0, 0]
+                # Plot the predicted output
+                ax1.plot(
+                    partly_sunny_day_data[_hour := HOUR.lower()],
+                    partly_sunny_day_data["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="#423252",
+                )
+                ax1.errorbar(
+                    [entry - STAGGER for entry in partly_sunny_day_data[_hour]],
+                    partly_sunny_day_data["Predicted PV to batt"],
+                    capsize=3,
+                    color="#423252",
+                    ls="none",
+                    yerr=partly_sunny_day_data.get("Predicted PV error", [np.nan] * len(partly_sunny_day_data)),
+                )
+                ax1.fill_between(
+                    partly_sunny_day_data[_hour],
+                    [0] * len(partly_sunny_day_data),
+                    partly_sunny_day_data["Predicted PV to batt"],
+                    color="#423252",
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(partly_sunny_day_data["daily_clearness_value"].mean())
+                ax1.plot(
+                    partly_sunny_day_data[_hour],
+                    partly_sunny_day_data["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax1.errorbar(
+                    [entry + STAGGER for entry in partly_sunny_day_data[_hour]],
+                    partly_sunny_day_data["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(partly_sunny_day_data["Combined hourly PV to batt"] - partly_sunny_day_data["Min PV to batt"]),
+                        abs(partly_sunny_day_data["Max PV to batt"] - partly_sunny_day_data["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax1.fill_between(
+                    partly_sunny_day_data[_hour],
+                    [0] * len(partly_sunny_day_data),
+                    partly_sunny_day_data["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=1,
+                )
+                ax2 = ax1.twinx()
+                ax2.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                ax1.set_xlabel("Time / h", fontsize=7)
+                ax1.set_ylabel("Power produced / kW", fontsize=7)
+                ax2.set_ylabel("Diffuse fraction", fontsize=7)
+                ax1.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax1.set_xlim(4, 20)
+                ax2.set_ylim(0, 1)
+                handles_1, labels_1 = ax1.get_legend_handles_labels()
+                handles_2, labels_2 = ax2.get_legend_handles_labels()
+                ax1.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax2.legend().remove()
+                ax1.tick_params(axis="both", which="major", labelsize=7)
+                ax2.tick_params(axis="both", which="major", labelsize=7)
+                ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+                sns.despine(right=False)
+
+                # Plot the predicted output
+                (ax3:=axes[0, 1]).plot(
+                    partly_cloudy_day_data[_hour := HOUR.lower()],
+                    partly_cloudy_day_data["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="#423252",
+                )
+                ax3.errorbar(
+                    [entry - STAGGER for entry in partly_cloudy_day_data[_hour]],
+                    partly_cloudy_day_data["Predicted PV to batt"],
+                    capsize=3,
+                    color="#423252",
+                    ls="none",
+                    yerr=partly_cloudy_day_data.get("Predicted PV error", [np.nan] * len(partly_cloudy_day_data)),
+                )
+                ax3.fill_between(
+                    partly_cloudy_day_data[_hour],
+                    [0] * len(partly_cloudy_day_data),
+                    partly_cloudy_day_data["Predicted PV to batt"],
+                    color="#423252",
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(partly_cloudy_day_data["daily_clearness_value"].mean())
+                ax3.plot(
+                    partly_cloudy_day_data[_hour],
+                    partly_cloudy_day_data["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax3.errorbar(
+                    [entry + STAGGER for entry in partly_cloudy_day_data[_hour]],
+                    partly_cloudy_day_data["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(partly_cloudy_day_data["Combined hourly PV to batt"] - partly_cloudy_day_data["Min PV to batt"]),
+                        abs(partly_cloudy_day_data["Max PV to batt"] - partly_cloudy_day_data["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax3.fill_between(
+                    partly_cloudy_day_data[_hour],
+                    [0] * len(partly_cloudy_day_data),
+                    partly_cloudy_day_data["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=1,
+                )
+                ax4 = ax3.twinx()
+                ax4.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                ax3.set_xlabel("Time / h", fontsize=7)
+                ax3.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax3.set_ylabel("Power produced / kW", fontsize=7)
+                ax4.set_ylabel("Diffuse fraction", fontsize=7)
+                ax3.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax3.set_xlim(4, 20)
+                ax4.set_ylim(0, 1)
+                handles_1, labels_1 = ax3.get_legend_handles_labels()
+                handles_2, labels_2 = ax4.get_legend_handles_labels()
+                ax3.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax4.legend().remove()
+                ax3.tick_params(axis="both", which="major", labelsize=7)
+                ax4.tick_params(axis="both", which="major", labelsize=7)
+                sns.despine(right=False)
+
+                # Plot the predicted output
+                (ax5:=axes[1, 0]).plot(
+                    mostly_cloudy_day_data[_hour := HOUR.lower()],
+                    mostly_cloudy_day_data["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="#423252",
+                )
+                ax5.errorbar(
+                    [entry - STAGGER for entry in mostly_cloudy_day_data[_hour]],
+                    mostly_cloudy_day_data["Predicted PV to batt"],
+                    capsize=3,
+                    color="#423252",
+                    ls="none",
+                    yerr=mostly_cloudy_day_data.get("Predicted PV error", [np.nan] * len(mostly_cloudy_day_data)),
+                )
+                ax5.fill_between(
+                    mostly_cloudy_day_data[_hour],
+                    [0] * len(mostly_cloudy_day_data),
+                    mostly_cloudy_day_data["Predicted PV to batt"],
+                    color="#423252",
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(mostly_cloudy_day_data["daily_clearness_value"].mean())
+                ax5.plot(
+                    mostly_cloudy_day_data[_hour],
+                    mostly_cloudy_day_data["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax5.errorbar(
+                    [entry + STAGGER for entry in mostly_cloudy_day_data[_hour]],
+                    mostly_cloudy_day_data["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(mostly_cloudy_day_data["Combined hourly PV to batt"] - mostly_cloudy_day_data["Min PV to batt"]),
+                        abs(mostly_cloudy_day_data["Max PV to batt"] - mostly_cloudy_day_data["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax5.fill_between(
+                    mostly_cloudy_day_data[_hour],
+                    [0] * len(mostly_cloudy_day_data),
+                    mostly_cloudy_day_data["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=1,
+                )
+                ax6 = ax5.twinx()
+                ax6.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                ax5.set_xlabel("Time / h", fontsize=7)
+                ax5.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax5.set_ylabel("Power produced / kW", fontsize=7)
+                ax6.set_ylabel("Diffuse fraction", fontsize=7)
+                ax5.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax5.set_xlim(4, 20)
+                ax6.set_ylim(0, 1)
+                handles_1, labels_1 = ax5.get_legend_handles_labels()
+                handles_2, labels_2 = ax6.get_legend_handles_labels()
+                ax5.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax6.legend().remove()
+                ax5.tick_params(axis="both", which="major", labelsize=7)
+                ax6.tick_params(axis="both", which="major", labelsize=7)
+                sns.despine(right=False)
+
+                # Plot the predicted output
+                (ax7:=axes[1 ,1]).plot(
+                    overcast_day_data[_hour := HOUR.lower()],
+                    overcast_day_data["Predicted PV to batt"],
+                    label="Modelled output power",
+                    color="#423252",
+                )
+                ax7.errorbar(
+                    [entry - STAGGER for entry in overcast_day_data[_hour]],
+                    overcast_day_data["Predicted PV to batt"],
+                    capsize=3,
+                    color="#423252",
+                    ls="none",
+                    yerr=overcast_day_data.get("Predicted PV error", [np.nan] * len(overcast_day_data)),
+                )
+                ax7.fill_between(
+                    overcast_day_data[_hour],
+                    [0] * len(overcast_day_data),
+                    overcast_day_data["Predicted PV to batt"],
+                    color="#423252",
+                    alpha=0.15,
+                    zorder=0,
+                )
+                # Plot the measured output
+                _colour_index: int = int(overcast_day_data["daily_clearness_value"].mean())
+                ax7.plot(
+                    overcast_day_data[_hour],
+                    overcast_day_data["Combined hourly PV to batt"],
+                    label="Measured output power",
+                    color=f"C{_colour_index}",
+                )
+                ax7.errorbar(
+                    [entry + STAGGER for entry in overcast_day_data[_hour]],
+                    overcast_day_data["Combined hourly PV to batt"],
+                    capsize=3,
+                    color=f"C{_colour_index}",
+                    ls="none",
+                    yerr=(
+                        abs(overcast_day_data["Combined hourly PV to batt"] - overcast_day_data["Min PV to batt"]),
+                        abs(overcast_day_data["Max PV to batt"] - overcast_day_data["Combined hourly PV to batt"]),
+                    ),
+                )
+                ax7.fill_between(
+                    overcast_day_data[_hour],
+                    [0] * len(overcast_day_data),
+                    overcast_day_data["Combined hourly PV to batt"],
+                    color=f"C{_colour_index}",
+                    alpha=0.25,
+                    zorder=1,
+                )
+                ax8 = ax7.twinx()
+                ax8.plot(
+                    (
+                        diffuse_slice := diffuse_data[
+                            diffuse_data[_full_date_column_name] == full_date
+                        ]
+                    )[HOUR],
+                    diffuse_slice[_diffusive_fraction_column_header],
+                    "--",
+                    color="black",
+                    label="Diffuse fraction estimate",
+                )
+                ax7.set_xlabel("Time / h", fontsize=7)
+                ax7.xaxis.set_major_locator(MaxNLocator(integer=True))
+                ax7.set_ylabel("Power produced / kW", fontsize=7)
+                ax8.set_ylabel("Diffuse fraction", fontsize=7)
+                ax7.set_ylim(
+                    0,
+                    round(
+                        timestamps_data.loc[
+                            :, ["Predicted PV to batt", "Combined hourly PV to batt"]
+                        ]
+                        .max()
+                        .max(),
+                        -1,
+                    ),
+                )
+                ax7.set_xlim(4, 20)
+                ax8.set_ylim(0, 1)
+                handles_1, labels_1 = ax7.get_legend_handles_labels()
+                handles_2, labels_2 = ax8.get_legend_handles_labels()
+                ax7.legend(
+                    handles_1 + handles_2,
+                    labels_1 + labels_2,
+                    loc="upper left",
+                    fontsize=7,
+                )
+                ax8.legend().remove()
+                ax7.tick_params(axis="both", which="major", labelsize=7)
+                ax8.tick_params(axis="both", which="major", labelsize=7)
+                sns.despine(right=False)
+
+                ax1.tick_params(axis="both", which="major", labelsize=7)
+                ax2.tick_params(axis="both", which="major", labelsize=7)
+                ax3.tick_params(axis="both", which="major", labelsize=7)
+                ax4.tick_params(axis="both", which="major", labelsize=7)
+                ax5.tick_params(axis="both", which="major", labelsize=7)
+                ax6.tick_params(axis="both", which="major", labelsize=7)
+                ax7.tick_params(axis="both", which="major", labelsize=7)
+                ax8.tick_params(axis="both", which="major", labelsize=7)
+
+                axes[0, 0].set_title(_sunny_date, fontsize=7, fontweight="bold")
+                axes[0, 1].set_title(_partly_cloudy_date, fontsize=7, fontweight="bold")
+                axes[1, 0].set_title(_mostly_cloudy_date, fontsize=7, fontweight="bold")
+                axes[1, 1].set_title(_overcast_date, fontsize=7, fontweight="bold")
+
+                axes[0, 0].text(1, 30, "a.", fontsize=7, fontweight="bold")
+                axes[0, 1].text(1, 30, "b.", fontsize=7, fontweight="bold")
+                axes[1, 0].text(1, 30, "c.", fontsize=7, fontweight="bold")
+                axes[1, 1].text(1, 30, "d.", fontsize=7, fontweight="bold")
+
+                plt.savefig(f"ppv_electric_power_validation_{INDEX}.pdf", format="pdf", bbox_inches="tight", pad_inches=0.05)
+
+                plt.show()
+
+
+            except KeyError:
+                print("Select dates in hard code require updating.")
+
+            import pdb
+
+            pdb.set_trace()
 
             # Plot coloured based on diffusivity.
             sns.set_palette(
@@ -4770,9 +5196,9 @@ def main(unparsed_arguments) -> None:
                     color="black",
                     label="Diffuse fraction estimate",
                 )
-                plt.xlabel("Hour of the day")
-                ax1.set_ylabel("Power produced / kW")
-                ax2.set_ylabel("Diffuse fraction")
+                plt.xlabel("Time / h", fontsize=7)
+                ax1.set_ylabel("Power produced / kW", fontsize=7)
+                ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(
                     0,
                     round(
@@ -4869,9 +5295,9 @@ def main(unparsed_arguments) -> None:
                     color="black",
                     label="Diffuse fraction estimate",
                 )
-                plt.xlabel("Hour of the day")
-                ax1.set_ylabel("Power produced / kW")
-                ax2.set_ylabel("Diffuse fraction")
+                plt.xlabel("Time / h", fontsize=7)
+                ax1.set_ylabel("Power produced / kW", fontsize=7)
+                ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(
                     0,
                     round(
@@ -4985,9 +5411,9 @@ def main(unparsed_arguments) -> None:
                     color="black",
                     label="Diffuse fraction estimate",
                 )
-                plt.xlabel("Hour of the day")
-                ax1.set_ylabel("Power produced / kW")
-                ax2.set_ylabel("Diffuse fraction")
+                plt.xlabel("Time / h", fontsize=7)
+                ax1.set_ylabel("Power produced / kW", fontsize=7)
+                ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(0, 100)
                 ax1.set_xlim(6, 18)
                 ax2.set_ylim(0, 1)
@@ -5067,9 +5493,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax1.set_xlabel("Hour of the day")
-            ax1.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_xlabel("Time / h", fontsize=7)
+            ax1.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
@@ -5141,8 +5567,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax3.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax3.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
@@ -5241,9 +5667,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax1.set_xlabel("Hour of the day")
-            ax1.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_xlabel("Time / h", fontsize=7)
+            ax1.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
@@ -5315,8 +5741,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax3.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax3.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             # ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
@@ -5390,8 +5816,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax5.set_xlabel("Hour of the day")
-            # ax5.set_ylabel("Power produced / kW")
+            ax5.set_xlabel("Time / h", fontsize=7)
+            # ax5.set_ylabel("Power produced / kW", fontsize=7)
             ax6.set_ylabel("Diffuse fraction ($D$)")
             ax5.tick_params(axis="both", which="major", labelsize=7)
             ax6.tick_params(axis="both", which="major", labelsize=7)
@@ -5467,8 +5893,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax7.set_xlabel("Hour of the day")
-            ax7.set_ylabel("Power produced / kW")
+            ax7.set_xlabel("Time / h", fontsize=7)
+            ax7.set_ylabel("Power produced / kW", fontsize=7)
             # ax8.set_ylabel("Diffuse fraction ($D$)")
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
@@ -5541,8 +5967,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax9.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax9.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             # ax4.set_ylabel("Diffuse fraction ($D$)")
             ax9.set_ylim(0, 100)
             ax9.set_xlim(6, 18)
@@ -5616,8 +6042,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax11.set_xlabel("Hour of the day")
-            # ax11.set_ylabel("Power produced / kW")
+            ax11.set_xlabel("Time / h", fontsize=7)
+            # ax11.set_ylabel("Power produced / kW", fontsize=7)
             ax12.set_ylabel("Diffuse fraction ($D$)")
             ax11.set_ylim(0, 100)
             ax11.set_xlim(6, 18)
@@ -5726,9 +6152,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax1.set_xlabel("Hour of the day")
-            ax1.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_xlabel("Time / h", fontsize=7)
+            ax1.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
@@ -5800,8 +6226,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax3.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax3.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
@@ -5896,9 +6322,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax1.set_xlabel("Hour of the day")
-            ax1.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_xlabel("Time / h", fontsize=7)
+            ax1.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
@@ -5969,8 +6395,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax3.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax3.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
@@ -6042,9 +6468,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax5.set_xlabel("Hour of the day")
-            ax5.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax5.set_xlabel("Time / h", fontsize=7)
+            ax5.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
@@ -6115,8 +6541,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax7.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax7.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax8.set_ylabel("Diffuse fraction ($D$)", fontsize=7)
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
@@ -6220,9 +6646,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax1.set_xlabel("Hour of the day")
-            ax1.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_xlabel("Time / h", fontsize=7)
+            ax1.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
@@ -6293,8 +6719,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax3.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax3.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
@@ -6366,9 +6792,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax5.set_xlabel("Hour of the day")
-            ax5.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax5.set_xlabel("Time / h", fontsize=7)
+            ax5.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
@@ -6439,8 +6865,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax7.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax7.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax8.set_ylabel("Diffuse fraction ($D$)")
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
@@ -6545,9 +6971,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax1.set_xlabel("Hour of the day")
-            ax1.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax1.set_xlabel("Time / h", fontsize=7)
+            ax1.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
             ax2.set_ylim(0, 1)
@@ -6618,8 +7044,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax3.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax3.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
@@ -6696,9 +7122,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax5.set_xlabel("Hour of the day")
-            ax5.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax5.set_xlabel("Time / h", fontsize=7)
+            ax5.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
             ax6.set_ylim(0, 1)
@@ -6769,8 +7195,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax7.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax7.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax8.set_ylabel("Diffuse fraction ($D$)")
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
@@ -6842,9 +7268,9 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax9.set_xlabel("Hour of the day")
-            ax9.set_ylabel("Power produced / kW")
-            # ax2.set_ylabel("Diffuse fraction")
+            ax9.set_xlabel("Time / h", fontsize=7)
+            ax9.set_ylabel("Power produced / kW", fontsize=7)
+            # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax9.set_ylim(0, 100)
             ax9.set_xlim(6, 18)
             ax10.set_ylim(0, 1)
@@ -6915,8 +7341,8 @@ def main(unparsed_arguments) -> None:
                 color="black",
                 label="Diffuse fraction estimate",
             )
-            ax11.set_xlabel("Hour of the day")
-            # ax3.set_ylabel("Power produced / kW")
+            ax11.set_xlabel("Time / h", fontsize=7)
+            # ax3.set_ylabel("Power produced / kW", fontsize=7)
             ax12.set_ylabel("Diffuse fraction ($D$)")
             ax11.set_ylim(0, 100)
             ax11.set_xlim(6, 18)
@@ -7006,8 +7432,8 @@ def main(unparsed_arguments) -> None:
 
             plt.xlim(7, 17)
             sns.despine()
-            plt.xlabel("Hour of the day")
-            plt.ylabel("Power produced / kW")
+            plt.xlabel("Time / h", fontsize=7)
+            plt.ylabel("Power produced / kW", fontsize=7)
             plt.savefig(
                 f"validation_figure_{INDEX}.pdf",
                 format="pdf",
@@ -7143,8 +7569,8 @@ def main(unparsed_arguments) -> None:
             #     label="Curve fit (ignoring zeroes)",
             # )
 
-            plt.xlabel("Measured output power / kW")
-            plt.ylabel("Modelled output power / kW")
+            plt.xlabel("Measured output power / kW", fontsize=7)
+            plt.ylabel("Modelled output power / kW", fontsize=7)
             xlim = plt.xlim(-5, 100)
             ylim = plt.ylim(-5, 80)
 
@@ -7266,8 +7692,8 @@ def main(unparsed_arguments) -> None:
                 #     color="teal",
                 #     label="Curve fit (ignoring zeroes)",
                 # )
-                plt.xlabel("Measured output power / kW")
-                plt.ylabel("Modelled output power / kW")
+                plt.xlabel("Measured output power / kW", fontsize=7)
+                plt.ylabel("Modelled output power / kW", fontsize=7)
                 plt.xlim(*xlim)
                 plt.ylim(*ylim)
                 plt.legend().remove()
@@ -7281,7 +7707,7 @@ def main(unparsed_arguments) -> None:
                 (axis := plt.gca()).figure.colorbar(
                     scalar_mappable,
                     ax=axis,
-                    label="Hour of the day",
+                    label="Time / h",
                     pad=(_pad := 0.025),
                 )
                 plt.savefig(
@@ -7444,7 +7870,7 @@ def main(unparsed_arguments) -> None:
     #     cbar_kws={"label": "Irradiance / kWm$^{-2}$"},
     # )
     # plt.xlabel("Cell index within panel")
-    # plt.ylabel("Hour of the day")
+    # plt.ylabel("Time / h", fontsize=7)
     # plt.show()
 
     # import pdb

@@ -4,7 +4,7 @@ import subprocess
 
 # import warnings
 
-from tqdm import tqdm
+from rich.progress import track
 
 BASE_COMMAND: str = (
     "python -m src.polytunnelpv --scenario {scenario} -st 4344 -i 24 --operating-mode hourly_mpp --timestamps-file hourly_december_data_martyn.csv"
@@ -22,7 +22,7 @@ def main() -> None:
         scenarios = scenarios_file.readlines()
 
     try:
-        for scenario in tqdm(scenarios, desc="Scenarios", leave=True):
+        for scenario in track(scenarios, description="Scenarios", transient=False):
             subprocess.run(BASE_COMMAND.format(scenario=scenario.strip()).split(" "))
     except BaseException:
         print("FAILED")
