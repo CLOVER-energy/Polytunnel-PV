@@ -25,7 +25,6 @@ import numpy as np
 
 import pvlib
 
-
 __all__ = ("CellType", "get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
 
 # A_REF:
@@ -43,6 +42,16 @@ NUM_CELLS_IN_PARENT_MODULE: str = "_num_cells_in_parent_module"
 # POA global key:
 #   Keyword for extracting the global irradiance once computed by pvlib.
 POA_GLOBAL_KEY: str = "poa_global"
+
+# REFERENCE_BANDGAP_ENERGY:
+#   Keyword for the bandgap energy in eV.
+REFERENCE_BANDGAP_ENERGY: str = "reference_bandgap_energy"
+
+# REFERENCE_BANDGAP_ENERGY_TEMPERATURE_COEFFICIENT:
+#   Keyword for the reference bandgap temperature coefficient dependency.
+REFERENCE_BANDGAP_ENERGY_TEMPERATURE_COEFFICIENT: str = (
+    "reference_bandgap_energy_temperature_coefficient"
+)
 
 # REFERENCE_DARK_CURRENT_DENSITY:
 #   Keyword for the reference dark-current-density parameter.
@@ -383,7 +392,9 @@ class PVCell:
                 self.reference_shunt_resistance,
                 self.reference_shunt_resistance,
                 self.reference_series_resistance,
-                self.num_cells_in_parent_module,
+                # FIXME: This needs to be set to 1, but the error is very low.
+                # self.num_cells_in_parent_module,
+                1,
                 EgRef=self.eg_ref,
                 irrad_ref=self.reference_irradiance,
                 temp_ref=self.reference_temperature,
@@ -1020,17 +1031,21 @@ def relabel_cell_electrical_parameters(
 
     return {
         A_REF: cell_electrical_params["a_ref"],
-        DIODE_IDEALITY_FACTOR: cell_electrical_params["gamma_r"],
-        NUM_CELLS_IN_PARENT_MODULE: cell_electrical_params["N_s"],
         REFERENCE_DARK_CURRENT_DENSITY: cell_electrical_params["I_o_ref"],
-        # / cell_electrical_params["A_c"],
         REFERENCE_PHOTOCURRENT_DENSITY: cell_electrical_params["I_L_ref"],
-        # / cell_electrical_params["A_c"],
         REFERENCE_SERIES_RESISTANCE: cell_electrical_params["R_s"],
         REFERENCE_SHUNT_RESISTANCE: cell_electrical_params["R_sh_ref"],
         SHORT_CIRCUIT_CURRENT_DENSITY_TEMPERATURE_COEFFICIENT: cell_electrical_params[
             "alpha_sc"
         ],
+        REFERENCE_BANDGAP_ENERGY: cell_electrical_params["EgRef"],
+        REFERENCE_BANDGAP_ENERGY_TEMPERATURE_COEFFICIENT: cell_electrical_params[
+            "dEgdT"
+        ],
+        DIODE_IDEALITY_FACTOR: cell_electrical_params["gamma_r"],
+        NUM_CELLS_IN_PARENT_MODULE: cell_electrical_params["N_s"],
+        # / cell_electrical_params["A_c"],
+        # / cell_electrical_params["A_c"],
     }
 
 

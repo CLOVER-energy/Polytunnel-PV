@@ -216,7 +216,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 7
+INDEX: int = 8
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -2047,7 +2047,7 @@ def main(unparsed_arguments) -> None:
                 "Scenario must be specified on the command-line."
             ) from None
         raise KeyError(
-            f"Scenario {parsed_args.scenario.name} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
+            f"Scenario {parsed_args.scenario} not found in scenarios file. Valid scenarios: {', '.join([s.name for s in scenarios])}"
         ) from None
 
     cellwise_irradiance_frames: list[tuple[Scenario, pd.DataFrame]] = []
@@ -2217,7 +2217,7 @@ def main(unparsed_arguments) -> None:
             # Use joblib to parallelize the for loop
             start_time = time.time()
             print(
-                (this_string := "Parallel MPP computation", fontsize=7)
+                (this_string := "Parallel MPP computation")
                 + "." * (88 - (len(this_string) + len(DONE)))
                 + " ",
                 end="",
@@ -2260,6 +2260,15 @@ def main(unparsed_arguments) -> None:
             weather_frame[_start_time_column_name] = irradiance_frame[
                 _start_time_column_name
             ].values
+
+            # Debug code:
+            # process_single_mpp_calculation_without_pbar(
+            #     start_hour + 12,
+            #     irradiance_frame=irradiance_frame,
+            #     pv_system=pv_system,
+            #     scenario=modelling_scenario,
+            #     weather_frame=weather_frame,
+            # )
 
             results = Parallel(n_jobs=8)(
                 delayed(
@@ -2418,7 +2427,7 @@ def main(unparsed_arguments) -> None:
             # Use joblib to parallelize the for loop
             start_time = time.time()
             print(
-                (this_string := "Parallel MPP computation", fontsize=7)
+                (this_string := "Parallel MPP computation")
                 + "." * (88 - (len(this_string) + len(DONE)))
                 + " ",
                 end="",
@@ -3879,7 +3888,7 @@ def main(unparsed_arguments) -> None:
 
             diffuse_data = weather_frame.copy()
             diffuse_data[
-                (_diffusive_fraction_column_header := "Diffusive fraction", fontsize=7)
+                (_diffusive_fraction_column_header := "Diffusive fraction")
             ] = diffuse_data[IRRADIANCE_DIFFUSE] / (
                 diffuse_data[IRRADIANCE_DIFFUSE] + diffuse_data[IRRADIANCE_DIRECT]
             )
@@ -4489,10 +4498,22 @@ def main(unparsed_arguments) -> None:
                     )
                 )
 
-                partly_sunny_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_sunny_date:="29/04/2025")]
-                partly_cloudy_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_partly_cloudy_date:="16/04/2025")]
-                mostly_cloudy_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_mostly_cloudy_date:="24/04/2025")]
-                overcast_day_data = timestamps_data[timestamps_data[_full_date_column_name] == (_overcast_date:="09/04/2025")]
+                partly_sunny_day_data = timestamps_data[
+                    timestamps_data[_full_date_column_name]
+                    == (_sunny_date := "29/04/2025")
+                ]
+                partly_cloudy_day_data = timestamps_data[
+                    timestamps_data[_full_date_column_name]
+                    == (_partly_cloudy_date := "16/04/2025")
+                ]
+                mostly_cloudy_day_data = timestamps_data[
+                    timestamps_data[_full_date_column_name]
+                    == (_mostly_cloudy_date := "24/04/2025")
+                ]
+                overcast_day_data = timestamps_data[
+                    timestamps_data[_full_date_column_name]
+                    == (_overcast_date := "09/04/2025")
+                ]
 
                 fig, axes = plt.subplots(2, 2, figsize=(171 * MM, 171 * MM))
                 plt.subplots_adjust(wspace=0.40, hspace=0.275)
@@ -4511,7 +4532,9 @@ def main(unparsed_arguments) -> None:
                     capsize=3,
                     color="#423252",
                     ls="none",
-                    yerr=partly_sunny_day_data.get("Predicted PV error", [np.nan] * len(partly_sunny_day_data)),
+                    yerr=partly_sunny_day_data.get(
+                        "Predicted PV error", [np.nan] * len(partly_sunny_day_data)
+                    ),
                 )
                 ax1.fill_between(
                     partly_sunny_day_data[_hour],
@@ -4522,7 +4545,9 @@ def main(unparsed_arguments) -> None:
                     zorder=0,
                 )
                 # Plot the measured output
-                _colour_index: int = int(partly_sunny_day_data["daily_clearness_value"].mean())
+                _colour_index: int = int(
+                    partly_sunny_day_data["daily_clearness_value"].mean()
+                )
                 ax1.plot(
                     partly_sunny_day_data[_hour],
                     partly_sunny_day_data["Combined hourly PV to batt"],
@@ -4536,8 +4561,14 @@ def main(unparsed_arguments) -> None:
                     color=f"C{_colour_index}",
                     ls="none",
                     yerr=(
-                        abs(partly_sunny_day_data["Combined hourly PV to batt"] - partly_sunny_day_data["Min PV to batt"]),
-                        abs(partly_sunny_day_data["Max PV to batt"] - partly_sunny_day_data["Combined hourly PV to batt"]),
+                        abs(
+                            partly_sunny_day_data["Combined hourly PV to batt"]
+                            - partly_sunny_day_data["Min PV to batt"]
+                        ),
+                        abs(
+                            partly_sunny_day_data["Max PV to batt"]
+                            - partly_sunny_day_data["Combined hourly PV to batt"]
+                        ),
                     ),
                 )
                 ax1.fill_between(
@@ -4591,7 +4622,7 @@ def main(unparsed_arguments) -> None:
                 sns.despine(right=False)
 
                 # Plot the predicted output
-                (ax3:=axes[0, 1]).plot(
+                (ax3 := axes[0, 1]).plot(
                     partly_cloudy_day_data[_hour := HOUR.lower()],
                     partly_cloudy_day_data["Predicted PV to batt"],
                     label="Modelled output power",
@@ -4603,7 +4634,9 @@ def main(unparsed_arguments) -> None:
                     capsize=3,
                     color="#423252",
                     ls="none",
-                    yerr=partly_cloudy_day_data.get("Predicted PV error", [np.nan] * len(partly_cloudy_day_data)),
+                    yerr=partly_cloudy_day_data.get(
+                        "Predicted PV error", [np.nan] * len(partly_cloudy_day_data)
+                    ),
                 )
                 ax3.fill_between(
                     partly_cloudy_day_data[_hour],
@@ -4614,7 +4647,9 @@ def main(unparsed_arguments) -> None:
                     zorder=0,
                 )
                 # Plot the measured output
-                _colour_index: int = int(partly_cloudy_day_data["daily_clearness_value"].mean())
+                _colour_index: int = int(
+                    partly_cloudy_day_data["daily_clearness_value"].mean()
+                )
                 ax3.plot(
                     partly_cloudy_day_data[_hour],
                     partly_cloudy_day_data["Combined hourly PV to batt"],
@@ -4628,8 +4663,14 @@ def main(unparsed_arguments) -> None:
                     color=f"C{_colour_index}",
                     ls="none",
                     yerr=(
-                        abs(partly_cloudy_day_data["Combined hourly PV to batt"] - partly_cloudy_day_data["Min PV to batt"]),
-                        abs(partly_cloudy_day_data["Max PV to batt"] - partly_cloudy_day_data["Combined hourly PV to batt"]),
+                        abs(
+                            partly_cloudy_day_data["Combined hourly PV to batt"]
+                            - partly_cloudy_day_data["Min PV to batt"]
+                        ),
+                        abs(
+                            partly_cloudy_day_data["Max PV to batt"]
+                            - partly_cloudy_day_data["Combined hourly PV to batt"]
+                        ),
                     ),
                 )
                 ax3.fill_between(
@@ -4683,7 +4724,7 @@ def main(unparsed_arguments) -> None:
                 sns.despine(right=False)
 
                 # Plot the predicted output
-                (ax5:=axes[1, 0]).plot(
+                (ax5 := axes[1, 0]).plot(
                     mostly_cloudy_day_data[_hour := HOUR.lower()],
                     mostly_cloudy_day_data["Predicted PV to batt"],
                     label="Modelled output power",
@@ -4695,7 +4736,9 @@ def main(unparsed_arguments) -> None:
                     capsize=3,
                     color="#423252",
                     ls="none",
-                    yerr=mostly_cloudy_day_data.get("Predicted PV error", [np.nan] * len(mostly_cloudy_day_data)),
+                    yerr=mostly_cloudy_day_data.get(
+                        "Predicted PV error", [np.nan] * len(mostly_cloudy_day_data)
+                    ),
                 )
                 ax5.fill_between(
                     mostly_cloudy_day_data[_hour],
@@ -4706,7 +4749,9 @@ def main(unparsed_arguments) -> None:
                     zorder=0,
                 )
                 # Plot the measured output
-                _colour_index: int = int(mostly_cloudy_day_data["daily_clearness_value"].mean())
+                _colour_index: int = int(
+                    mostly_cloudy_day_data["daily_clearness_value"].mean()
+                )
                 ax5.plot(
                     mostly_cloudy_day_data[_hour],
                     mostly_cloudy_day_data["Combined hourly PV to batt"],
@@ -4720,8 +4765,14 @@ def main(unparsed_arguments) -> None:
                     color=f"C{_colour_index}",
                     ls="none",
                     yerr=(
-                        abs(mostly_cloudy_day_data["Combined hourly PV to batt"] - mostly_cloudy_day_data["Min PV to batt"]),
-                        abs(mostly_cloudy_day_data["Max PV to batt"] - mostly_cloudy_day_data["Combined hourly PV to batt"]),
+                        abs(
+                            mostly_cloudy_day_data["Combined hourly PV to batt"]
+                            - mostly_cloudy_day_data["Min PV to batt"]
+                        ),
+                        abs(
+                            mostly_cloudy_day_data["Max PV to batt"]
+                            - mostly_cloudy_day_data["Combined hourly PV to batt"]
+                        ),
                     ),
                 )
                 ax5.fill_between(
@@ -4775,7 +4826,7 @@ def main(unparsed_arguments) -> None:
                 sns.despine(right=False)
 
                 # Plot the predicted output
-                (ax7:=axes[1 ,1]).plot(
+                (ax7 := axes[1, 1]).plot(
                     overcast_day_data[_hour := HOUR.lower()],
                     overcast_day_data["Predicted PV to batt"],
                     label="Modelled output power",
@@ -4787,7 +4838,9 @@ def main(unparsed_arguments) -> None:
                     capsize=3,
                     color="#423252",
                     ls="none",
-                    yerr=overcast_day_data.get("Predicted PV error", [np.nan] * len(overcast_day_data)),
+                    yerr=overcast_day_data.get(
+                        "Predicted PV error", [np.nan] * len(overcast_day_data)
+                    ),
                 )
                 ax7.fill_between(
                     overcast_day_data[_hour],
@@ -4798,7 +4851,9 @@ def main(unparsed_arguments) -> None:
                     zorder=0,
                 )
                 # Plot the measured output
-                _colour_index: int = int(overcast_day_data["daily_clearness_value"].mean())
+                _colour_index: int = int(
+                    overcast_day_data["daily_clearness_value"].mean()
+                )
                 ax7.plot(
                     overcast_day_data[_hour],
                     overcast_day_data["Combined hourly PV to batt"],
@@ -4812,8 +4867,14 @@ def main(unparsed_arguments) -> None:
                     color=f"C{_colour_index}",
                     ls="none",
                     yerr=(
-                        abs(overcast_day_data["Combined hourly PV to batt"] - overcast_day_data["Min PV to batt"]),
-                        abs(overcast_day_data["Max PV to batt"] - overcast_day_data["Combined hourly PV to batt"]),
+                        abs(
+                            overcast_day_data["Combined hourly PV to batt"]
+                            - overcast_day_data["Min PV to batt"]
+                        ),
+                        abs(
+                            overcast_day_data["Max PV to batt"]
+                            - overcast_day_data["Combined hourly PV to batt"]
+                        ),
                     ),
                 )
                 ax7.fill_between(
@@ -4885,17 +4946,17 @@ def main(unparsed_arguments) -> None:
                 axes[1, 0].text(1, 30, "c.", fontsize=7, fontweight="bold")
                 axes[1, 1].text(1, 30, "d.", fontsize=7, fontweight="bold")
 
-                plt.savefig(f"ppv_electric_power_validation_{INDEX}.pdf", format="pdf", bbox_inches="tight", pad_inches=0.05)
+                plt.savefig(
+                    f"ppv_electric_power_validation_{INDEX}.pdf",
+                    format="pdf",
+                    bbox_inches="tight",
+                    pad_inches=0.05,
+                )
 
                 plt.show()
 
-
             except KeyError:
                 print("Select dates in hard code require updating.")
-
-            import pdb
-
-            pdb.set_trace()
 
             # Plot coloured based on diffusivity.
             sns.set_palette(
@@ -5330,10 +5391,6 @@ def main(unparsed_arguments) -> None:
                 )
 
             plt.show()
-
-            import pdb
-
-            pdb.set_trace()
 
             # FIXME: Run with predicted upper-bound and lowerbound errors.
             return
