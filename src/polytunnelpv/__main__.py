@@ -260,7 +260,7 @@ N_MODULES: str = "n_modules"
 
 # OUTPUT_DIRECTORY:
 #   The name of the outputs directory to use.
-OUTPUT_DIRECTORY: str = "outputs_4"
+OUTPUT_DIRECTORY: str = "outputs_5"
 
 # POLYTUNNEL_CURVE@
 #   Keyword used for parsing the information about the curve on which a solar panel
@@ -2188,7 +2188,16 @@ def main(unparsed_arguments) -> None:
 
     # Fix nan errors:
     irradiance_frame = irradiance_frame.fillna(0)
-    os.makedirs(OUTPUT_DIRECTORY, exist_ok=True)
+
+    # Create the appropriate output directory.
+    if parsed_args.on_hpc:
+        output_directory: str = os.path.join(
+            os.environ[EPHEMERAL_ENV_VARNAME], OUTPUT_DIRECTORY
+        )
+    else:
+        output_directory = OUTPUT_DIRECTORY
+
+    os.makedirs(output_directory, exist_ok=True)
 
     # Determine what type of operation to carry out.
     try:
@@ -2335,8 +2344,8 @@ def main(unparsed_arguments) -> None:
 
             # Save the output data
             with open(
-                os.path.join(
-                    OUTPUT_DIRECTORY,
+                output_filename := os.path.join(
+                    output_directory,
                     f"hourly_mpp_{modelling_scenario.name}_"
                     f"{(start_hour)}_to_"
                     f"{(end_hour:=start_hour + parsed_args.iteration_length)}.json",
@@ -2345,6 +2354,11 @@ def main(unparsed_arguments) -> None:
                 encoding="UTF-8",
             ) as output_file:
                 json.dump(all_mpp_data, output_file, indent=4)
+
+            print(f"Data dumped successfully to {output_filename}")
+
+            if parsed_args.on_hpc:
+                return
 
             # Generate a heatmap of whether the power generation in the cells.
             cellwise_mpp_frame = pd.DataFrame(
@@ -2541,7 +2555,7 @@ def main(unparsed_arguments) -> None:
             # Save the output data
             with open(
                 os.path.join(
-                    OUTPUT_DIRECTORY,
+                    output_directory,
                     f"hourly_mpp_{scenario.name}_"
                     f"{(start_hour:=parsed_args.start_day_index)}_to_"
                     f"{(end_hour:=start_hour + parsed_args.iteration_length)}.json",
@@ -7788,7 +7802,7 @@ def main(unparsed_arguments) -> None:
     # # Save daily data to a single Excel file with separate sheets
     # with pd.ExcelWriter(
     #     os.path.join(
-    #         OUTPUT_DIRECTORY, f"mpp_daily_summary_{modelling_scenario.name}.xlsx"
+    #         output_directory, f"mpp_daily_summary_{modelling_scenario.name}.xlsx"
     #     ),
     #     engine="openpyxl",
     # ) as writer:
