@@ -22,8 +22,12 @@ import pandas as pd
 
 from rich.progress import track
 
-from ..__utils__ import BOLTZMAN_CONSTANT, ELECTRON_CHARGE, VOLTAGE_RESOLUTION
-from .pv_cell import PVCell, ZERO_CELSIUS_OFFSET
+from src.polytunnelpv.__utils__ import (
+    BOLTZMAN_CONSTANT,
+    ELECTRON_CHARGE,
+    VOLTAGE_RESOLUTION,
+)
+from src.polytunnelpv.pv_module.pv_cell import PVCell, ZERO_CELSIUS_OFFSET
 
 __all__ = ("BypassDiode", "BypassedCellString")
 

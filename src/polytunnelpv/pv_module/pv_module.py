@@ -26,8 +26,8 @@ from multiprocessing import Pool
 from numpy import matmul
 from typing import Any, Callable, TypeVar, Type
 
-from .bypass_diode import BypassDiode, BypassedCellString
-from .pv_cell import CellType, PVCell
+from src.polytunnelpv.pv_module.bypass_diode import BypassDiode, BypassedCellString
+from src.polytunnelpv.pv_module.pv_cell import CellType, PVCell
 
 __all__ = (
     "CircularCurve",

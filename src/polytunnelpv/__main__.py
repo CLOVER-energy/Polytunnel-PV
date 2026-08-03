@@ -55,23 +55,23 @@ import pandas as pd
 
 from tqdm import tqdm
 
-from .__utils__ import NAME, VOLTAGE_RESOLUTION
-from .pv_module.bypass_diode import BypassDiode, BypassedCellString
-from .pv_module.pv_cell import (
+from src.polytunnelpv.__utils__ import NAME, VOLTAGE_RESOLUTION
+from src.polytunnelpv.pv_module.bypass_diode import BypassDiode, BypassedCellString
+from src.polytunnelpv.pv_module.pv_cell import (
     get_irradiance,
     PVCell,
     relabel_cell_electrical_parameters,
     ZERO_CELSIUS_OFFSET,
 )
-from .pv_module.pv_module import (
+from src.polytunnelpv.pv_module.pv_module import (
     Curve,
     CurveType,
     CurvedPVModule,
     ModuleType,
     TYPE_TO_CURVE_MAPPING,
 )
-from .pv_system import ModuleString, PVSystem
-from .scenario import Scenario
+from src.polytunnelpv.pv_system import ModuleString, PVSystem
+from src.polytunnelpv.scenario import Scenario
 
 # Plotting context
 rc("font", **{"family": "sans-serif", "sans-serif": ["Arial"], "size": 7})

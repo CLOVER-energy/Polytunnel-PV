@@ -16,7 +16,7 @@ import unittest
 
 from math import degrees
 
-from ..pv_module import CircularCurve
+from src.polytunnelpv.pv_module.pv_module import CircularCurve
 
 
 class _BaseCircularCurveTest(unittest.TestCase):

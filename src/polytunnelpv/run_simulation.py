@@ -1,7 +1,7 @@
 import os
 import yaml
 from typing import Any
-from .__main__ import main as polytunnelpv_main
+from src.polytunnelpv.__main__ import main as polytunnelpv_main
 
 # HPC Job Number:
 #   Name of the environment variable for the HPC job number.

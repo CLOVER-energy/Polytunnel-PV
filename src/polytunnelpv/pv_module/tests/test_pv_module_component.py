@@ -15,8 +15,12 @@ test_pv_module_component.py - Tests for the component-level code.
 import math
 import unittest
 
-from ..pv_cell import relabel_cell_electrical_parameters
-from ..pv_module import CircularCurve, CurvedPVModule, ImplementationError
+from src.polytunnelpv.pv_module.pv_cell import relabel_cell_electrical_parameters
+from src.polytunnelpv.pv_module.pv_module import (
+    CircularCurve,
+    CurvedPVModule,
+    ImplementationError,
+)
 
 
 class CurvedThinFilmPVModuleGeometry(unittest.TestCase):

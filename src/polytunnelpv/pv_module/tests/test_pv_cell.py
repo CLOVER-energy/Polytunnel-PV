@@ -16,7 +16,7 @@ import unittest
 
 from math import radians
 
-from ..pv_cell import CellType, get_irradiance, PVCell
+from src.polytunnelpv.pv_module.pv_cell import CellType, get_irradiance, PVCell
 
 
 class _BasePVCellTest(unittest.TestCase):

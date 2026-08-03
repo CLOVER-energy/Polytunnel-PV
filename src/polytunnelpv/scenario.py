@@ -17,8 +17,8 @@ from typing import Type, TypeVar
 
 import pvlib
 
-from .pv_module.pv_module import CurvedPVModule
-from .__utils__ import NAME
+from src.polytunnelpv.pv_module.pv_module import CurvedPVModule
+from src.polytunnelpv.__utils__ import NAME
 
 __all__ = "Scenario"
 
