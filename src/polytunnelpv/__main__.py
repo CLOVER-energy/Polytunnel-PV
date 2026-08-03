@@ -202,6 +202,10 @@ DONE: str = "[   DONE   ]"
 #   Keyword used for coding reference bandgap energy.
 EG_REF: str = "EgRef"
 
+# EPHEMERAL_ENV_VARNAME:
+#   The name of the environment variable which holds the ephemeral directory path.
+EPHEMERAL_ENV_VARNAME: str = "EPHEMERAL"
+
 # FAILED:
 #   The message to display when a task was successful.
 FAILED: str = "[  FAILED  ]"
