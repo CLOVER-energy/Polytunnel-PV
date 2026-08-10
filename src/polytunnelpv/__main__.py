@@ -268,7 +268,7 @@ N_MODULES: str = "n_modules"
 
 # OUTPUT_DIRECTORY:
 #   The name of the outputs directory to use.
-OUTPUT_DIRECTORY: str = "outputs_5"
+OUTPUT_DIRECTORY: str = "outputs_6"
 
 # POLYTUNNEL_CURVE@
 #   Keyword used for parsing the information about the curve on which a solar panel
@@ -3615,9 +3615,6 @@ def main(unparsed_arguments) -> None:
 
                 # Determine the initial time based on the information in the timestamps
                 # file.
-                import pdb
-
-                pdb.set_trace()
                 initial_time = datetime.strptime(
                     timestamps_data[DATE].values[0], "%d/%m/%Y"
                 )  # + timedelta(hours=int(timestamps_data[_start_time_column_name][0]))
