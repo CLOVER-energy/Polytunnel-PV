@@ -10,7 +10,7 @@
 ########################################################################################
 #PBS -l walltime=72:00:00
 #PBS -l select=1:ncpus=1:mem=8Gb
-#PBS -N polytunnel-pv-validation
+#PBS -N ppv-validation
 
 eval "$(~/anaconda3/bin/conda shell.bash hook)"
 source activate py310

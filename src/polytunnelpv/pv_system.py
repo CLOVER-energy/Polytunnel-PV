@@ -131,6 +131,9 @@ class PVSystem:
                 "PV systems can only consist of strings of even length."
             )
 
+        if isinstance(module_power, float):
+            return self.strings[0].n_modules * len(self.strings) * module_power
+
         return list(
             self.strings[0].n_modules * len(self.strings) * np.array(module_power)
         )

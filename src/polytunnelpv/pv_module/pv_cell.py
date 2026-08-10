@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from math import radians
 
 import numpy as np
-
+import pandas as pd
 import pvlib
 
 __all__ = ("CellType", "get_irradiance", "PVCell", "relabel_cell_electrical_parameters")
@@ -769,7 +769,11 @@ def calculate_cell_iv_curve(
     current_density_series: np.ndarray | None = None,
     current_series: np.ndarray | None = None,
     voltage_series: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
     """
     Calculate the IV curve for a cell.
 
@@ -932,6 +936,7 @@ def calculate_cell_iv_curve(
                 for voltage in voltage_series
             ]
         )
+        monatomic_filter = None
     else:
         raise Exception(
             "Must specify either a current-density, current, or voltage series."

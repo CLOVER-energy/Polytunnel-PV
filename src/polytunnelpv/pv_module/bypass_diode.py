@@ -48,7 +48,7 @@ class BypassDiode:
 
     """
 
-    bypass_voltage: float
+    bypass_voltage: float | None
     end_index: int
     start_index: int
     saturation_current: float = 1e-12
@@ -248,6 +248,28 @@ class BypassedCellString:
             # )
         }
 
+        # Ensure that the monatomic adjustment to the voltage and current series produces
+        # the same current series for each cell and remove .
+        monatomic_filter: pd.Series = pd.Series([True] * len(current_series))
+        for pv_cell in self.pv_cells:
+            monatomic_filter = (
+                (_voltage_series := pd.Series(cell_to_iv_series[pv_cell][2]))
+                <= pd.Series(_voltage_series).cummin()
+            ) & monatomic_filter
+
+        # Apply the monatomic filters.
+        for pv_cell in self.pv_cells:
+            _filtered_i = cell_to_iv_series[pv_cell][0][monatomic_filter]
+            _filtered_p = cell_to_iv_series[pv_cell][1][monatomic_filter]
+            _filtered_v = cell_to_iv_series[pv_cell][2][monatomic_filter]
+            _filtered_b = np.array(cell_to_iv_series[pv_cell][3])[monatomic_filter]
+            cell_to_iv_series[pv_cell] = [
+                _filtered_i,
+                _filtered_p,
+                _filtered_v,
+                _filtered_b,
+            ]
+
         # Add up the voltage for each cell
         combined_voltage_series = sum(
             cell_to_iv_series[pv_cell][2] for pv_cell in self.pv_cells
@@ -255,43 +277,56 @@ class BypassedCellString:
 
         # Determine the bypass-diode curve
         bypass_diode_curve = self.bypass_diode.calculate_i_from_v(
-            bypass_voltage_series := np.linspace(-1, 0, VOLTAGE_RESOLUTION)
+            bypass_voltage_series := np.linspace(
+                min(
+                    10 * self.bypass_diode.bypass_voltage, min(combined_voltage_series)
+                ),
+                max(combined_voltage_series),
+                VOLTAGE_RESOLUTION,
+            )
         )
 
-        # Construct an interpreter
-        cell_string_interp = lambda v: np.interp(
-            v,
-            combined_voltage_series,
-            current_series,
-            period=np.max(combined_voltage_series) - np.min(combined_voltage_series),
-        )
-        total_current = [
-            cell_string_interp(voltage) + bypass_diode_curve[index]
-            for index, voltage in enumerate(bypass_voltage_series)
-        ] + list(current_series[combined_voltage_series > 0])
-        voltage_values = list(bypass_voltage_series) + list(
-            combined_voltage_series[combined_voltage_series > 0]
+        # Interpolate the current series based on the combined voltage series
+        cell_current_series = list(cell_to_iv_series.values())[0][0]
+        cell_current_curve = np.interp(
+            bypass_voltage_series,
+            list(reversed(combined_voltage_series)),
+            list(reversed(cell_current_series)),
         )
 
-        sorted_voltage_series, sorted_total_current = zip(
-            *sorted(zip(voltage_values, total_current))
-        )
+        # Sum up the two current curves
+        total_current = cell_current_curve + bypass_diode_curve
 
-        # Re-compute the combined power series.
-        sorted_voltage_series = np.array(sorted_voltage_series)
-        sorted_total_current = np.array(sorted_total_current)
-        sorted_total_power = sorted_voltage_series * sorted_total_current
+        # Compute the power across the module
+        total_power = total_current * bypass_voltage_series
 
         # Determine whether the cells have been bypassed
-        pv_cells_bypassed: list[bool] = list(
-            current > cell_string_interp(voltage)
-            for current, voltage in zip(bypass_diode_curve, bypass_voltage_series)
-        ) + [False] * len(combined_voltage_series[combined_voltage_series > 0])
+        pv_cells_bypassed: list[bool] = list(bypass_diode_curve > cell_current_curve)
+
+        # Debug plotting code to visualise IV curves.
+        # import matplotlib.pyplot as plt
+        # import seaborn as sns
+
+        # plt.figure(figsize=(171 / 25.4, 120 / 25.4))
+        # plt.plot(
+        #     bypass_voltage_series,
+        #     bypass_diode_curve,
+        #     color="orange",
+        #     label="Bypass diode",
+        # )
+        # plt.plot(
+        #     bypass_voltage_series, cell_current_curve, color="blue", label="PV cell"
+        # )
+        # plt.plot(bypass_voltage_series, total_current, color="purple", label="Overall")
+        # plt.ylim(-0.5, 5)
+        # plt.xlabel("Voltage / V")
+        # plt.ylabel("Current / A")
+        # plt.savefig(f"Bypass diode demonstration: {self.cell_id}.pdf", format="pdf", bbox_inches="tight", pad_inches=0.05)
 
         return (
-            sorted_total_current,
-            sorted_total_power,
-            sorted_voltage_series,
+            total_current,
+            total_power,
+            bypass_voltage_series,
             pv_cells_bypassed,
         )
 

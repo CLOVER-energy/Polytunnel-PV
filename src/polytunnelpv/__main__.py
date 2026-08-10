@@ -183,8 +183,12 @@ CELL_ELECTRICAL_PARAMETERS: str = "cell_electrical_parameters"
 CELL_TYPE: str = "cell_type"
 
 # CURRENT_SAMPLING_RATE:
-#    Rate used to sample current data for ease of calculation.
+#   Rate used to sample current data for ease of calculation.
 CURRENT_SAMPLING_RATE: int = 20
+
+# CURRENT_SAMPLING_RESOLUTION:
+#   The resoluton for the current sampling.
+CURRENT_SAMPLING_RESOLUTION: int = 1000
 
 # DATE:
 #   Keyword used for decoding date information.
@@ -1163,7 +1167,7 @@ def process_single_mpp_calculation_without_pbar(
         cell_to_voltage_map: dict[BypassedCellString | PVCell, np.ndarray] = {}
         cell_to_bypass_map: dict[BypassedCellString | PVCell, list[bool]] = {}
 
-        current_series = np.linspace(
+        _start_current_series = np.linspace(
             0,
             1.1
             * max(
@@ -1201,12 +1205,15 @@ def process_single_mpp_calculation_without_pbar(
                 .loc[time_of_day][:-1]
                 .reset_index(drop=True),
                 _wind_speed,
-                current_series=current_series,
+                current_series=_start_current_series,
             )
-            cell_to_current_map[pv_cell] = current_series
-            cell_to_power_map[pv_cell] = power_series
-            cell_to_voltage_map[pv_cell] = voltage_series
-            cell_to_bypass_map[pv_cell] = pv_cells_bypassed
+            # Re-order the lists to ensure that the series are monatomically varying.
+            _order: np.ndarray = np.argsort(voltage_series)
+            # Save the series
+            cell_to_current_map[pv_cell] = current_series[_order]
+            cell_to_power_map[pv_cell] = power_series[_order]
+            cell_to_voltage_map[pv_cell] = voltage_series[_order]
+            cell_to_bypass_map[pv_cell] = np.array(pv_cells_bypassed)[_order]
             individual_power_extreme = max(
                 individual_power_extreme, max(abs(power_series))
             )
@@ -1218,19 +1225,13 @@ def process_single_mpp_calculation_without_pbar(
                 i,
                 list(reversed(cell_to_current_map[pv_cell])),
                 list(reversed(cell_to_voltage_map[pv_cell])),
-                period=np.max(cell_to_current_map[pv_cell])
-                - np.min(cell_to_current_map[pv_cell]),
+                # period=np.max(cell_to_current_map[pv_cell])
+                # - np.min(cell_to_current_map[pv_cell]),
             )
             for pv_cell in scenario.pv_module.pv_cells_and_cell_strings
         }
 
-        sampling_current_series = np.array(
-            [
-                entry
-                for entry in sorted(current_series[::CURRENT_SAMPLING_RATE])
-                if entry <= 10
-            ]
-        )
+        sampling_current_series = _start_current_series.copy()
 
         cellwise_voltage = {
             pv_cell: [
@@ -1243,7 +1244,7 @@ def process_single_mpp_calculation_without_pbar(
             ]
             for pv_cell, interpreter in tqdm(
                 cell_voltage_interpreters.items(),
-                desc="Cell-wise calculation",
+                desc="Cell-wise interpolation",
                 leave=False,
             )
         }
@@ -1261,7 +1262,7 @@ def process_single_mpp_calculation_without_pbar(
         mpp_index: int = list(module_power).index(np.max(module_power))
 
         # Determine the power through the module at MPP
-        mpp_power: float = module_power[mpp_index]
+        mpp_power: float = pv_system.combine_powers(module_power[mpp_index])
 
         # Determine the MPP power produced by each cell
         cellwise_mpp: dict[PVCell, float] = {
@@ -1303,8 +1304,6 @@ def process_single_mpp_calculation_without_pbar(
         }
 
         _print_success()
-
-        import pdb
 
         return time_of_day, mpp_power, bypassing_cell_strings, cellwise_mpp
 
@@ -2276,7 +2275,7 @@ def main(unparsed_arguments) -> None:
 
             # Debug code:
             # process_single_mpp_calculation_without_pbar(
-            #     start_hour + 12,
+            #     start_hour,
             #     irradiance_frame=irradiance_frame,
             #     pv_system=pv_system,
             #     scenario=modelling_scenario,
@@ -3542,7 +3541,7 @@ def main(unparsed_arguments) -> None:
                 )
                 sliced_timestamps_data = timestamps_data[
                     timestamps_data.index.isin(
-                        [
+                        _weather_time := [
                             datetime.strptime(entry, "%Y-%m-%d %H:%M").strftime(
                                 "%d/%m/%Y %H:%M"
                             )
@@ -3550,24 +3549,40 @@ def main(unparsed_arguments) -> None:
                         ]
                     )
                 ]
-                irradiance_frame[_start_time_column_name] = sliced_timestamps_data[
-                    _start_time_column_name
-                ].values
-                weather_frame[_start_time_column_name] = sliced_timestamps_data[
-                    _start_time_column_name
-                ].values
+                sliced_timestamps_data["date_and_hour"] = [
+                    f"{datetime.strptime(entry["date"], "%d/%m/%Y").strftime("%Y_%m_%d")}_{entry.hour}"
+                    for _, entry in sliced_timestamps_data.iterrows()
+                ]
+                # Try to copy over start-time values and slice with these
+                if _start_time_column_name not in irradiance_frame.columns:
+                    try:
+                        irradiance_frame[_start_time_column_name] = (
+                            sliced_timestamps_data[_start_time_column_name].values
+                        )
+                        weather_frame[_start_time_column_name] = sliced_timestamps_data[
+                            _start_time_column_name
+                        ].values
+                    except ValueError as ve:
+                        raise ValueError(
+                            "Error processing start time columns; debug"
+                        ) from ve
+                # Otherwise, slice using date-and-hour values.
+                else:
+                    weather_frame[_start_time_column_name] = irradiance_frame[
+                        _start_time_column_name
+                    ]
 
                 ##############
                 # DEBUG code #
                 ##############
-                my_func = functools.partial(
-                    process_single_mpp_calculation_without_pbar,
-                    irradiance_frame=irradiance_frame,
-                    pv_system=pv_system,
-                    scenario=modelling_scenario,
-                    weather_frame=weather_frame,
-                )
-                my_func(start_hour + 12)
+                # my_func = functools.partial(
+                #     process_single_mpp_calculation_without_pbar,
+                #     irradiance_frame=irradiance_frame,
+                #     pv_system=pv_system,
+                #     scenario=modelling_scenario,
+                #     weather_frame=weather_frame,
+                # )
+                # my_func(start_hour + 12)
 
                 # Run the queued jobs in parallel.
                 results = Parallel(n_jobs=8)(
@@ -3600,8 +3615,11 @@ def main(unparsed_arguments) -> None:
 
                 # Determine the initial time based on the information in the timestamps
                 # file.
+                import pdb
+
+                pdb.set_trace()
                 initial_time = datetime.strptime(
-                    timestamps_data[DATE][0], "%d/%m/%Y"
+                    timestamps_data[DATE].values[0], "%d/%m/%Y"
                 )  # + timedelta(hours=int(timestamps_data[_start_time_column_name][0]))
 
                 daily_data = defaultdict(list)
@@ -3649,9 +3667,7 @@ def main(unparsed_arguments) -> None:
                 {
                     "date": [entry[0] for entry in all_mpp_data],
                     "start_time": [entry[1] for entry in all_mpp_data],
-                    "Predicted PV to batt": pv_system.combine_powers(
-                        [entry[2] / 1000 for entry in all_mpp_data]
-                    ),
+                    "Predicted PV to batt": [entry[2] / 1000 for entry in all_mpp_data],
                 }
             )
             # all_mpp_frame["date"] = (
@@ -3691,9 +3707,9 @@ def main(unparsed_arguments) -> None:
                 timestamps_data, all_mpp_frame, how="right", on=["start_time"]
             )
 
-            # timestamps_data["Predicted PV to batt"] = [
-            #     entry[2] for entry in all_mpp_data
-            # ]
+            timestamps_data["Predicted PV to batt"] = [
+                entry[2] for entry in all_mpp_data
+            ]
 
             timestamps_data["Combined hourly PV to batt"]
             timestamps_data["Max PV to batt"]
