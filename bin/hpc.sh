@@ -14,7 +14,7 @@
 # Depending on the environmental variable, run the appropriate HPC job.
 module load anaconda3/personal
 eval "$(~/anaconda3/bin/conda shell.bash hook)"
-source activate py310
+source activate py312
 
 # Change to the submission directory
 cd $PBS_O_WORKDIR

@@ -14,7 +14,7 @@ SCRIPTS_DIR: str = "bin"
 
 # START_TIME:
 #   The start time to use.
-START_TIME: int = 2184
+START_TIME: int = 2160
 
 # VALIDATION_FILENAME:
 #   The name of the validation script to use.
@@ -32,7 +32,7 @@ def main() -> None:
     ) as validation_file:
         base_validation_data: str = validation_file.read()
 
-    for start_date in range(31):
+    for start_date in range(32):
         start_time = START_TIME + start_date * HOURS_PER_DAY
 
         # Update the script information and write to a file.

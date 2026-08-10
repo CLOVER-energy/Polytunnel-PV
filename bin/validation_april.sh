@@ -13,11 +13,12 @@
 #PBS -N ppv-validation
 
 eval "$(~/anaconda3/bin/conda shell.bash hook)"
-source activate py310
+source activate py312
+conda activate py312
 
 # Change to the submission directory
 cd $PBS_O_WORKDIR
 
 python -m src.polytunnelpv --scenario circular_polysolar_kent_bypassed_2 \
-    --operating-mode validation --timestamps-file hourly_april_data_martyn.csv \
-    -st {START_TIME} -i 24 -wds hadlow25
+    --operating-mode validation --timestamps-file hourly_april_may_data_martyn_max.csv \
+    -st {START_TIME} -i 24 -wds hadlow25max

@@ -11,19 +11,19 @@
 #PBS -J 1-2527
 #PBS -l walltime=72:00:00
 #PBS -l select=1:ncpus=1:mem=8Gb
-#PBS -N polytunnel-pv
+#PBS -N ppv
 
 echo -e "HPC array script executed"
 
 # Load the anaconda environment
 eval "$(~/anaconda3/bin/conda shell.bash hook)"
-source activate py310
+source activate py312
 
 cd $PBS_O_WORKDIR
 
 echo -e "Running Polytunnel-PV launch script."
 if python -m ./bin/hpc.sh ; then
-    echo -e "CLOVER successfully run."
+    echo -e "Polytunnel-PV model successfully run."
 else
     echo -e "FAILED. See logs for details."
 fi
