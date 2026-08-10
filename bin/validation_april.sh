@@ -19,6 +19,6 @@ conda activate py312
 # Change to the submission directory
 cd $PBS_O_WORKDIR
 
-python -m src.polytunnelpv --scenario circular_polysolar_kent_bypassed_2 \
-    --operating-mode validation --timestamps-file hourly_april_may_data_martyn_max.csv \
-    -st {START_TIME} -i 24 -wds hadlow25max
+python -m src.polytunnelpv -s circular_polysolar_kent_bypassed_2 \
+    -o validation -t hourly_april_map_data_martyn_rehourd.csv \
+    -st {START_TIME} -i 24 -wds hadlow1625
