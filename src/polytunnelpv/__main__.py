@@ -224,7 +224,7 @@ HOUR: str = "Hour"
 
 # INDEX:
 #   Used to distinguish plot versions.
-INDEX: int = 8
+INDEX: int = 10
 
 # INPUT_DATA_DIRECTORY:
 #   The name of the input-data directory.
@@ -3704,9 +3704,9 @@ def main(unparsed_arguments) -> None:
                 timestamps_data, all_mpp_frame, how="right", on=["start_time"]
             )
 
-            timestamps_data["Predicted PV to batt"] = [
-                entry[2] for entry in all_mpp_data
-            ]
+            # timestamps_data["Predicted PV to batt"] = [
+            #     entry[2] for entry in all_mpp_data
+            # ]
 
             timestamps_data["Combined hourly PV to batt"]
             timestamps_data["Max PV to batt"]
@@ -4098,6 +4098,9 @@ def main(unparsed_arguments) -> None:
             )
 
             # Compute and add the clearness index
+            weather_frame[IRRADIANCE_GLOBAL_HORIZONTAL] = (
+                weather_frame[IRRADIANCE_DIRECT] + weather_frame[IRRADIANCE_DIFFUSE]
+            )
             clearsky_weather = (
                 location.get_clearsky(
                     pd.DatetimeIndex(weather_frame["time"], yearfirst=True)
@@ -4108,8 +4111,10 @@ def main(unparsed_arguments) -> None:
                 (
                     weather_frame.set_index(
                         pd.DatetimeIndex(weather_frame["time"], yearfirst=True)
-                    )["irradiance_direct"]
-                    / clearsky_weather["dni"]
+                    )[IRRADIANCE_GLOBAL_HORIZONTAL]
+                    / weather_frame[IRRADIANCE_GLOBAL_HORIZONTAL].max()
+                    / (clearsky_weather["ghi"] / clearsky_weather["ghi"].max())
+                    # / (clearsky_weather["dni"] / clearsky_weather["ghi"])
                 )
                 .fillna(0)
                 .replace(np.inf, 0)
@@ -4128,6 +4133,9 @@ def main(unparsed_arguments) -> None:
                 dayfirst=True,
             )
             timestamps_data["clearness"] = clearness_index
+            timestamps_data["clearness"] = (
+                timestamps_data["clearness"].replace(-np.inf, 0).replace(np.inf, 1)
+            )
             timestamps_data["clearness_label"] = [
                 _clearness(entry) for entry in timestamps_data["clearness"]
             ]
@@ -4139,12 +4147,15 @@ def main(unparsed_arguments) -> None:
             clearsky_weather["date"] = [
                 entry.date() for entry in clearsky_weather.index
             ]
-            clearsky_weather["dni_measured"] = weather_frame.set_index(
+            clearsky_weather["ghi_measured"] = weather_frame.set_index(
                 pd.DatetimeIndex(weather_frame["time"], yearfirst=True)
-            )["irradiance_direct"]
+            )["irradiance_total"]
             daily_clearness = {
-                date: daily_clearsky_weather["dni_measured"].sum()
-                / daily_clearsky_weather["dni"].sum()
+                date: (
+                    daily_clearsky_weather["ghi_measured"].sum()
+                    / clearsky_weather["ghi_measured"].max()
+                )
+                / (daily_clearsky_weather["ghi"].sum() / clearsky_weather["ghi"].max())
                 for date, daily_clearsky_weather in clearsky_weather.groupby("date")
             }
             timestamps_data["date"] = [entry.date() for entry in timestamps_data.index]
@@ -4222,7 +4233,7 @@ def main(unparsed_arguments) -> None:
 
             # Plot the diffusivity of the various days.
             diffuse_frame[DATE] = [
-                int(entry.split("/")[0])
+                f"{int(entry.split("/")[0])}/{int(entry.split("/")[1])}"
                 for entry in diffuse_frame[_full_date_column_name]
             ]
             diffuse_frame[_date_index := "date_index"] = [
@@ -4382,7 +4393,8 @@ def main(unparsed_arguments) -> None:
                 ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -4392,7 +4404,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax1.set_xlim(4, 20)
-                ax2.set_ylim(0, 1)
+                ax2.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax1.get_legend_handles_labels()
                 handles_2, labels_2 = ax2.get_legend_handles_labels()
                 ax1.legend(
@@ -4481,7 +4493,8 @@ def main(unparsed_arguments) -> None:
                 ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -4491,7 +4504,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax1.set_xlim(4, 20)
-                ax2.set_ylim(0, 1)
+                ax2.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax1.get_legend_handles_labels()
                 handles_2, labels_2 = ax2.get_legend_handles_labels()
                 ax1.legend(
@@ -4543,7 +4556,7 @@ def main(unparsed_arguments) -> None:
                 ]
                 overcast_day_data = timestamps_data[
                     timestamps_data[_full_date_column_name]
-                    == (_overcast_date := "09/04/2025")
+                    == (_overcast_date := "20/04/2025")
                 ]
 
                 fig, axes = plt.subplots(2, 2, figsize=(171 * MM, 171 * MM))
@@ -4612,22 +4625,19 @@ def main(unparsed_arguments) -> None:
                 )
                 ax2 = ax1.twinx()
                 ax2.plot(
-                    (
-                        diffuse_slice := diffuse_data[
-                            diffuse_data[_full_date_column_name] == full_date
-                        ]
-                    )[HOUR],
-                    diffuse_slice[_diffusive_fraction_column_header],
+                    partly_sunny_day_data[_hour],
+                    partly_sunny_day_data["clearness"],
                     "--",
                     color="black",
-                    label="Diffuse fraction estimate",
+                    label="Clearness value",
                 )
                 ax1.set_xlabel("Time / h", fontsize=7)
                 ax1.set_ylabel("Power produced / kW", fontsize=7)
-                ax2.set_ylabel("Diffuse fraction", fontsize=7)
+                ax2.set_ylabel("Clearness value", fontsize=7)
                 ax1.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -4637,7 +4647,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax1.set_xlim(4, 20)
-                ax2.set_ylim(0, 1)
+                ax2.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax1.get_legend_handles_labels()
                 handles_2, labels_2 = ax2.get_legend_handles_labels()
                 ax1.legend(
@@ -4714,23 +4724,20 @@ def main(unparsed_arguments) -> None:
                 )
                 ax4 = ax3.twinx()
                 ax4.plot(
-                    (
-                        diffuse_slice := diffuse_data[
-                            diffuse_data[_full_date_column_name] == full_date
-                        ]
-                    )[HOUR],
-                    diffuse_slice[_diffusive_fraction_column_header],
+                    partly_cloudy_day_data[_hour],
+                    partly_cloudy_day_data["clearness"],
                     "--",
                     color="black",
-                    label="Diffuse fraction estimate",
+                    label="Clearness value",
                 )
                 ax3.set_xlabel("Time / h", fontsize=7)
                 ax3.xaxis.set_major_locator(MaxNLocator(integer=True))
                 ax3.set_ylabel("Power produced / kW", fontsize=7)
-                ax4.set_ylabel("Diffuse fraction", fontsize=7)
+                ax4.set_ylabel("Clearness value", fontsize=7)
                 ax3.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -4740,7 +4747,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax3.set_xlim(4, 20)
-                ax4.set_ylim(0, 1)
+                ax4.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax3.get_legend_handles_labels()
                 handles_2, labels_2 = ax4.get_legend_handles_labels()
                 ax3.legend(
@@ -4816,23 +4823,20 @@ def main(unparsed_arguments) -> None:
                 )
                 ax6 = ax5.twinx()
                 ax6.plot(
-                    (
-                        diffuse_slice := diffuse_data[
-                            diffuse_data[_full_date_column_name] == full_date
-                        ]
-                    )[HOUR],
-                    diffuse_slice[_diffusive_fraction_column_header],
+                    mostly_cloudy_day_data[_hour],
+                    mostly_cloudy_day_data["clearness"],
                     "--",
                     color="black",
-                    label="Diffuse fraction estimate",
+                    label="Clearness value",
                 )
                 ax5.set_xlabel("Time / h", fontsize=7)
                 ax5.xaxis.set_major_locator(MaxNLocator(integer=True))
                 ax5.set_ylabel("Power produced / kW", fontsize=7)
-                ax6.set_ylabel("Diffuse fraction", fontsize=7)
+                ax6.set_ylabel("Clearness value", fontsize=7)
                 ax5.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -4842,7 +4846,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax5.set_xlim(4, 20)
-                ax6.set_ylim(0, 1)
+                ax6.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax5.get_legend_handles_labels()
                 handles_2, labels_2 = ax6.get_legend_handles_labels()
                 ax5.legend(
@@ -4917,24 +4921,24 @@ def main(unparsed_arguments) -> None:
                     zorder=1,
                 )
                 ax8 = ax7.twinx()
+                import pdb
+
+                pdb.set_trace()
                 ax8.plot(
-                    (
-                        diffuse_slice := diffuse_data[
-                            diffuse_data[_full_date_column_name] == full_date
-                        ]
-                    )[HOUR],
-                    diffuse_slice[_diffusive_fraction_column_header],
+                    overcast_day_data[_hour],
+                    overcast_day_data["clearness"],
                     "--",
                     color="black",
-                    label="Diffuse fraction estimate",
+                    label="Clearness value",
                 )
                 ax7.set_xlabel("Time / h", fontsize=7)
                 ax7.xaxis.set_major_locator(MaxNLocator(integer=True))
                 ax7.set_ylabel("Power produced / kW", fontsize=7)
-                ax8.set_ylabel("Diffuse fraction", fontsize=7)
+                ax8.set_ylabel("Clearness value", fontsize=7)
                 ax7.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -4944,7 +4948,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax7.set_xlim(4, 20)
-                ax8.set_ylim(0, 1)
+                ax8.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax7.get_legend_handles_labels()
                 handles_2, labels_2 = ax8.get_legend_handles_labels()
                 ax7.legend(
@@ -4972,10 +4976,10 @@ def main(unparsed_arguments) -> None:
                 axes[1, 0].set_title(_mostly_cloudy_date, fontsize=7, fontweight="bold")
                 axes[1, 1].set_title(_overcast_date, fontsize=7, fontweight="bold")
 
-                axes[0, 0].text(1, 30, "a.", fontsize=7, fontweight="bold")
-                axes[0, 1].text(1, 30, "b.", fontsize=7, fontweight="bold")
-                axes[1, 0].text(1, 30, "c.", fontsize=7, fontweight="bold")
-                axes[1, 1].text(1, 30, "d.", fontsize=7, fontweight="bold")
+                axes[0, 0].text(1, 14, "a.", fontsize=7, fontweight="bold")
+                axes[0, 1].text(1, 14, "b.", fontsize=7, fontweight="bold")
+                axes[1, 0].text(1, 14, "c.", fontsize=7, fontweight="bold")
+                axes[1, 1].text(1, 14, "d.", fontsize=7, fontweight="bold")
 
                 plt.savefig(
                     f"ppv_electric_power_validation_{INDEX}.pdf",
@@ -5012,9 +5016,17 @@ def main(unparsed_arguments) -> None:
                     {
                         "clearness": sub_frame["daily_clearness"].mean(),
                         "clearness_value": sub_frame["daily_clearness_value"].mean(),
-                        "clearness_label": list(sub_frame["daily_clearness_label"])[0],
-                        "clearness_mean": sub_frame["clearness"].mean(),
-                        "clearness_std": sub_frame["clearness"].std(),
+                        "clearness_label": list(
+                            sub_frame[sub_frame["irradiance_total"] > 0][
+                                "daily_clearness_label"
+                            ]
+                        )[0],
+                        "clearness_mean": sub_frame[sub_frame["irradiance_total"] > 0][
+                            "clearness"
+                        ].mean(),
+                        "clearness_std": sub_frame[sub_frame["irradiance_total"] > 0][
+                            "clearness"
+                        ].std(),
                         "date": list(sub_frame[DATE])[0].strftime("%d/%m"),
                     }
                     for _, sub_frame in timestamps_data.groupby(DATE)
@@ -5108,7 +5120,7 @@ def main(unparsed_arguments) -> None:
             plt.legend(title="Day category", fontsize=7, title_fontsize=7)
             plt.xlabel("Date")
             xtick_labels, xticks = plt.xticks()
-            plt.xticks(xtick_labels[::3], xticks[::3])
+            plt.xticks(xtick_labels[::5], xticks[::5])
             plt.ylabel("Clearness ($C$)")
             plt.gca().tick_params(axis="both", which="major", labelsize=7)
 
@@ -5286,14 +5298,15 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice[_diffusive_fraction_column_header],
                     "--",
                     color="black",
-                    label="Diffuse fraction estimate",
+                    label="Clearness value",
                 )
                 plt.xlabel("Time / h", fontsize=7)
                 ax1.set_ylabel("Power produced / kW", fontsize=7)
-                ax2.set_ylabel("Diffuse fraction", fontsize=7)
+                ax2.set_ylabel("Clearness value", fontsize=7)
                 ax1.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -5303,7 +5316,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax1.set_xlim(4, 20)
-                ax2.set_ylim(0, 1)
+                ax2.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax1.get_legend_handles_labels()
                 handles_2, labels_2 = ax2.get_legend_handles_labels()
                 ax1.legend(
@@ -5385,14 +5398,15 @@ def main(unparsed_arguments) -> None:
                     diffuse_slice[_diffusive_fraction_column_header],
                     "--",
                     color="black",
-                    label="Diffuse fraction estimate",
+                    label="Clearness value",
                 )
                 plt.xlabel("Time / h", fontsize=7)
                 ax1.set_ylabel("Power produced / kW", fontsize=7)
-                ax2.set_ylabel("Diffuse fraction", fontsize=7)
+                ax2.set_ylabel("Clearness value", fontsize=7)
                 ax1.set_ylim(
                     0,
-                    round(
+                    1.35
+                    * round(
                         timestamps_data.loc[
                             :, ["Predicted PV to batt", "Combined hourly PV to batt"]
                         ]
@@ -5402,7 +5416,7 @@ def main(unparsed_arguments) -> None:
                     ),
                 )
                 ax1.set_xlim(4, 20)
-                ax2.set_ylim(0, 1)
+                ax2.set_ylim(0, 1.2)
                 handles_1, labels_1 = ax1.get_legend_handles_labels()
                 handles_2, labels_2 = ax2.get_legend_handles_labels()
                 ax1.legend(
@@ -5422,6 +5436,10 @@ def main(unparsed_arguments) -> None:
                 )
 
             plt.show()
+
+            import pdb
+
+            pdb.set_trace()
 
             # FIXME: Run with predicted upper-bound and lowerbound errors.
             return
@@ -5504,7 +5522,7 @@ def main(unparsed_arguments) -> None:
                 ax2.set_ylabel("Diffuse fraction", fontsize=7)
                 ax1.set_ylim(0, 100)
                 ax1.set_xlim(6, 18)
-                ax2.set_ylim(0, 1)
+                ax2.set_ylim(0, 1.2)
                 ax1.legend(loc="upper left")
                 ax2.legend(loc="upper right")
                 sns.despine(right=False)
@@ -5586,7 +5604,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
-            ax2.set_ylim(0, 1)
+            ax2.set_ylim(0, 1.2)
             ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
@@ -5660,7 +5678,7 @@ def main(unparsed_arguments) -> None:
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
-            ax4.set_ylim(0, 1)
+            ax4.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False, which="major", labelsize=7)
@@ -5760,7 +5778,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
-            ax2.set_ylim(0, 1)
+            ax2.set_ylim(0, 1.2)
             ax1.legend(loc="upper left", fontsize=7, title="Cloudy", title_fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
@@ -5834,7 +5852,7 @@ def main(unparsed_arguments) -> None:
             # ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
-            ax4.set_ylim(0, 1)
+            ax4.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False, right=False)
@@ -5911,7 +5929,7 @@ def main(unparsed_arguments) -> None:
             ax6.tick_params(axis="both", which="major", labelsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
-            ax6.set_ylim(0, 1)
+            ax6.set_ylim(0, 1.2)
             ax5.legend(
                 loc="upper left", fontsize=7, title="Partly cloudy", title_fontsize=7
             )
@@ -5986,7 +6004,7 @@ def main(unparsed_arguments) -> None:
             # ax8.set_ylabel("Diffuse fraction ($D$)")
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
-            ax8.set_ylim(0, 1)
+            ax8.set_ylim(0, 1.2)
             # ax7.legend(loc="upper left")
             # ax8.legend(loc="upper right", fontsize=7)
             ax7.tick_params(right=False)
@@ -6245,7 +6263,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
-            ax2.set_ylim(0, 1)
+            ax2.set_ylim(0, 1.2)
             ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
@@ -6319,7 +6337,7 @@ def main(unparsed_arguments) -> None:
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
-            ax4.set_ylim(0, 1)
+            ax4.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False, which="major", labelsize=7)
@@ -6415,7 +6433,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
-            ax2.set_ylim(0, 1)
+            ax2.set_ylim(0, 1.2)
             ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
@@ -6488,7 +6506,7 @@ def main(unparsed_arguments) -> None:
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
-            ax4.set_ylim(0, 1)
+            ax4.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False)
@@ -6561,7 +6579,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
-            ax6.set_ylim(0, 1)
+            ax6.set_ylim(0, 1.2)
             ax5.legend(loc="upper left", fontsize=7)
             # ax3.legend(loc="upper left")
             ax5.tick_params(right=False)
@@ -6634,7 +6652,7 @@ def main(unparsed_arguments) -> None:
             ax8.set_ylabel("Diffuse fraction ($D$)", fontsize=7)
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
-            ax8.set_ylim(0, 1)
+            ax8.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             # ax8.legend(loc="upper right", fontsize=7)
             ax7.tick_params(left=False)
@@ -6739,7 +6757,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
-            ax2.set_ylim(0, 1)
+            ax2.set_ylim(0, 1.2)
             ax1.legend(loc="upper left", fontsize=7)
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
@@ -6812,7 +6830,7 @@ def main(unparsed_arguments) -> None:
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
-            ax4.set_ylim(0, 1)
+            ax4.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax4.legend(loc="upper right", fontsize=7)
             ax3.tick_params(left=False)
@@ -6885,7 +6903,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
-            ax6.set_ylim(0, 1)
+            ax6.set_ylim(0, 1.2)
             ax5.legend(loc="upper left", fontsize=7)
             # ax3.legend(loc="upper left")
             ax5.tick_params(right=False)
@@ -6958,7 +6976,7 @@ def main(unparsed_arguments) -> None:
             ax8.set_ylabel("Diffuse fraction ($D$)")
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
-            ax8.set_ylim(0, 1)
+            ax8.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax8.legend(loc="upper right", fontsize=7)
             ax7.tick_params(left=False)
@@ -7064,7 +7082,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax1.set_ylim(0, 100)
             ax1.set_xlim(6, 18)
-            ax2.set_ylim(0, 1)
+            ax2.set_ylim(0, 1.2)
             ax1.legend(loc="upper left", title="Cloudy")
             # ax2.legend(loc="upper right")
             ax1.tick_params(right=False)
@@ -7137,7 +7155,7 @@ def main(unparsed_arguments) -> None:
             ax4.set_ylabel("Diffuse fraction ($D$)")
             ax3.set_ylim(0, 100)
             ax3.set_xlim(6, 18)
-            ax4.set_ylim(0, 1)
+            ax4.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             ax4.legend(loc="upper right")
             ax3.tick_params(left=False)
@@ -7215,7 +7233,7 @@ def main(unparsed_arguments) -> None:
             # ax2.set_ylabel("Diffuse fraction", fontsize=7)
             ax5.set_ylim(0, 100)
             ax5.set_xlim(6, 18)
-            ax6.set_ylim(0, 1)
+            ax6.set_ylim(0, 1.2)
             ax5.legend(loc="upper left", title="Partly cloudy")
             # ax2.legend(loc="upper right")
             ax5.tick_params(right=False)
@@ -7288,7 +7306,7 @@ def main(unparsed_arguments) -> None:
             ax8.set_ylabel("Diffuse fraction ($D$)")
             ax7.set_ylim(0, 100)
             ax7.set_xlim(6, 18)
-            ax8.set_ylim(0, 1)
+            ax8.set_ylim(0, 1.2)
             # ax3.legend(loc="upper left")
             # ax8.legend(loc="upper right")
             ax7.tick_params(left=False)
